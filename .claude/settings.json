@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m lab.*)",
+      "Bash(python main.py*)",
+      "Bash(python -c*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"✅ Claude 작업 완료\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

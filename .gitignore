@@ -1,0 +1,23 @@
+# API Keys
+.env
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Results & Reports (대용량 실험 결과)
+results/
+reports/
+workspace/
+models/
+
+# Experiments - 딥러닝 모델 코드는 GitLab 별도 관리
+# CLAUDE.md(스펙 문서)는 포함, 실제 실험 코드(.py)는 제외
+experiments/*.py
+experiments/**/*.py
+
+# IDE
+.vscode/
+.idea/

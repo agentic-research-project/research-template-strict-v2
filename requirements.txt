@@ -1,0 +1,28 @@
+# ── LLM API ──────────────────────────────
+anthropic>=0.86.0
+claude-agent-sdk>=0.1.50
+openai>=2.29.0
+google-generativeai>=0.8.6
+
+# ── 비동기 / 환경 ─────────────────────────
+anyio>=4.9.0
+python-dotenv>=1.2.2
+requests>=2.32.4
+
+# ── GitHub 코드 분석 ──────────────────────
+PyGithub>=2.8.1
+
+# ── PDF 보고서 (user_approval) ────────────
+matplotlib>=3.10.1
+koreanize-matplotlib>=0.1.1
+reportlab>=4.4.0
+
+# ── 이미지 처리 (topic_analyzer) ─────────
+# tif/tiff/bmp → PNG 변환에 필요
+Pillow>=11.0.0
+
+# ── 딥러닝 실험 (research_loop) ──────────
+# GPU 환경: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# CPU 환경: pip install torch torchvision
+torch>=2.0.0
+torchvision>=0.15.0
