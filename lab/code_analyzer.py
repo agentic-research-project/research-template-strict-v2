@@ -6,10 +6,11 @@ GitHub API로 관련 레포를 검색하고 주요 파일을 분석하여
 결과는 reports/{slug}/code_analysis.json에 저장한다.
 
 개선 사항:
-  - 복합 쿼리 구성 (primary + secondary + constraints 조합)
+  - 복합 쿼리 구성 (primary + secondary + constraints + architecture 조합, 최대 5개)
   - 레포 메타데이터 확장 (pushed_at, default_branch, license)
-  - 파일명 + 콘텐츠 기반 2단계 관련성 스코링
-  - analyzed_sources 추적성 필드 추가
+  - 파일명 + 콘텐츠 + 구조적 코드 신호 기반 3단계 관련성 스코링
+  - 핵심 코드 블록 스니펫 추출 (first-chunk 대신 class/forward/loss 우선)
+  - analyzed_sources 추적성 필드 확장 (selection_signals, snippet_strategy)
 
 사용법:
   python -m lab.code_analyzer \
@@ -50,14 +51,15 @@ def _gh_get(path: str) -> dict | list:
 # 4.1 복합 쿼리 구성
 # ──────────────────────────────────────────
 
-def _build_search_queries(topic: dict) -> list[str]:
-    """topic 키워드에서 2~4개의 복합 검색 쿼리를 생성한다.
+def _build_search_queries(topic: dict, hypothesis: dict | None = None) -> list[str]:
+    """topic 키워드에서 3~5개의 복합 검색 쿼리를 생성한다.
 
     우선순위:
-      1. primary[0] + primary[1]          — 가장 구체적인 복합 쿼리
-      2. primary[0] + secondary[0]        — 도메인 + metric/constraint 조합
-      3. primary[1] + secondary[1]        — 두 번째 복합 쿼리 (단일 키워드 대체)
-      4. primary[0] + constraint_tokens   — 제약 조건 포함 복합 쿼리
+      1. primary[0] + primary[1]              — 가장 구체적인 복합 쿼리
+      2. primary[0] + secondary[0]            — 도메인 + metric/constraint 조합
+      3. primary[1] + secondary[1]            — 두 번째 복합 쿼리
+      4. primary[0] + constraint_tokens       — 제약 조건 포함 복합 쿼리
+      5. architecture_token + primary[0]      — 가설 아키텍처 + 도메인 (가설 있을 때)
 
     단일 키워드 쿼리는 복합 후보가 없을 때만 fallback으로 사용한다.
     """
@@ -91,14 +93,21 @@ def _build_search_queries(topic: dict) -> list[str]:
         if ctokens:
             queries.append(f"{primary[0]} {' '.join(ctokens)}")
 
-    # 중복 제거, 최대 4개
+    # 쿼리 5: 가설 아키텍처 + primary[0] (아키텍처 힌트 활용)
+    if hypothesis and primary:
+        arch = hypothesis.get("experiment_plan", {}).get("architecture", "")
+        arch_tokens = [t for t in re.split(r"\W+", arch) if len(t) > 4][:2]
+        if arch_tokens:
+            queries.append(f"{arch_tokens[0]} {primary[0]}")
+
+    # 중복 제거, 최대 5개
     seen: set[str] = set()
     unique: list[str] = []
     for q in queries:
         if q not in seen:
             seen.add(q)
             unique.append(q)
-    return unique[:4]
+    return unique[:5]
 
 
 # ──────────────────────────────────────────
@@ -180,6 +189,27 @@ _UTILS_ONLY_NAMES   = frozenset({"util", "helper", "setup", "install", "readme",
 # 콘텐츠 스코링 최대 문자 수 (성능)
 _CONTENT_SCORE_LIMIT = 6000
 
+# 구조적 코드 신호 (패턴, 가중치) — 실제 모델/학습 코드 감지
+_CODE_STRUCT_SIGNALS: list[tuple[str, float]] = [
+    (r"\bdef\s+forward\s*\(",            0.12),   # forward() 메서드
+    (r"\bnn\.Module\b",                  0.10),   # nn.Module 상속
+    (r"\bdef\s+training_step\s*\(",      0.10),   # Lightning training_step
+    (r"\bloss\s*=\s*\w+\s*\(",           0.08),   # loss = func(...)
+    (r"\bDataLoader\s*\(",               0.08),   # DataLoader 사용
+    (r"\bclass\s+\w+\s*\(",              0.06),   # 클래스 정의
+    (r"\bdef\s+validation_step\s*\(",    0.06),   # Lightning validation_step
+    (r"\bDataset\b",                     0.05),   # Dataset 클래스
+    (r"\boptim\.\w+\(",                  0.05),   # optimizer 생성
+    (r"\btorch\.\w+\b|\bF\.\w+\b",       0.04),   # torch.* / F.* 호출
+]
+_CODE_STRUCT_MAX = 0.30   # 구조 신호 최대 기여도
+
+# 낮은 가치 경로 패턴 (utils-only 외 추가 패널티 대상)
+_LOW_VALUE_PATH_PATTERNS: list[str] = [
+    r"setup\.py$", r"install\.py$", r"requirements",
+    r"__init__\.py$", r"conftest\.py$", r"test_\w+\.py$",
+]
+
 
 def _tokenize(text: str, min_len: int = 3) -> frozenset[str]:
     """텍스트를 소문자 정규화 토큰 집합으로 변환한다."""
@@ -200,6 +230,15 @@ def _get_hypothesis_tokens(hypothesis: dict) -> frozenset[str]:
     return _tokenize(text, min_len=4)
 
 
+def _score_code_structure(content: str) -> float:
+    """콘텐츠에서 구조적 코드 신호를 감지하여 점수를 반환한다 (0~_CODE_STRUCT_MAX)."""
+    score = 0.0
+    for pattern, weight in _CODE_STRUCT_SIGNALS:
+        if re.search(pattern, content):
+            score += weight
+    return min(score, _CODE_STRUCT_MAX)
+
+
 def _is_relevant_file(path: str, topic_keywords: tuple[str, ...] = ()) -> bool:
     """모델/학습 관련 파일인지 1차 판단 (stage 1 코스 필터)."""
     all_kw = _GENERIC_FILE_KW + tuple(kw.lower() for kw in topic_keywords)
@@ -212,16 +251,20 @@ def _score_file_relevance(
     content: str,
     topic_keywords: tuple[str, ...],
     hypothesis: dict,
-) -> float:
-    """파일의 관련성 점수를 0.0~1.0 사이로 계산한다 (stage 2 토큰 기반 스코링).
+) -> tuple[float, dict]:
+    """파일의 관련성 점수와 신호 내역을 반환한다.
 
-    스코링 요소 (토큰 오버랩 중심):
-      1. 경로 토큰 ∩ 토픽 키워드 토큰 오버랩
+    스코링 요소:
+      1. 경로 토큰 ∩ 토픽 키워드 오버랩
       2. 우선 파일 유형 보너스 (model/train/loss 등)
-      3. utils-only 패널티
+      3. utils-only / 저가치 경로 패널티
       4. 콘텐츠 토큰 ∩ 토픽 키워드 정규화 오버랩 (주요 신호)
       4b. 약한 substring 보너스 (보조 신호)
-      5. 콘텐츠 토큰 ∩ 가설 토큰 오버랩
+      5. 구조적 코드 신호 (forward/training_step/nn.Module 등) (주요 신호)
+      6. 콘텐츠 토큰 ∩ 가설 토큰 오버랩
+
+    Returns:
+        (score, signals) — score: 0.0~1.0, signals: 기여도 breakdown dict
     """
     score = 0.0
     stem  = Path(path).stem.lower()
@@ -231,39 +274,123 @@ def _score_file_relevance(
     topic_tokens = frozenset(kw.lower() for kw in topic_keywords if len(kw) >= 3)
 
     # 1. 경로 토큰 오버랩 (토큰 기반)
-    path_overlap = len(path_tokens & topic_tokens)
-    score += min(path_overlap * 0.15, 0.30)
+    path_overlap  = len(path_tokens & topic_tokens)
+    path_contrib  = min(path_overlap * 0.15, 0.30)
+    score        += path_contrib
 
     # 2. 우선 파일 유형 보너스 (stem 토큰 기반)
-    stem_tokens = _tokenize(stem, min_len=2)
-    if stem_tokens & _MODEL_PREF_NAMES:
-        score += 0.20
+    stem_tokens     = _tokenize(stem, min_len=2)
+    file_type_bonus = 0.20 if (stem_tokens & _MODEL_PREF_NAMES) else 0.0
+    score          += file_type_bonus
 
-    # 3. utils-only 패널티
+    # 3. utils-only / 저가치 경로 패널티
+    utils_penalty = 0.0
     if stem in _UTILS_ONLY_NAMES:
-        score -= 0.10
+        utils_penalty = -0.10
+    elif any(re.search(p, path.lower()) for p in _LOW_VALUE_PATH_PATTERNS):
+        utils_penalty = -0.12
+    score += utils_penalty
 
     # ── 콘텐츠 기반 스코링 ───────────────────────────────
+    content_overlap = 0.0
+    substr_bonus    = 0.0
+    struct_score    = 0.0
+    hyp_contrib     = 0.0
+
     if content:
         content_trunc  = content[:_CONTENT_SCORE_LIMIT]
         content_tokens = _tokenize(content_trunc)
 
         # 4. 콘텐츠-토픽 토큰 오버랩 (정규화, 주요 신호)
-        kw_overlap = len(content_tokens & topic_tokens)
-        total_kw   = max(len(topic_tokens), 1)
-        score += min((kw_overlap / total_kw) * 0.40, 0.35)
+        kw_overlap      = len(content_tokens & topic_tokens)
+        total_kw        = max(len(topic_tokens), 1)
+        content_overlap = min((kw_overlap / total_kw) * 0.40, 0.35)
+        score          += content_overlap
 
-        # 4b. 약한 substring 보너스 (보조 신호, 소폭)
+        # 4b. 약한 substring 보너스 (보조 신호)
         content_lower = content_trunc.lower()
         substr_hits   = sum(1 for kw in topic_keywords if kw in content_lower)
-        score += min(substr_hits * 0.02, 0.06)
+        substr_bonus  = min(substr_hits * 0.02, 0.06)
+        score        += substr_bonus
 
-        # 5. 가설 토큰 오버랩
+        # 5. 구조적 코드 신호 (주요 신호)
+        struct_score = _score_code_structure(content_trunc)
+        score       += struct_score
+
+        # 6. 가설 토큰 오버랩
         hyp_tokens  = _get_hypothesis_tokens(hypothesis)
         hyp_overlap = len(content_tokens & hyp_tokens)
-        score += min(hyp_overlap * 0.015, 0.20)
+        hyp_contrib = min(hyp_overlap * 0.015, 0.20)
+        score      += hyp_contrib
 
-    return min(max(score, 0.0), 1.0)
+    signals = {
+        "path_overlap":       round(path_contrib, 3),
+        "file_type_bonus":    round(file_type_bonus, 3),
+        "utils_penalty":      round(utils_penalty, 3),
+        "content_overlap":    round(content_overlap, 3),
+        "code_structure":     round(struct_score, 3),
+        "hypothesis_overlap": round(hyp_contrib, 3),
+    }
+
+    return min(max(score, 0.0), 1.0), signals
+
+
+# 스니펫 추출용 앵커 패턴 (우선순위 순서, 레이블, 블록 크기)
+_SNIPPET_ANCHORS: list[tuple[str, str, int]] = [
+    (r"^\s*def\s+forward\s*\(",          "forward",          40),
+    (r"^\s*def\s+training_step\s*\(",    "training_step",    35),
+    (r"^\s*class\s+\w+.*:",              "class_def",        60),
+    (r"^\s*def\s+validation_step\s*\(",  "validation_step",  30),
+    (r"^\s*class\s+\w+Dataset",          "dataset_class",    50),
+    (r"DataLoader\s*\(",                 "dataloader",       25),
+    (r"^\s*loss\s*=",                    "loss_def",         20),
+    (r"^\s*def\s+__init__\s*\(",         "constructor",      35),
+]
+
+
+def _extract_relevant_snippet(content: str, max_chars: int = 2000) -> tuple[str, str]:
+    """파일에서 모델/학습 핵심 코드 블록을 추출한다.
+
+    forward → training_step → class_def → dataset → dataloader → loss 순서로
+    우선 앵커를 찾아 해당 블록을 추출하고, max_chars 이내로 합쳐서 반환한다.
+    적합한 앵커가 없으면 파일 앞부분(head_fallback)을 반환한다.
+
+    Returns:
+        (snippet, strategy) — strategy: 적용된 추출 전략 레이블
+    """
+    lines = content.splitlines()
+    found: list[tuple[int, str, int]] = []  # (priority, label, line_idx)
+
+    for i, line in enumerate(lines):
+        for pri, (pattern, label, _) in enumerate(_SNIPPET_ANCHORS):
+            if re.search(pattern, line):
+                found.append((pri, label, i))
+                break  # 한 줄에 하나의 앵커만
+
+    if not found:
+        return content[:max_chars], "head_fallback"
+
+    # 우선순위 정렬 후 중복 레이블 제거, max_chars까지 블록 수집
+    found.sort(key=lambda x: x[0])
+    seen_labels: set[str] = set()
+    blocks: list[str] = []
+    strategy_labels: list[str] = []
+
+    for pri, label, line_idx in found:
+        if label in seen_labels:
+            continue
+        seen_labels.add(label)
+        _, _, block_size = _SNIPPET_ANCHORS[pri]
+        block_lines = lines[max(0, line_idx - 1): line_idx + block_size]
+        blocks.extend(block_lines)
+        blocks.append("")  # 블록 구분
+        strategy_labels.append(label)
+        if len("\n".join(blocks)) >= max_chars:
+            break
+
+    snippet  = "\n".join(blocks)[:max_chars]
+    strategy = "+".join(strategy_labels) if strategy_labels else "head_fallback"
+    return snippet, strategy
 
 
 # ──────────────────────────────────────────
@@ -279,7 +406,8 @@ def _analyze_code_with_claude(
     exp_plan = hypothesis.get("experiment_plan", {})
 
     code_snippets = "\n\n".join([
-        f"### {c['repo']} / {c['file']}\n```python\n{c['content'][:600]}\n```"
+        f"### {c['repo']} / {c['file']} [{c.get('snippet_strategy', 'head')}]\n"
+        f"```python\n{c.get('snippet', c['content'][:600])}\n```"
         for c in repo_codes[:6]
     ])
 
@@ -346,8 +474,8 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
         if len(word) > 3
     )
 
-    # ── 4.1 복합 쿼리로 레포 검색 ─────────────────────────
-    queries = _build_search_queries(topic)
+    # ── 4.1 복합 쿼리로 레포 검색 (가설 아키텍처 힌트 포함) ──
+    queries = _build_search_queries(topic, hypothesis)
     print(f"    [GitHub] 검색 쿼리 {len(queries)}개: {queries}")
 
     repos: list[dict] = []
@@ -367,9 +495,11 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
 
     print(f"    레포 {len(unique_repos)}개 발견")
 
-    # ── 4.3 파일 수집 + 2단계 관련성 스코링 ──────────────
+    # ── 4.3 파일 수집 + 3단계 관련성 스코링 ──────────────
     # Stage 1: 파일명 기반 코스 필터
-    candidate_files: list[dict] = []   # {repo, file, content, score, stars, license, url}
+    # Stage 2: 콘텐츠 토큰 오버랩 + 구조적 코드 신호 스코링
+    # Stage 3: 스코어 기반 상위 선택 (레포 인기도는 동점 해소에만 사용)
+    candidate_files: list[dict] = []
     for repo in unique_repos[:5]:
         fname = repo["full_name"]
         print(f"    [GitHub] 파일 분석: {fname}")
@@ -379,21 +509,26 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
             content = get_file_content(fname, fpath)
             if not content:
                 continue
-            # Stage 2: 콘텐츠 기반 스코링
-            score = _score_file_relevance(fpath, content, topic_file_kw, hypothesis)
+            # Stage 2: 토큰 + 구조 스코링 (signals 포함)
+            score, signals = _score_file_relevance(fpath, content, topic_file_kw, hypothesis)
+            # GOAL 4: 핵심 코드 블록 스니펫 추출
+            snippet, snippet_strategy = _extract_relevant_snippet(content)
             candidate_files.append({
-                "repo":    fname,
-                "file":    fpath,
-                "content": content,
-                "score":   round(score, 4),
-                "stars":   repo.get("stars", 0),
-                "license": repo.get("license", ""),
-                "url":     repo.get("url", ""),
+                "repo":             fname,
+                "file":             fpath,
+                "content":          content,
+                "snippet":          snippet,
+                "snippet_strategy": snippet_strategy,
+                "score":            round(score, 4),
+                "signals":          signals,
+                "stars":            repo.get("stars", 0),
+                "license":          repo.get("license", ""),
+                "url":              repo.get("url", ""),
             })
         time.sleep(0.5)
 
-    # 스코어 내림차순 정렬 후 상위 8개 선택
-    candidate_files.sort(key=lambda x: (x["score"], x["stars"]), reverse=True)
+    # GOAL 1: 파일 품질(score) 우선 정렬; stars는 동점 해소에만 사용
+    candidate_files.sort(key=lambda x: (x["score"], x["stars"] * 1e-7), reverse=True)
     repo_codes = candidate_files[:8]
 
     print(f"    코드 파일 {len(repo_codes)}개 수집 (스코어 기반 상위 선택)")
@@ -414,19 +549,31 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
             "implementation_tips":  [],
         }
 
-    # ── 4.4 analyzed_sources 추적성 필드 ─────────────────
+    # ── 4.4 analyzed_sources 추적성 필드 (GOAL 5) ────────
+    def _why_selected(c: dict) -> str:
+        sig = c.get("signals", {})
+        parts = [f"score={c['score']:.3f}"]
+        if sig.get("code_structure", 0) >= 0.10:
+            parts.append("struct_code")
+        if sig.get("content_overlap", 0) >= 0.15:
+            parts.append("content_overlap")
+        if sig.get("file_type_bonus", 0) > 0:
+            parts.append("model_file")
+        if sig.get("hypothesis_overlap", 0) >= 0.05:
+            parts.append("hyp_match")
+        return " ".join(parts)
+
     analyzed_sources = [
         {
-            "repo":          c["repo"],
-            "file":          c["file"],
-            "score":         c["score"],
-            "stars":         c["stars"],
-            "license":       c["license"],
-            "url":           c["url"],
-            "why_selected":  (
-                f"score={c['score']:.3f} "
-                f"({'filename+content match' if c['score'] >= 0.4 else 'filename match'})"
-            ),
+            "repo":              c["repo"],
+            "file":              c["file"],
+            "score":             c["score"],
+            "stars":             c["stars"],
+            "license":           c["license"],
+            "url":               c["url"],
+            "why_selected":      _why_selected(c),
+            "selection_signals": c.get("signals", {}),
+            "snippet_strategy":  c.get("snippet_strategy", "head_fallback"),
         }
         for c in repo_codes
     ]
