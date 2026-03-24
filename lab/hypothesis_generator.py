@@ -52,8 +52,12 @@ _HYPOTHESIS_SCHEMA = """{
   "baseline_models": ["기준 모델 1", "기준 모델 2"],
   "evaluation_metrics": ["지표 1", "지표 2"],
   "key_experiments": ["핵심 실험 1", "핵심 실험 2"],
+  "ablation_studies": ["ablation 1", "ablation 2"],
   "related_papers": [
-    {"title": "논문 제목", "venue": "학회", "relevance": "관련성"}
+    {"paper_id": "paper-id", "title": "논문 제목", "venue": "학회", "relevance": "관련성"}
+  ],
+  "evidence_links": [
+    {"paper_id": "paper-id", "supports": ["key_innovation", "expected_mechanism"]}
   ],
   "confidence": 0.0,
   "risk_factors": ["위험 1", "위험 2"]
@@ -97,6 +101,53 @@ def _print_round(n: int, label: str, statement: str,
 
 
 # ──────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
+# paper_id 정규화 헬퍼
+# ──────────────────────────────────────────────────────────
+
+def _normalize_pid(raw_paper_id, raw_id, original_ids: list[str], i: int) -> str:
+    """LLM이 반환한 paper_id/id를 안정적인 원본 ID로 복원한다.
+
+    우선순위:
+      1. raw_paper_id / raw_id 중 숫자 문자열이면 → 1-based 인덱스로 original_ids 매핑
+      2. raw_paper_id가 비숫자 비어있지 않은 문자열 → 그대로 사용
+      3. 위치 기반 fallback: original_ids[i]
+      4. raw_id 문자열 그대로
+      5. P{i+1}
+    """
+    def _try_index(val) -> str | None:
+        if val is None:
+            return None
+        s = str(val).strip()
+        if s.isdigit():
+            idx = int(s) - 1
+            if 0 <= idx < len(original_ids):
+                return original_ids[idx]
+            return original_ids[i] if i < len(original_ids) else f"P{i + 1}"
+        return None
+
+    # 두 필드 모두 숫자 매핑 시도 (raw_paper_id 우선)
+    for candidate in [raw_paper_id, raw_id]:
+        mapped = _try_index(candidate)
+        if mapped:
+            return mapped
+
+    # raw_paper_id가 비숫자 유효 문자열이면 신뢰
+    if raw_paper_id is not None:
+        s = str(raw_paper_id).strip()
+        if s:
+            return s
+
+    # 위치 기반 fallback
+    if i < len(original_ids):
+        return original_ids[i]
+
+    if raw_id is not None:
+        return str(raw_id).strip()
+
+    return f"P{i + 1}"
+
+
 # Round 0: Evidence Pack 구조화 (Gemini)
 # ──────────────────────────────────────────────────────────
 
@@ -107,15 +158,30 @@ def _build_evidence_pack(papers: list[dict]) -> str:
     """
     model = get_gemini_model()
 
-    papers_raw = json.dumps([
-        {"id": i+1, "title": p.get("title",""), "year": p.get("year",""),
-         "abstract": p.get("abstract","")[:500]}
-        for i, p in enumerate(papers[:15])
-    ], ensure_ascii=False, indent=2)
+    def _paper_payload(idx: int, p: dict) -> dict:
+        entry = {
+            "paper_id": p.get("paper_id", f"P{idx}"),
+            "title":    p.get("title", ""),
+            "year":     p.get("year", ""),
+            "abstract": (p.get("abstract") or "")[:1200],
+            "url":      p.get("url", ""),
+            "source":   p.get("source", ""),
+        }
+        if p.get("sections"):
+            entry["sections"] = p["sections"]  # introduction/method/experiment/limitation
+        return entry
+
+    papers_raw = json.dumps(
+        [_paper_payload(i + 1, p) for i, p in enumerate(papers[:15])],
+        ensure_ascii=False, indent=2,
+    )
 
     prompt = f"""당신은 딥러닝 분야 전문 연구 분석가입니다.
 아래 논문들을 각각 동일한 구조적 포맷으로 분석하여 Evidence Pack을 작성하세요.
 모든 논문이 같은 틀로 분석되어야 나중에 연구 갭과 가설을 비교할 수 있습니다.
+
+⚠️ 논문에 'sections' 필드가 있으면 abstract 대신 그 섹션 텍스트를 우선 참조하여 더 깊은 분석을 하세요.
+각 분석 항목은 가능하면 paper_id 기준으로 추적 가능해야 한다.
 
 ## 논문 목록
 {papers_raw}
@@ -124,36 +190,65 @@ def _build_evidence_pack(papers: list[dict]) -> str:
 반드시 아래 JSON 배열로만 답변하세요 (마크다운 없이):
 [
   {{
-    "id": 1,
+    "paper_id": "arxiv:2401.12345",
     "title": "논문 제목",
     "problem": "이 논문이 해결하려는 핵심 문제 (1-2문장)",
     "method": "핵심 방법론 (50자 이내, 구체적 기술명 포함)",
     "limitations": "이 방법론의 핵심 한계 (1-2문장)",
     "experimental_conditions": "데이터셋 / 주요 지표 / 베이스라인",
     "remaining_gaps": "이 논문 이후에도 해결 못 한 핵심 미해결 문제"
-  }},
-  ...
+  }}
 ]"""
 
     print("  [Round 0 / Gemini] Evidence Pack 구조화 중...")
     response = model.generate_content(prompt)
+
+    # 입력 논문의 원본 paper_id 목록 (normalize 시 fallback용)
+    original_ids = [
+        p.get("paper_id", f"P{i + 1}")
+        for i, p in enumerate(papers[:15])
+    ]
+
     try:
-        pack_list = parse_json(response.text)
+        raw_list = parse_json(response.text)
+
+        # paper_id normalize: _normalize_pid()로 "1","2" 숫자도 원본 ID로 복원
+        pack_list = []
+        for i, item in enumerate(raw_list):
+            raw_paper_id = item.get("paper_id")
+            raw_id       = item.get("id")
+            pid = _normalize_pid(raw_paper_id, raw_id, original_ids, i)
+
+            pack_list.append({
+                "paper_id":               str(pid),
+                "title":                  item.get("title", ""),
+                "problem":                item.get("problem", ""),
+                "method":                 item.get("method", ""),
+                "limitations":            item.get("limitations", ""),
+                "experimental_conditions": item.get("experimental_conditions", ""),
+                "remaining_gaps":         item.get("remaining_gaps", ""),
+            })
+
         lines = ["## Evidence Pack — 논문 구조화 분석\n"]
         for p in pack_list:
-            lines.append(f"[논문 {p.get('id','')}] {p.get('title','')}")
-            lines.append(f"  ▶ 문제        : {p.get('problem','')}")
-            lines.append(f"  ▶ 방법        : {p.get('method','')}")
-            lines.append(f"  ▶ 한계        : {p.get('limitations','')}")
-            lines.append(f"  ▶ 실험 조건   : {p.get('experimental_conditions','')}")
-            lines.append(f"  ▶ 남는 빈틈   : {p.get('remaining_gaps','')}")
+            lines.append(f"[{p['paper_id']}] {p['title']}")
+            lines.append(f"  ▶ 문제        : {p['problem']}")
+            lines.append(f"  ▶ 방법        : {p['method']}")
+            lines.append(f"  ▶ 한계        : {p['limitations']}")
+            lines.append(f"  ▶ 실험 조건   : {p['experimental_conditions']}")
+            lines.append(f"  ▶ 남는 빈틈   : {p['remaining_gaps']}")
             lines.append("")
         pack_str = "\n".join(lines)
         print(f"  → Evidence Pack 완성: {len(pack_list)}편 구조화")
         return pack_str, pack_list
     except Exception as e:
         print(f"  [경고] Evidence Pack JSON 파싱 실패: {e}")
-        return text, []
+        fallback_lines = ["## Evidence Pack — fallback\n"]
+        for i, p in enumerate(papers[:15]):
+            fallback_lines.append(
+                f"[{p.get('paper_id', f'P{i+1}')}] {p.get('title', '')} :: {(p.get('abstract') or '')[:200]}"
+            )
+        return "\n".join(fallback_lines), []
 
 
 # ──────────────────────────────────────────────────────────
@@ -174,6 +269,11 @@ def _claude_propose(context: str, evidence_pack: str) -> dict:
 Evidence Pack의 '남는 빈틈'을 분석하여 해결 가능한 연구 갭을 찾고,
 서로 다른 관점에서 가설 3개를 제안하세요.
 각 가설은 논문들과 구체적으로 무엇이 다른지 명시해야 합니다.
+
+⚠️ **중요**: Evidence Pack에서 명확한 연구 갭을 찾지 못하거나,
+논문 근거가 부족하여 신뢰할 수 있는 가설을 세울 수 없다면,
+무리하게 가설을 생성하지 마세요. 대신 아래 형식으로 답변하세요:
+{{"status": "insufficient_evidence", "reason": "구체적 사유", "suggestions": ["추가 검색 키워드 1", "키워드 2"]}}
 
 ## 출력 형식 (JSON만)
 {{
@@ -277,22 +377,137 @@ Claude가 제안한 가설 3개를 Evidence Pack을 기반으로 비판적으로
 
 
 # ──────────────────────────────────────────────────────────
+# Round 2.5: Pairwise Ranking (GPT + Gemini 쌍대비교)
+# ──────────────────────────────────────────────────────────
+
+def _pairwise_rank(context: str, hypotheses: list[dict]) -> dict:
+    """3개 가설에 대해 GPT + Gemini가 pairwise 비교하여 순위를 매긴다.
+
+    절대점수는 gate (최소 기준), pairwise는 selection (최종 선택)으로 사용.
+    비교 쌍: (1 vs 2), (1 vs 3), (2 vs 3)
+    """
+    if len(hypotheses) < 2:
+        return {"ranking": [h.get("id", i+1) for i, h in enumerate(hypotheses)],
+                "pairwise_results": []}
+
+    pairs = []
+    for i in range(len(hypotheses)):
+        for j in range(i + 1, len(hypotheses)):
+            pairs.append((hypotheses[i], hypotheses[j]))
+
+    pair_prompt_parts = []
+    for a, b in pairs:
+        pair_prompt_parts.append(
+            f"### 가설 {a.get('id')} vs 가설 {b.get('id')}\n"
+            f"  A: {a.get('statement_kr', a.get('statement', ''))}\n"
+            f"  B: {b.get('statement_kr', b.get('statement', ''))}"
+        )
+
+    prompt = f"""당신은 딥러닝 연구 전문가입니다.
+아래 가설 쌍들을 비교하여 각 쌍에서 더 나은 가설을 선택하세요.
+
+{context}
+
+## 가설 전체
+{json.dumps(hypotheses, ensure_ascii=False, indent=2)}
+
+## 비교 쌍
+{chr(10).join(pair_prompt_parts)}
+
+## 평가 기준
+각 쌍에 대해: 참신성, 실현 가능성, 검증 가능성, 영향력을 종합 고려하여
+어느 쪽이 우수한지 판정하세요.
+
+반드시 아래 JSON 형식으로만 답변 (마크다운 없이):
+{{
+  "comparisons": [
+    {{"pair": [1, 2], "winner": 1, "reason": "선택 이유 (1문장)"}},
+    {{"pair": [1, 3], "winner": 3, "reason": "선택 이유 (1문장)"}},
+    {{"pair": [2, 3], "winner": 2, "reason": "선택 이유 (1문장)"}}
+  ],
+  "final_ranking": [3, 1, 2],
+  "ranking_rationale": "최종 순위 근거 요약"
+}}"""
+
+    client = get_openai_client()
+    model = get_gemini_model()
+
+    # GPT + Gemini 병렬 비교
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _gpt_rank():
+        r = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
+        return json.loads(r.choices[0].message.content)
+
+    def _gem_rank():
+        r = model.generate_content(prompt)
+        return parse_json(r.text)
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_gpt = ex.submit(_gpt_rank)
+        f_gem = ex.submit(_gem_rank)
+        gpt_rank = f_gpt.result()
+        gem_rank = f_gem.result()
+
+    # 승리 횟수 집계 (GPT + Gemini 합산)
+    win_count: dict[int, int] = {}
+    all_comparisons = []
+    for src, result in [("GPT", gpt_rank), ("Gemini", gem_rank)]:
+        for comp in result.get("comparisons", []):
+            w = comp.get("winner", 0)
+            win_count[w] = win_count.get(w, 0) + 1
+            all_comparisons.append({**comp, "evaluator": src})
+
+    # 승리 횟수 기준 내림차순 정렬
+    ranking = sorted(win_count.keys(), key=lambda x: win_count[x], reverse=True)
+
+    print(f"  → Pairwise 승리 횟수: {win_count}")
+    print(f"  → 최종 순위: {ranking}")
+
+    return {
+        "ranking":           ranking,
+        "win_count":         win_count,
+        "pairwise_results":  all_comparisons,
+        "gpt_ranking":       gpt_rank.get("final_ranking", []),
+        "gemini_ranking":    gem_rank.get("final_ranking", []),
+    }
+
+
+# ──────────────────────────────────────────────────────────
 # Round 3: Gemini Mediator (합성 가설 1-2개)
 # ──────────────────────────────────────────────────────────
 
 def _gemini_mediate(context: str, evidence_pack: str,
-                   claude_draft: dict, gpt_response: dict) -> dict:
-    """Gemini가 Claude 3개 가설 + GPT 비판을 보고 검증 가능한 합성 가설 도출."""
+                   claude_draft: dict, gpt_response: dict,
+                   pairwise: dict | None = None) -> dict:
+    """Gemini가 Claude 3개 가설 + GPT 비판 + Pairwise 순위를 보고 검증 가능한 합성 가설 도출."""
     model = get_gemini_model()
 
+    pairwise_section = ""
+    if pairwise and pairwise.get("ranking"):
+        winner_id = pairwise["ranking"][0]
+        pairwise_section = f"""
+## Pairwise Ranking 결과 (GPT + Gemini 쌍대비교)
+- 최종 순위: {pairwise.get('ranking', [])}
+- 1위 가설: #{winner_id}  (승리 횟수: {pairwise.get('win_count', {}).get(winner_id, 0)}회)
+- 비교 결과: {json.dumps(pairwise.get('pairwise_results', [])[:4], ensure_ascii=False)}
+
+⚠️ Pairwise 1위 가설(#{winner_id})을 합성의 기본 출발점으로 삼으세요.
+이를 무시하거나 낮은 순위 가설을 선택하려면 명시적 근거를 synthesis_rationale에 기술하세요.
+"""
+
     prompt = f"""당신은 딥러닝 연구 전문가입니다.
-Claude의 가설 3개와 GPT의 비판을 모두 검토하여
+Claude의 가설 3개와 GPT의 비판, Pairwise Ranking 결과를 모두 검토하여
 검증 가능하고 실현 가능한 합성 가설 1-2개를 도출하세요.
 
 {context}
 
 {evidence_pack}
-
+{pairwise_section}
 ## Claude의 가설 3개
 {json.dumps(claude_draft.get('hypotheses', []), ensure_ascii=False, indent=2)}
 
@@ -331,12 +546,25 @@ Claude의 가설 3개와 GPT의 비판을 모두 검토하여
 
 def _claude_finalize(context: str, evidence_pack: str,
                     claude_draft: dict, gpt_response: dict,
-                    gemini_synthesis: dict) -> dict:
-    """4라운드 토론을 반영한 최종 가설 + 실험 계획 + 반증 조건 확정."""
+                    gemini_synthesis: dict,
+                    pairwise: dict | None = None) -> dict:
+    """4라운드 + Pairwise 토론을 반영한 최종 가설 + 실험 계획 + 반증 조건 확정."""
     syn = gemini_synthesis.get("synthesized_hypotheses", [{}])[0]
 
+    pairwise_section = ""
+    if pairwise and pairwise.get("ranking"):
+        winner_id = pairwise["ranking"][0]
+        pairwise_section = f"""
+### Round 2.5 — Pairwise Ranking (GPT + Gemini 쌍대비교)
+- 최종 순위: {pairwise.get('ranking', [])}  (승리 횟수: {pairwise.get('win_count', {})})
+- 쌍대비교 1위: #{winner_id}
+- GPT 순위: {pairwise.get('gpt_ranking', [])}  /  Gemini 순위: {pairwise.get('gemini_ranking', [])}
+⚠️ Pairwise 1위 가설(#{winner_id})을 최종 확정의 기본 후보로 삼으세요.
+   이를 뒤집으려면 최종 가설의 rationale에 반드시 명시적 근거를 기술하세요.
+"""
+
     prompt = f"""당신은 딥러닝 연구 전문가입니다.
-4라운드 AI 토론(Claude 초안 → GPT 비판 → Gemini 합성)을 거쳤습니다.
+4라운드 AI 토론(Claude 초안 → GPT 비판 → Pairwise Ranking → Gemini 합성)을 거쳤습니다.
 모든 토론을 반영하여 최종 연구 가설과 완전한 실험 계획을 확정하세요.
 
 {context}
@@ -353,7 +581,7 @@ def _claude_finalize(context: str, evidence_pack: str,
 공통 약점: {gpt_response.get('critique_summary', '')}
 놓친 관점: {gpt_response.get('missed_opportunities', [])}
 가장 유망한 가설: #{gpt_response.get('best_hypothesis_id',1)} — {gpt_response.get('best_hypothesis_reason','')}
-
+{pairwise_section}
 ### Round 3 — Gemini 합성
 합성 가설: {syn.get('statement_kr', '')}
 합성 근거: {syn.get('synthesis_rationale', '')}
@@ -367,6 +595,13 @@ Gemini 제안: {gemini_synthesis.get('for_claude_finalizer', [])}
 2. 구체적인 실험 계획을 수립한다
 3. **반증 조건(Falsification Criteria)**을 명시한다
    — 어떤 실험 결과가 나오면 이 가설이 틀린 것으로 판정하는가
+
+⚠️ **중요**: 토론 결과 어떤 가설도 근거가 충분하지 않거나,
+모든 가설이 치명적 결함을 갖고 있다면, 무리하게 최종 가설을 확정하지 마세요.
+대신 아래 형식으로 답변하세요:
+{{"status": "no_robust_hypothesis", "reason": "구체적 사유",
+  "requires_human_narrowing": true,
+  "suggestions": ["사용자에게 제안할 연구 방향 1", "방향 2"]}}
 
 ## 출력 형식 (JSON만)
 {_HYPOTHESIS_SCHEMA}"""
@@ -404,6 +639,26 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
     claude_draft = _claude_propose(context, evidence_pack)
     debate_log.append({"round": 1, "role": "Proposer", "model": "Claude",
                         "output": claude_draft})
+
+    # insufficient_evidence 체크
+    if claude_draft.get("status") == "insufficient_evidence":
+        print(f"\n  ⚠ [Round 1] Evidence 부족으로 가설 생성 불가")
+        print(f"  사유: {claude_draft.get('reason', '')}")
+        print(f"  추가 검색 제안: {claude_draft.get('suggestions', [])}")
+        result = {
+            "timestamp":       datetime.now().isoformat(),
+            "topic":           topic_name,
+            "status":          "insufficient_evidence",
+            "reason":          claude_draft.get("reason", ""),
+            "suggestions":     claude_draft.get("suggestions", []),
+            "generation_mode": "collaborative",
+            "debate_log":      debate_log,
+        }
+        output_path = Path("reports") / topic_slug / "hypothesis.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        return result
+
     hyps = claude_draft.get("hypotheses", [])
     for h in hyps:
         _print_round(1, f"Claude (Proposer) — 가설 {h.get('id')}", h.get("statement_kr", ""))
@@ -417,9 +672,15 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
                  f"최유망 가설: #{gpt_response.get('best_hypothesis_id')}",
                  critique=gpt_response.get("critique_summary", ""))
 
+    # ── Round 2.5: Pairwise Ranking ──────────────────────
+    print(f"\n  [Round 2.5 / GPT + Gemini] Pairwise 비교 중...")
+    pairwise = _pairwise_rank(context, hyps)
+    debate_log.append({"round": 2.5, "role": "PairwiseRanker", "model": "GPT+Gemini",
+                        "output": pairwise})
+
     # ── Round 3: Gemini 합성 ──────────────────────────────
     print(f"\n  [Round 3 / Gemini ({GEMINI_MODEL})] 합성 가설 도출 중...")
-    gemini_synthesis = _gemini_mediate(context, evidence_pack, claude_draft, gpt_response)
+    gemini_synthesis = _gemini_mediate(context, evidence_pack, claude_draft, gpt_response, pairwise)
     debate_log.append({"round": 3, "role": "Mediator", "model": GEMINI_MODEL,
                         "output": gemini_synthesis})
     syns = gemini_synthesis.get("synthesized_hypotheses", [{}])
@@ -429,9 +690,32 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
 
     # ── Round 4: Claude 최종 확정 ────────────────────────
     print("\n  [Round 4 / Claude] 최종 가설 확정 중 (thinking 활성화)...")
-    final = _claude_finalize(context, evidence_pack, claude_draft, gpt_response, gemini_synthesis)
+    final = _claude_finalize(context, evidence_pack, claude_draft, gpt_response, gemini_synthesis, pairwise)
     debate_log.append({"round": 4, "role": "Finalizer", "model": "Claude",
                         "output": final})
+
+    # no_robust_hypothesis 체크
+    if final.get("status") == "no_robust_hypothesis":
+        print(f"\n  ⚠ [Round 4] 토론 결과 신뢰할 수 있는 가설 없음")
+        print(f"  사유: {final.get('reason', '')}")
+        print(f"  제안: {final.get('suggestions', [])}")
+        result = {
+            "timestamp":                datetime.now().isoformat(),
+            "topic":                    topic_name,
+            "status":                   "no_robust_hypothesis",
+            "requires_human_narrowing": True,
+            "reason":                   final.get("reason", ""),
+            "suggestions":              final.get("suggestions", []),
+            "generation_mode":          "collaborative",
+            "evidence_pack":            pack_list,
+            "pairwise_ranking":         pairwise,
+            "debate_log":               debate_log,
+        }
+        output_path = Path("reports") / topic_slug / "hypothesis.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        return result
+
     _print_round(4, "Claude (Finalizer — Final)", final.get("statement_kr", ""))
 
     # ── 결과 조립 ────────────────────────────────────────
@@ -460,15 +744,20 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
             "baseline_models":    final.get("baseline_models", []),
             "evaluation_metrics": final.get("evaluation_metrics", []),
             "key_experiments":    final.get("key_experiments", []),
+            "ablation_studies":   final.get("ablation_studies", []),
         },
         "related_papers": final.get("related_papers", []),
+        "evidence_links": final.get("evidence_links", []),
         "confidence":     final.get("confidence", 0.0),
         "risk_factors":   final.get("risk_factors", []),
         "debate_log":     debate_log,
+        "pairwise_ranking": pairwise,
         "debate_summary": {
             "claude_hypotheses":  [h.get("statement_kr","") for h in hyps],
             "gpt_critique":       gpt_response.get("critique_summary", ""),
             "gpt_best_id":        gpt_response.get("best_hypothesis_id", 1),
+            "pairwise_winner":    pairwise.get("ranking", [None])[0],
+            "pairwise_win_count": pairwise.get("win_count", {}),
             "gemini_synthesis":   syns[0].get("statement_kr", "") if syns else "",
             "final":              final.get("statement_kr", ""),
         },

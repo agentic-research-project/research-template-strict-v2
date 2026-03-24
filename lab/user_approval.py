@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 # ── 상수 ──────────────────────────────────────────────────
-PDF_SCORE_THRESHOLD = 9.0
+from lab.config import SCORE_THRESHOLD as PDF_SCORE_THRESHOLD
 
 C_BG      = "#1A1A2E"
 C_HYPO    = "#0F3460"
@@ -756,12 +756,19 @@ def request_approval(
     validation = _load_json(validation_file)
     papers     = _load_json(papers_file) if papers_file else {}
 
-    # validation에 최고 점수 가설이 있으면 hypothesis 내부 키만 교체 (나머지 필드 보존)
-    # validation["hypothesis"]는 전체 hypothesis 파일 구조일 수 있으므로 한 겹 더 풀어야 함
+    # validation에 최고 점수 가설이 있으면 hypothesis + 전체 연구 패키지 교체
+    # validation["hypothesis"]는 전체 hypothesis 파일 구조이므로 한 겹 풀어서 교체
+    _PACKAGE_FIELDS = ("research_gap", "experiment_plan", "related_papers",
+                       "risk_factors", "evidence_pack", "falsification_criteria",
+                       "evidence_links")
     if "hypothesis" in validation:
         val_hyp = validation["hypothesis"]
         if isinstance(val_hyp, dict) and "hypothesis" in val_hyp:
             hypothesis["hypothesis"] = val_hyp["hypothesis"]
+            # 최신 개선 가설에 맞춰 전체 연구 패키지 동기화
+            for field in _PACKAGE_FIELDS:
+                if field in val_hyp:
+                    hypothesis[field] = val_hyp[field]
         else:
             hypothesis["hypothesis"] = val_hyp
 

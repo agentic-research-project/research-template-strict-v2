@@ -34,6 +34,120 @@ from lab.config import query_claude, parse_json
 
 
 # ──────────────────────────────────────────
+# 키워드 후처리
+# ──────────────────────────────────────────
+
+# 단독으로는 검색 효과가 없는 너무 넓은 단어
+_GENERIC_TERMS = {
+    "classification", "segmentation", "enhancement", "generation",
+    "diffusion", "computer", "vision", "deep", "learning", "neural",
+    "network", "model", "method", "approach", "image", "images",
+    "data", "detection", "recognition",
+}
+
+
+MIN_PRIMARY = 2   # 필터 후 primary 최소 개수
+
+
+def _tokenize_non_generic(text: str) -> list[str]:
+    """텍스트에서 generic term을 제외한 토큰 목록을 반환한다."""
+    return [
+        t.lower() for t in re.split(r"\W+", text or "")
+        if len(t) > 3 and t.lower() not in _GENERIC_TERMS
+    ]
+
+
+def _filter_search_keywords(keywords: dict, topic_data: dict) -> dict:
+    """generic term 단독 항목 제거 → secondary 승격 → fallback phrase 생성으로 primary를 MIN_PRIMARY 이상 유지한다."""
+    inp = topic_data.get("input", {})
+
+    def is_generic(kw: str) -> bool:
+        tokens = {t.lower() for t in re.split(r"\W+", kw) if t}
+        return bool(tokens) and tokens.issubset(_GENERIC_TERMS)
+
+    def make_phrase(*fields: str, per_field: int = 2, max_total: int = 4) -> str:
+        """필드별 quota를 두고 non-generic 토큰을 합쳐 phrase를 만든다."""
+        merged = []
+        for f in fields:
+            merged.extend(_tokenize_non_generic(f)[:per_field])
+        return " ".join(list(dict.fromkeys(merged))[:max_total])
+
+    primary   = [kw for kw in keywords.get("primary",   []) if not is_generic(kw)]
+    secondary = [kw for kw in keywords.get("secondary", []) if not is_generic(kw)]
+    promoted  = []  # secondary → primary 승격 추적
+
+    # ── 1단계: primary가 부족하면 secondary에서 승격 ──────────────────
+    # 토큰 교집합 기반 relevance (substring 오탐 방지)
+    _cons_tokens = set(_tokenize_non_generic(inp.get("constraints", "")))
+    _met_tokens  = set(_tokenize_non_generic(inp.get("target_metric", "")))
+    _det_tokens  = set(_tokenize_non_generic(
+        inp.get("details", "") + " " + inp.get("problem_definition", "")
+    ))
+
+    def relevance(kw: str) -> int:
+        kw_tokens = set(_tokenize_non_generic(kw))
+        if kw_tokens & _cons_tokens:  return 3
+        if kw_tokens & _met_tokens:   return 2
+        if kw_tokens & _det_tokens:   return 1
+        return 0
+
+    if len(primary) < MIN_PRIMARY:
+        candidates = sorted(secondary, key=relevance, reverse=True)
+        for kw in candidates:
+            if len(primary) >= MIN_PRIMARY:
+                break
+            if kw not in primary:
+                primary.append(kw)
+                promoted.append(kw)
+
+    # ── 2단계: 여전히 부족하면 topic_data["input"]에서 fallback phrase ─
+    must_have = _cons_tokens | _met_tokens  # fallback에 반드시 포함돼야 할 토큰
+    fallback_sources = [
+        (inp.get("problem_definition", ""), inp.get("constraints", "")),
+        (inp.get("details", ""),            inp.get("target_metric", "")),
+        (inp.get("topic", ""),              inp.get("constraints", "")),
+    ]
+    for fields in fallback_sources:
+        if len(primary) >= MIN_PRIMARY:
+            break
+        phrase = make_phrase(*fields)
+        if not phrase or is_generic(phrase) or phrase in primary:
+            continue
+        # fallback phrase에 must_have 토큰이 없으면 보강
+        if must_have and not (set(_tokenize_non_generic(phrase)) & must_have):
+            extra = next(iter(must_have), "")
+            if extra:
+                phrase = f"{phrase} {extra}".strip()
+        primary.append(phrase)
+
+    # ── 3단계: secondary에서 primary로 승격된 항목 제거 (중복 축소) ────
+    secondary = [kw for kw in secondary if kw not in promoted]
+
+    # ── 4단계: constraint/metric이 전체 키워드에 없으면 secondary 보강 ─
+    existing = " ".join(primary + secondary).lower()
+    for field in [inp.get("constraints", ""), inp.get("target_metric", "")]:
+        if not field:
+            continue
+        tokens = [t for t in re.split(r"\W+", field)
+                  if len(t) > 3 and t.lower() not in _GENERIC_TERMS
+                  and t.lower() not in existing]
+        if tokens and len(secondary) < 6:
+            secondary.append(" ".join(tokens[:3]))
+            existing += " " + " ".join(tokens[:3])
+
+    # ── 최종: 중복 제거 + 2~5개 범위 정리 ───────────────────────────
+    primary   = list(dict.fromkeys(primary))[:5]
+    secondary = list(dict.fromkeys(secondary))
+
+    if promoted:
+        print(f"  [Keyword] secondary→primary 승격: {promoted}")
+    print(f"  [Keyword] primary({len(primary)}): {primary}")
+    print(f"  [Keyword] secondary({len(secondary)}): {secondary}")
+
+    return {**keywords, "primary": primary, "secondary": secondary}
+
+
+# ──────────────────────────────────────────
 # 핵심 분석 함수
 # ──────────────────────────────────────────
 
@@ -118,9 +232,19 @@ def analyze_topic(
     "out_scope": ["연구 범위 외 항목들"]
   }},
   "search_keywords": {{
-    "primary": ["핵심 키워드 3-5개 (영어)"],
-    "secondary": ["보조 키워드 3-5개 (영어)"],
-    "venues": ["NeurIPS", "CVPR", "ECCV", "ICLR", "ICML", "MICCAI"]
+    "primary": [
+      "핵심 키워드 3-5개 (영어, 반드시 phrase 형태)",
+      "규칙: task + domain/object + distinguishing constraint 조합",
+      "예시: 'single-scan CT denoising defect-preserving', 'low-dose X-ray reconstruction lightweight'",
+      "금지: 'deep learning', 'neural network', 'image enhancement' 같은 단독 generic 단어",
+      "요건: constraints와 target_metric의 핵심 표현이 최소 1개 이상 반영될 것"
+    ],
+    "secondary": [
+      "보조 키워드 3-5개 (영어, phrase 형태)",
+      "규칙: dataset / metric / failure mode / baseline family / deployment constraint 중심",
+      "예시: 'PSNR SSIM image quality', 'self-supervised denoising unpaired', 'real-time inference edge deployment'"
+    ],
+    "venues": ["NeurIPS", "CVPR", "ECCV", "ICLR", "ICML", "MICCAI", "AAAI"]
   }},
   "success_criteria": {{
     "quantitative": ["수치 목표들 (예: Accuracy >= 95%, F1 >= 0.9, PSNR >= 30dB 등 도메인에 맞게)"],
@@ -137,7 +261,7 @@ def analyze_topic(
     print("  [Claude SDK] 주제 분석 중...")
     result = parse_json(query_claude(text_prompt, image_paths=image_paths or None))
 
-    # 원본 입력 보존
+    # 원본 입력 보존 (후처리보다 먼저 세팅해야 _filter_search_keywords에서 참조 가능)
     result["input"] = {
         "topic":              topic,
         "details":            details,
@@ -146,6 +270,16 @@ def analyze_topic(
         "constraints":        constraints,
         "target_metric":      target_metric,
     }
+
+    # search_keywords 후처리: generic term 제거 + secondary 승격 + fallback 보강
+    if "search_keywords" in result:
+        result["search_keywords"] = _filter_search_keywords(
+            result["search_keywords"], result
+        )
+        n_primary = len(result["search_keywords"].get("primary", []))
+        if n_primary < MIN_PRIMARY:
+            print(f"  ⚠️ [Keyword] 필터 후 primary {n_primary}개 — MIN_PRIMARY({MIN_PRIMARY}) 미달")
+
     if image_paths:
         result["input"]["image_paths"]  = image_paths
         result["input"]["image_labels"] = image_labels

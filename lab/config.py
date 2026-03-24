@@ -8,12 +8,16 @@ load_dotenv()
 
 # LLM 모델 설정
 CLAUDE_MODEL = "claude-opus-4-6"
-OPENAI_MODEL = "gpt-5.1"
-GEMINI_MODEL = "gemini-2.5-pro"
+OPENAI_MODEL = "gpt-5.1"   #5.4
+GEMINI_MODEL = "gemini-2.5-pro" #3.1-pro
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN")
+S2_API_KEY     = os.getenv("S2_API_KEY", "")
+
+# 검증 통과 기준 (validator + PDF 공용)
+SCORE_THRESHOLD = 8.5
 
 
 
@@ -42,12 +46,16 @@ def query_claude(prompt: str, image_paths: list[str] | None = None) -> str:
             full_prompt += f"\n\n분석할 이미지 파일:\n{paths}"
 
         tools     = ["Read"] if image_paths else []
-        max_turns = 2 if image_paths else 1
+        max_turns = max(3, len(image_paths) + 2) if image_paths else 1
 
         text = ""
         async for msg in _sdk_query(
             prompt=full_prompt,
-            options=ClaudeAgentOptions(allowed_tools=tools, max_turns=max_turns),
+            options=ClaudeAgentOptions(
+                model=CLAUDE_MODEL,
+                allowed_tools=tools,
+                max_turns=max_turns,
+            ),
         ):
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:

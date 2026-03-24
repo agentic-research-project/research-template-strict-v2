@@ -80,6 +80,10 @@ Bash로 실행 (반드시 --mode collaborative 사용):
   Round 3 — Gemini:  중재 + 합성 (1~2개 정제 가설)
   Round 4 — Claude:  최종 가설 + falsification_criteria
 
+⚠️ 만약 hypothesis.json에 "status": "insufficient_evidence" 또는
+"no_robust_hypothesis"가 있으면 4-5단계를 건너뛰고 사용자에게 보고한다.
+사용자가 추가 키워드를 제공하면 2단계부터 재시작할 수 있다.
+
 완료 후 debate_summary를 AskUserQuestion으로 사용자에게 보고한다:
   "3단계 완료 — 협업 가설 수립 결과:
    - Claude 제안 3개: ...
