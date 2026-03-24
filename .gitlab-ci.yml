@@ -1,0 +1,242 @@
+# .gitlab-ci.yml — AI Research Experiment Runner
+# stdout contract: METRICS:{...valid json...}  (train.py 마지막 줄)
+# schema_version: 1.0
+
+variables:
+  EXPERIMENT_PKG: ""              # 외부 주입: experiments/{topic_slug}_v{N}
+  CONFIG_FILE: "configs/default.yaml"
+  ARTIFACTS_DIR: "artifacts"
+  RESULT_SUMMARY: "result_summary.json"
+  TIMEOUT_TRAIN: "6h"
+  SMOKE_TIMEOUT: "3m"
+  PYTHON: "python"
+
+stages:
+  - setup
+  - smoke
+  - train
+  - package
+
+# ──────────────────────────────────────────────────────────
+# 0. 공통 설정
+# ──────────────────────────────────────────────────────────
+.common:
+  tags:
+    - gpu
+  before_script:
+    - echo "=== Run: ${CI_JOB_ID} | SHA: ${CI_COMMIT_SHORT_SHA} ==="
+    - echo "=== Experiment: ${EXPERIMENT_PKG} ==="
+    - test -n "${EXPERIMENT_PKG}" || (echo "ERROR: EXPERIMENT_PKG is not set" && exit 1)
+    - test -d "${EXPERIMENT_PKG}"  || (echo "ERROR: ${EXPERIMENT_PKG} not found"  && exit 1)
+    - cd "${EXPERIMENT_PKG}"
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - "${EXPERIMENT_PKG}/artifacts/"
+      - "${EXPERIMENT_PKG}/result_summary.json"
+      - "${EXPERIMENT_PKG}/gitlab_run_metadata.json"
+
+# ──────────────────────────────────────────────────────────
+# 1. SETUP — 환경 구성 및 패키지 구조 검증
+# ──────────────────────────────────────────────────────────
+setup:
+  extends: .common
+  stage: setup
+  script:
+    - echo "--- [setup] 의존성 설치 ---"
+    - pip install -q -r ../../requirements.txt
+
+    - echo "--- [setup] 실험 패키지 구조 검증 ---"
+    - |
+      for f in train.py module.py model.py data.py scripts/smoke_test.py \
+                configs/default.yaml configs/fast.yaml; do
+        test -f "$f" || (echo "MISSING: $f" && exit 1)
+      done
+
+    - echo "--- [setup] artifacts 디렉토리 생성 ---"
+    - mkdir -p artifacts/checkpoints artifacts/logs artifacts/metrics
+
+    - echo "--- [setup] GitLab run metadata 기록 ---"
+    - |
+      python -c "
+      import json, os, datetime
+      meta = {
+        'job_id':      os.environ.get('CI_JOB_ID', ''),
+        'pipeline_id': os.environ.get('CI_PIPELINE_ID', ''),
+        'runner_id':   os.environ.get('CI_RUNNER_ID', ''),
+        'git_sha':     os.environ.get('CI_COMMIT_SHA', ''),
+        'git_branch':  os.environ.get('CI_COMMIT_BRANCH', ''),
+        'started_at':  datetime.datetime.utcnow().isoformat(),
+        'experiment_pkg': os.environ.get('EXPERIMENT_PKG', '')
+      }
+      open('gitlab_run_metadata.json', 'w').write(json.dumps(meta, indent=2))
+      print('metadata saved.')
+      "
+  timeout: 10m
+
+# ──────────────────────────────────────────────────────────
+# 2. SMOKE — forward pass 및 2 step 검증
+# ──────────────────────────────────────────────────────────
+smoke:
+  extends: .common
+  stage: smoke
+  needs: [setup]
+  script:
+    - echo "--- [smoke] fast config로 2 epoch 검증 ---"
+    - ${PYTHON} scripts/smoke_test.py --config configs/fast.yaml
+  after_script:
+    - |
+      if [ $CI_JOB_STATUS != "success" ]; then
+        python -c "
+      import json, datetime
+      r = {'schema_version':'1.0','status':'smoke_failed',
+           'run_id':'','created_at':datetime.datetime.utcnow().isoformat()}
+      open('result_summary.json','w').write(json.dumps(r,indent=2))
+        "
+      fi
+  timeout: "$SMOKE_TIMEOUT"
+
+# ──────────────────────────────────────────────────────────
+# 3. TRAIN — 본 학습 실행
+# ──────────────────────────────────────────────────────────
+train:
+  extends: .common
+  stage: train
+  needs: [smoke]
+  script:
+    - echo "--- [train] 학습 시작: ${CONFIG_FILE} ---"
+    - |
+      set -o pipefail
+      ${PYTHON} train.py --config ${CONFIG_FILE} 2>artifacts/logs/stderr.txt \
+        | tee artifacts/logs/stdout.txt
+    - echo "--- [train] METRICS 파싱 검증 ---"
+    - |
+      METRICS_LINE=$(grep -E '^METRICS:\{.*\}$' artifacts/logs/stdout.txt | tail -1)
+      if [ -z "$METRICS_LINE" ]; then
+        echo "ERROR: METRICS line not found in stdout"
+        exit 1
+      fi
+      echo "Parsed: $METRICS_LINE"
+      python -c "
+      import json, sys
+      line = open('artifacts/logs/stdout.txt').readlines()
+      metrics_lines = [l.strip() for l in line if l.strip().startswith('METRICS:{')]
+      if not metrics_lines:
+          print('ERROR: no METRICS line'); sys.exit(1)
+      m = json.loads(metrics_lines[-1][len('METRICS:'):])
+      print('Metrics keys:', list(m.keys()))
+      json.dump(m, open('artifacts/metrics/final_metrics.json','w'), indent=2)
+      "
+  after_script:
+    - |
+      if [ $CI_JOB_STATUS != "success" ]; then
+        python -c "
+      import json, datetime
+      stderr = open('artifacts/logs/stderr.txt','r').readlines()[-200:]
+      r = {'schema_version':'1.0','status':'failed',
+           'stderr_tail': [l.rstrip() for l in stderr],
+           'created_at':datetime.datetime.utcnow().isoformat()}
+      open('result_summary.json','w').write(json.dumps(r,indent=2))
+        " 2>/dev/null || true
+      fi
+  timeout: "$TIMEOUT_TRAIN"
+
+# ──────────────────────────────────────────────────────────
+# 4. PACKAGE — 결과 패키징 및 result_summary.json 생성
+# ──────────────────────────────────────────────────────────
+package:
+  extends: .common
+  stage: package
+  needs: [train]
+  script:
+    - echo "--- [package] result_summary.json 생성 ---"
+    - |
+      python -c "
+      import json, datetime, os, re
+
+      # METRICS 파싱
+      stdout_lines = open('artifacts/logs/stdout.txt').readlines()
+      metrics_lines = [l.strip() for l in stdout_lines
+                       if re.match(r'^METRICS:\{.*\}$', l.strip())]
+      metrics = json.loads(metrics_lines[-1][len('METRICS:'):]) if metrics_lines else {}
+
+      # per_epoch_metrics
+      epoch_metrics = []
+      jsonl_path = 'artifacts/metrics/per_epoch_metrics.jsonl'
+      if os.path.exists(jsonl_path):
+          epoch_metrics = [json.loads(l) for l in open(jsonl_path) if l.strip()]
+
+      # run metadata
+      meta = json.load(open('gitlab_run_metadata.json'))
+      meta['duration_s'] = (
+          datetime.datetime.utcnow() -
+          datetime.datetime.fromisoformat(meta['started_at'])
+      ).total_seconds()
+      open('gitlab_run_metadata.json','w').write(json.dumps(meta,indent=2))
+
+      # spec 읽기
+      spec_path = '../../schemas/experiment_spec.json'
+      spec_id   = os.environ.get('EXPERIMENT_PKG','').replace('/','_')
+
+      # primary metric (spec의 evaluation_config 참조)
+      # 실제 구현 시 experiment_spec.json에서 읽어야 함
+      primary_name   = list(metrics.keys())[0] if metrics else 'unknown'
+      primary_value  = metrics.get(primary_name, 0.0)
+
+      run_id = (
+          os.environ.get('EXPERIMENT_PKG','run').replace('experiments/','')
+          + '_' + datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+      )
+
+      summary = {
+          'schema_version':  '1.0',
+          'run_id':          run_id,
+          'spec_id':         spec_id,
+          'hypothesis_id':   '',
+          'experiment_version': 1,
+          'status':          'success',
+          'primary_metric':  {
+              'name': primary_name, 'value': primary_value,
+              'unit': '', 'target': 0.0, 'met': False
+          },
+          'secondary_metrics': [
+              {'name': k, 'value': float(v), 'unit': ''}
+              for k, v in metrics.items() if k != primary_name
+          ],
+          'deltas_vs_baseline':   {'baseline_run_id': None, 'deltas': {}},
+          'training_stability':   {
+              'loss_converged': True, 'nan_detected': False, 'lr_schedule_ok': True,
+              'final_train_loss': epoch_metrics[-1].get('train_loss') if epoch_metrics else None,
+              'best_val_epoch':   None
+          },
+          'bottleneck_candidates':     [],
+          'ablation_findings':         [],
+          'confidence':                0.6,
+          'recommended_next_actions':  [
+              {'path': 'done', 'rationale': 'Review metrics and decide', 'priority': 'high'}
+          ],
+          'gitlab_run_metadata':       meta,
+          'created_at':                datetime.datetime.utcnow().isoformat()
+      }
+
+      open('result_summary.json','w').write(json.dumps(summary,indent=2))
+      print('result_summary.json saved.')
+      print(f'Primary metric: {primary_name} = {primary_value}')
+      "
+    - echo "--- [package] previous_results.jsonl 에 append ---"
+    - |
+      python -c "
+      import json
+      summary = json.load(open('result_summary.json'))
+      with open('../../results/previous_results.jsonl','a') as f:
+          f.write(json.dumps(summary) + '\n')
+      print('Appended to previous_results.jsonl')
+      "
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - "${EXPERIMENT_PKG}/result_summary.json"
+      - "${EXPERIMENT_PKG}/gitlab_run_metadata.json"
+      - "${EXPERIMENT_PKG}/artifacts/"

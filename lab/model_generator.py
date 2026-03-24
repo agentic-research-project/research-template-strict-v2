@@ -1,174 +1,1164 @@
 """
-Stage 7: PyTorch 모델 코드 생성
+Stage 7: PyTorch Fabric 실험 패키지 생성 (Multi-model Proposal-Review-Merge)
 
-가설과 코드 분석 결과를 기반으로 Claude가 완전한 PyTorch 모델 코드를 생성한다.
-생성 코드는 experiments/{topic}_{version}.py 에 저장된다.
+흐름:
+  1. Claude   → 기반 코드 생성 (model.py / module.py / data.py / default.yaml)
+  2. GPT/Codex→ 코드 패치 제안 (proposals/gpt_patch_*.json)
+  3. Gemini   → 설계 리뷰     (proposals/gemini_review_*.json)
+  4. Claude   → 제안 검토 + Merge Checklist 적용 → 최종 파일 확정
+  5. Validation → syntax + smoke + forward 검증, 실패 시 1회 repair
+
+Path A revision 모드 (revised_from + revision_path="A"):
+  - 이전 패키지를 그대로 복사 후 최소 diff 적용
+  - 전체 재생성 대신 변경이 필요한 파일만 수정
+
+구조:
+  experiments/{slug}_v{N}/
+  ├── train.py            (template 복사 — 수정 금지)
+  ├── model.py            (Claude 생성 + merge)
+  ├── module.py           (Claude 생성 + merge)
+  ├── data.py             (Claude 생성 + merge)
+  ├── configs/default.yaml(Claude 생성 + merge)
+  ├── configs/fast.yaml   (template 복사)
+  ├── scripts/smoke_test.py (template 복사)
+  ├── tests/test_forward.py (template 복사)
+  ├── proposals/          (GPT·Gemini 제안 아카이브)
+  └── artifacts/
 
 사용법:
-  python -m lab.model_generator \
-    --topic-file      reports/topic_analysis.json \
-    --hypothesis-file reports/hypothesis_{topic}.json \
-    --code-file       reports/code_analysis_{topic}.json
+  python -m lab.model_generator \\
+    --topic-file      reports/{slug}/topic_analysis.json \\
+    --hypothesis-file reports/{slug}/hypothesis.json \\
+    --code-file       reports/{slug}/code_analysis.json \\
+    [--version 1] [--revised-from experiments/{slug}_v1]
+    [--revision-path A] [--improvement-hints "..."]
 """
 
 import argparse
 import json
+import py_compile
 import re
+import shutil
+import subprocess
+import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import query_claude, parse_json
+from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model
+
+TEMPLATE_DIR = Path(__file__).parent.parent / "experiments" / "template"
+SCHEMAS_DIR  = Path(__file__).parent.parent / "schemas"
 
 
-def generate_model(
-    topic_file: str,
-    hypothesis_file: str,
-    code_analysis_file: str,
-    version: str = "v1",
+# ──────────────────────────────────────────────────────────
+# 제안 파일 저장 헬퍼
+# ──────────────────────────────────────────────────────────
+
+def _save_proposal(pkg_dir: Path, prefix: str, data: dict) -> Path:
+    """proposals/{prefix}_{timestamp}.json 으로 저장하고 경로 반환."""
+    proposals_dir = pkg_dir / "proposals"
+    proposals_dir.mkdir(exist_ok=True)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = proposals_dir / f"{prefix}_{ts}.json"
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"    [proposals] {path.name} 저장")
+    return path
+
+
+def _archive_proposal(path: Path, accepted: bool) -> None:
+    """병합 완료 후 _accepted / _rejected suffix 추가."""
+    suffix = "_accepted" if accepted else "_rejected"
+    new_name = path.stem + suffix + path.suffix
+    path.rename(path.parent / new_name)
+
+
+# ──────────────────────────────────────────────────────────
+# experiment_spec.json 생성
+# ──────────────────────────────────────────────────────────
+
+def _build_experiment_spec(
+    topic: dict,
+    hypothesis: dict,
+    code_analysis: dict,
+    version: int,
+    revised_from: str | None,
+    revision_path: str | None,
 ) -> dict:
-    """
-    가설과 코드 분석을 기반으로 PyTorch 모델 코드를 생성한다.
-
-    Returns:
-        {"model_file": str, "code": str, "description": str}
-    """
-    topic = json.loads(Path(topic_file).read_text(encoding="utf-8"))
-    hypothesis = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
-    code_analysis = json.loads(Path(code_analysis_file).read_text(encoding="utf-8"))
-
-    topic_name = topic.get("input", {}).get("topic", "research")
-    topic_slug = re.sub(r"\W+", "_", topic_name.lower())[:30]
-    inp = topic.get("input", {})
-    hyp = hypothesis.get("hypothesis", {})
+    inp      = topic.get("input", {})
+    hyp      = hypothesis.get("hypothesis", {})
     exp_plan = hypothesis.get("experiment_plan", {})
-    components = code_analysis.get("reusable_components", [])
-    tips = code_analysis.get("implementation_tips", [])
-    baseline = code_analysis.get("recommended_baseline", "")
+    slug     = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 컴포넌트 스니펫 요약
-    component_info = "\n".join([
-        f"- [{c['type']}] {c['name']}: {c['description']}\n  수정사항: {c.get('adaptation_needed', '')}"
-        for c in components[:5]
-    ])
-
-    # evaluation_metrics 에서 동적으로 expected_metrics 스키마 생성
     metrics_list = exp_plan.get("evaluation_metrics", [])
-    metrics_keys = [
-        m.split("(")[0].split("—")[0].strip().lower().replace(" ", "_")
-        for m in metrics_list[:4]
-    ] or ["primary_metric", "secondary_metric"]
-    expected_metrics_schema = {k: f"예상 {k} 값" for k in metrics_keys}
-    expected_metrics_schema["training_time"] = "예상 학습 시간"
+    primary_name = "psnr"
+    secondary    = []
+    for m in metrics_list:
+        key = re.split(r"[\s\(—]", m.strip())[0].lower().replace("-", "_")
+        if key and key != "psnr":
+            secondary.append(key)
+        elif key == "psnr":
+            primary_name = key
 
-    prompt = f"""당신은 딥러닝 연구 전문가이자 PyTorch 코드 전문가입니다.
-아래 연구 가설과 분석 결과를 바탕으로 실행 가능한 완전한 PyTorch 코드를 생성해주세요.
+    target_raw = inp.get("target_metric", "")
+    target_val = 30.0
+    m_val = re.search(r"(\d+(?:\.\d+)?)\s*(?:dB|db)?", target_raw)
+    if m_val:
+        target_val = float(m_val.group(1))
 
-## 연구 주제
-- 주제: {inp.get('topic', '')}
-- 문제: {inp.get('problem_definition', '')}
-- 목표: {inp.get('desired_outcome', '')}
-- 제약: {inp.get('constraints', '')}
-- 목표 지표: {inp.get('target_metric', '')}
+    param_budget = 5.0
+    m_param = re.search(r"(\d+(?:\.\d+)?)\s*[Mm]", inp.get("constraints", ""))
+    if m_param:
+        param_budget = float(m_param.group(1))
+
+    return {
+        "schema_version": "1.0",
+        "spec_id":         f"{slug}_v{version}_{ts}",
+        "hypothesis_id":   hypothesis.get("hypothesis_id", str(uuid.uuid4())[:8]),
+        "experiment_version": version,
+        "topic_slug":      slug,
+        "created_at":      datetime.now().isoformat(),
+        "revised_from_spec_id": revised_from,
+        "revision_path":   revision_path,
+        "model_architecture": {
+            "name":           hyp.get("title", exp_plan.get("architecture", "CustomNet")),
+            "description":    hyp.get("statement_kr", hyp.get("statement", "")),
+            "key_components": exp_plan.get("key_components", []),
+            "param_budget_M": param_budget,
+        },
+        "training_config": {
+            "epochs": 50, "batch_size": 16, "optimizer": "adamw",
+            "lr": 1e-4, "loss_function": "l1", "seed": 42,
+            "precision": "bf16-mixed", "gradient_clip": 1.0,
+        },
+        "evaluation_config": {
+            "primary_metric":    primary_name,
+            "target_value":      target_val,
+            "secondary_metrics": secondary[:3],
+            "test_set":          "val_split",
+            "eval_frequency":    1,
+        },
+        "ablations": [],
+        "baselines": [
+            {"name": b.strip(), "source": "literature"}
+            for b in code_analysis.get("recommended_baseline", "").split(",")
+            if b.strip()
+        ],
+        "output_contract": {
+            "stdout_pattern": "^METRICS:\\{.*\\}$",
+            "required_keys":  [primary_name] + secondary[:2],
+        },
+    }
+
+
+# ──────────────────────────────────────────────────────────
+# Step 1 — Claude: 기반 코드 생성 (template 기반, 최초 생성)
+# ──────────────────────────────────────────────────────────
+
+def _claude_generate_base(
+    topic: dict,
+    hypothesis: dict,
+    code_analysis: dict,
+    spec: dict,
+    improvement_hints: str = "",
+) -> dict:
+    """Claude가 model.py / module.py / data.py / default.yaml 초안을 생성한다."""
+    inp      = topic.get("input", {})
+    hyp      = hypothesis.get("hypothesis", {})
+    exp_plan = hypothesis.get("experiment_plan", {})
+    components = code_analysis.get("reusable_components", [])[:4]
+    tips       = code_analysis.get("implementation_tips", [])[:5]
+
+    component_info = "\n".join(
+        f"- [{c['type']}] {c['name']}: {c['description']}"
+        for c in components
+    )
+    primary      = spec["evaluation_config"]["primary_metric"]
+    secondary    = spec["evaluation_config"]["secondary_metrics"]
+    param_budget = spec["model_architecture"]["param_budget_M"]
+
+    improvement_section = (
+        f"\n## 이전 실험 개선 요청\n{improvement_hints}" if improvement_hints else ""
+    )
+
+    prompt = f"""당신은 PyTorch Fabric 전문 딥러닝 엔지니어입니다.
+아래 연구 가설을 구현하는 실험 패키지 핵심 파일 4종의 **초안**을 생성하세요.
+(이후 GPT/Codex가 패치 제안, Gemini가 설계 리뷰, 당신이 최종 merge합니다)
 
 ## 연구 가설
-{hyp.get('statement_kr', hyp.get('statement', ''))}
-
-## 제안 아키텍처
-{exp_plan.get('architecture', '')}
-
-## 데이터셋
-{exp_plan.get('dataset', '')}
-
-## 평가 지표
-{', '.join(metrics_list)}
+- 주제: {inp.get('topic', '')}
+- 가설: {hyp.get('statement_kr', hyp.get('statement', ''))}
+- 핵심 아키텍처: {exp_plan.get('architecture', '')}
+- 목표: {primary} ≥ {spec['evaluation_config']['target_value']} / params ≤ {param_budget}M
+- 제약: {inp.get('constraints', '')}
 
 ## 참고 컴포넌트
-{component_info if component_info else '없음 (직접 구현)'}
-
-## 추천 베이스라인
-{baseline}
+{component_info if component_info else '없음'}
 
 ## 구현 팁
 {chr(10).join(f'- {t}' for t in tips)}
+{improvement_section}
 
-## 요구사항
-1. **완전히 실행 가능한** 단일 Python 파일 생성
-2. 다음을 모두 포함:
-   - Dataset 클래스 (합성 데이터 또는 실제 데이터 로더)
-   - Model 아키텍처 (PyTorch nn.Module)
-   - Loss 함수
-   - Trainer 클래스 (train/validate 메서드)
-   - 메인 실행 블록 (argparse 포함)
-3. 모델 출력 형식: stdout에 `METRICS:{{...}}` 줄 출력 (마지막 epoch)
-   - METRICS 키는 반드시 위 평가 지표({', '.join(metrics_keys)})를 사용할 것
-4. 경량 모델 우선 (빠른 실험을 위해)
-5. 합성 데이터 생성 포함 (실제 데이터 없이도 실행 가능)
-6. 에러 처리 포함
+## 생성 규칙
+1. model.py: `build_model(config) -> nn.Module`, 모든 크기는 config에서 읽기
+2. module.py: `TrainingModule(model, config)` — train_epoch / val_epoch 포함, val에 '{primary}' 키
+3. data.py: `build_dataloaders(config)` — 합성 더미 데이터 fallback 포함
+4. default.yaml: 모든 하이퍼파라미터 포함 (epochs=50, batch_size=16, lr=1e-4, seed=42)
 
-## 출력 형식
-반드시 아래 JSON으로만 답변 (code 필드에 전체 Python 코드):
+아래 JSON으로만 출력 (코드 블록 없이):
 {{
-  "model_name": "모델 이름",
-  "description": "모델 설명 (2-3문장)",
-  "architecture_summary": "아키텍처 요약",
-  "code": "전체 Python 코드 (주석 포함)",
-  "requirements": ["torch", "필요한 추가 패키지"],
-  "expected_metrics": {json.dumps(expected_metrics_schema, ensure_ascii=False)},
-  "usage": "python experiments/{topic_slug}_{version}.py --epochs 10 --batch-size 16"
+  "model_py": "...", "module_py": "...", "data_py": "...", "default_yaml": "...",
+  "description": "...", "architecture_summary": "...", "param_estimate_M": 0.0
 }}"""
 
-    print("  [Claude SDK] 모델 코드 생성 중...")
+    print("  [Step 1 / Claude] 기반 코드 생성...")
+    return parse_json(query_claude(prompt))
+
+
+# ──────────────────────────────────────────────────────────
+# Path A 패치 context 정규화
+# ──────────────────────────────────────────────────────────
+
+def _prepare_accepted_patch_context(
+    patches: list[dict],
+    accepted_indexes: list[int],
+) -> dict:
+    """수락된 GPT 패치를 파일별로 그룹화한 구조화된 context를 생성한다.
+
+    - 수락된 패치만 유지 (거절된 패치 완전 제거)
+    - target_file별로 그룹화
+    - rationale, hypothesis_alignment_check, changes 보존
+
+    Returns:
+        {
+          "accepted_count": int,
+          "by_file": {
+            "model.py": [
+              {"index": 0, "rationale": ..., "hypothesis_alignment_check": ..., "changes": [...]}
+            ]
+          },
+          "target_files": ["model.py"]
+        }
+    """
+    accepted_set = set(accepted_indexes)
+    by_file: dict[str, list[dict]] = {}
+
+    for i, patch in enumerate(patches):
+        if i not in accepted_set:
+            continue
+        fname = patch.get("target_file", "unknown")
+        if fname not in by_file:
+            by_file[fname] = []
+        by_file[fname].append({
+            "index":                    i,
+            "rationale":                patch.get("rationale", ""),
+            "hypothesis_alignment_check": patch.get("hypothesis_alignment_check", ""),
+            "changes":                  patch.get("changes", []),
+        })
+
+    return {
+        "accepted_count": sum(len(v) for v in by_file.values()),
+        "by_file":        by_file,
+        "target_files":   list(by_file.keys()),
+    }
+
+
+# ──────────────────────────────────────────────────────────
+# Step 1 (Path A) — Claude: 이전 패키지 기반 최소 revision
+# ──────────────────────────────────────────────────────────
+
+def _copy_previous_package(previous_pkg: Path, new_pkg: Path) -> None:
+    """이전 패키지를 새 버전 디렉토리로 복사하고 runtime 아티팩트를 초기화한다.
+
+    - 코드/설정/문서 파일: 이전 버전 그대로 보존 (revision 대상)
+    - artifacts/ 하위 디렉토리: 내용 삭제 후 빈 디렉토리로 재생성
+    - proposals/: 이전 제안에 "prev_" prefix 추가 (새 버전과 혼용 방지)
+    """
+    if new_pkg.exists():
+        shutil.rmtree(new_pkg)
+    shutil.copytree(previous_pkg, new_pkg)
+
+    # ── 아티팩트 디렉토리 실제 초기화 ──────────────────────
+    # artifacts/ 전체를 삭제 후 빈 서브디렉토리로 재생성
+    artifacts_dir = new_pkg / "artifacts"
+    if artifacts_dir.exists():
+        shutil.rmtree(artifacts_dir)
+    for sub in ["checkpoints", "logs", "metrics"]:
+        (artifacts_dir / sub).mkdir(parents=True)
+
+    # 패키지 루트 레벨의 checkpoints/, logs/ 디렉토리도 초기화 (template 변형 대응)
+    for extra_dir in ["checkpoints", "logs"]:
+        d = new_pkg / extra_dir
+        if d.exists() and d.is_dir():
+            shutil.rmtree(d)
+            d.mkdir()
+
+    # ── proposals 폴더: 이전 제안에 prefix 추가 ───────────
+    proposals_dir = new_pkg / "proposals"
+    if proposals_dir.exists():
+        for old_proposal in proposals_dir.glob("*.json"):
+            if not old_proposal.name.startswith("prev_"):
+                old_proposal.rename(old_proposal.with_name("prev_" + old_proposal.name))
+
+    print(f"  [Path A] 이전 패키지 복사: {previous_pkg.name} → {new_pkg.name}"
+          f" (artifacts 초기화 완료)")
+
+
+def _load_previous_package_context(previous_pkg: Path) -> dict:
+    """이전 패키지의 편집 가능 파일과 메타데이터를 로드한다."""
+    ctx: dict = {}
+    for key, rel in [
+        ("model_py",     "model.py"),
+        ("module_py",    "module.py"),
+        ("data_py",      "data.py"),
+        ("default_yaml", "configs/default.yaml"),
+    ]:
+        fpath = previous_pkg / rel
+        ctx[key] = fpath.read_text(encoding="utf-8") if fpath.exists() else ""
+
+    spec_path = previous_pkg / "experiment_spec.json"
+    ctx["experiment_spec"] = (
+        json.loads(spec_path.read_text(encoding="utf-8")) if spec_path.exists() else {}
+    )
+
+    result_path = previous_pkg / "result_summary.json"
+    ctx["result_summary"] = (
+        json.loads(result_path.read_text(encoding="utf-8")) if result_path.exists() else {}
+    )
+    return ctx
+
+
+def _claude_generate_revision_patch(
+    previous_ctx: dict,
+    hypothesis: dict,
+    spec: dict,
+    improvement_hints: str = "",
+    patch_context: dict | None = None,
+    gemini_review: dict | None = None,
+) -> dict:
+    """이전 패키지를 기반으로 최소한의 수정만 적용한 revision을 생성한다.
+
+    Args:
+        patch_context: _prepare_accepted_patch_context()가 반환한 구조화된 패치 context.
+                       by_file별로 그룹화되어 있으며, 수락된 패치만 포함.
+    Returns:
+        수정된 파일 + applied_patch_indexes, skipped_patch_indexes, patch_application_notes
+    """
+    hyp          = hypothesis.get("hypothesis", {})
+    primary      = spec["evaluation_config"]["primary_metric"]
+    prev_result  = previous_ctx.get("result_summary", {})
+    prev_primary = prev_result.get("primary_metric", {})
+
+    prev_result_section = ""
+    if prev_primary:
+        prev_result_section = (
+            f"\n## 이전 실험 결과\n"
+            f"- {prev_primary.get('name', primary)}: {prev_primary.get('value', 'N/A')} "
+            f"(target={prev_primary.get('target', 'N/A')}, met={prev_primary.get('met', False)})\n"
+            f"- status: {prev_result.get('status', 'unknown')}"
+        )
+
+    # GPT 패치 context: 파일별 구조화 형태로 표현
+    gpt_section = ""
+    if patch_context and patch_context.get("accepted_count", 0) > 0:
+        by_file     = patch_context.get("by_file", {})
+        target_files = patch_context.get("target_files", [])
+        patch_lines  = [
+            f"\n### {fname} ({len(patches)}개 패치)\n"
+            + "\n".join(
+                f"  [patch {p['index']}] {p['rationale']}\n"
+                f"    alignment: {p['hypothesis_alignment_check']}\n"
+                f"    changes: {json.dumps(p['changes'], ensure_ascii=False)}"
+                for p in patches
+            )
+            for fname, patches in by_file.items()
+        ]
+        gpt_section = (
+            f"\n## 적용 예정 GPT 패치 (수락된 것만, 파일별 그룹화)\n"
+            f"대상 파일: {target_files}\n"
+            + "\n".join(patch_lines)
+        )
+
+    gemini_section = ""
+    if gemini_review:
+        gemini_section = (
+            f"\n## Gemini 분석\n"
+            f"- root_cause: {gemini_review.get('root_cause_analysis', '')}\n"
+            f"- suggestions: {gemini_review.get('improvement_suggestions', [])}"
+        )
+
+    prompt = f"""당신은 실험 패키지 revision 담당자(Claude 역할)입니다.
+이전 패키지 코드를 기반으로 **최소한의 변경**만 적용하여 개선하세요.
+불필요한 리팩토링, 파일 이동, 전체 재작성은 금지입니다.
+{prev_result_section}
+
+## 개선 목표
+- 가설: {hyp.get('statement_kr', hyp.get('statement', ''))}
+- 목표: {primary} ≥ {spec['evaluation_config']['target_value']}
+- 개선 요청: {improvement_hints}
+{gpt_section}{gemini_section}
+
+## 현재 model.py
+```python
+{previous_ctx.get('model_py', '')[:3000]}
+```
+
+## 현재 module.py
+```python
+{previous_ctx.get('module_py', '')[:2000]}
+```
+
+## 현재 data.py
+```python
+{previous_ctx.get('data_py', '')[:2000]}
+```
+
+## 현재 default.yaml
+```yaml
+{previous_ctx.get('default_yaml', '')[:1000]}
+```
+
+## 수정 규칙
+1. 수정이 필요한 파일만 변경 — 변경 없는 파일은 빈 문자열로 반환
+2. train.py 수정 금지
+3. METRICS:{{...}} stdout 계약 보존 (metric 키 이름 변경 금지)
+4. GPT 패치: 현재 코드와 호환되는 것만 적용, 호환 안 되면 건너뜀
+5. 파일 전체 재작성 금지 — 변경 필요한 부분만 수정
+6. 인덱스 규칙 (중요):
+   - applied_patch_indexes / skipped_patch_indexes는 반드시 원본 GPT proposal 인덱스를 사용한다
+   - 로컬 순서로 0, 1, 2... 재번호 매기기 금지
+   - 예: GPT가 proposal 인덱스 1, 4, 7을 제안했고 1과 4를 적용, 7을 건너뜀 →
+         applied_patch_indexes: [1, 4]  (원본 인덱스)
+         skipped_patch_indexes: [7]     (원본 인덱스)
+   - patch_application_notes에도 원본 인덱스 번호로 기재할 것
+
+아래 JSON으로만 출력:
+{{
+  "model_py": "수정된 전체 내용 (변경 없으면 빈 문자열)",
+  "module_py": "수정된 전체 내용 (변경 없으면 빈 문자열)",
+  "data_py": "수정된 전체 내용 (변경 없으면 빈 문자열)",
+  "default_yaml": "수정된 전체 내용 (변경 없으면 빈 문자열)",
+  "change_summary": "변경 내용 요약",
+  "files_changed": ["model.py"],
+  "files_unchanged": ["module.py", "data.py"],
+  "applied_patch_indexes": [1, 4],
+  "skipped_patch_indexes": [7],
+  "patch_application_notes": "패치 1(원본idx): 적용됨. 패치 4(원본idx): 적용됨. 패치 7(원본idx): 건너뜀 (API 불일치)",
+  "description": "...", "architecture_summary": "...", "param_estimate_M": 0.0
+}}"""
+
+    print("  [Step 1-A / Claude] 최소 revision 패치 생성...")
     result = parse_json(query_claude(prompt))
 
-    # 코드 파일 저장
-    code = result.get("code", "")
-    model_file = Path(f"experiments/{topic_slug}_{version}.py")
-    model_file.parent.mkdir(exist_ok=True)
-    model_file.write_text(code, encoding="utf-8")
-    print(f"  모델 저장: {model_file}")
+    # 빈 문자열 = 변경 없음 → 이전 파일 내용 그대로 유지
+    for key in ("model_py", "module_py", "data_py", "default_yaml"):
+        if not result.get(key):
+            result[key] = previous_ctx.get(key, "")
 
-    result["model_file"] = str(model_file)
-    result["timestamp"] = datetime.now().isoformat()
-    result["topic"] = topic_name
-    result["version"] = version
+    changed   = result.get("files_changed", [])
+    unchanged = result.get("files_unchanged", [])
+    applied   = result.get("applied_patch_indexes", [])
+    skipped   = result.get("skipped_patch_indexes", [])
+    print(f"    변경: {changed}  유지: {unchanged}")
+    print(f"    패치 적용: {applied}  건너뜀: {skipped}")
+    if result.get("patch_application_notes"):
+        print(f"    노트: {result['patch_application_notes']}")
+    return result
 
-    # 메타 JSON 저장 (코드 제외)
-    meta = {k: v for k, v in result.items() if k != "code"}
-    meta_path = Path(topic_file).parent / f"model_meta_{version}.json"
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"  메타 저장: {meta_path}")
+
+# ──────────────────────────────────────────────────────────
+# Step 2 — GPT/Codex: 패치 제안
+# ──────────────────────────────────────────────────────────
+
+def _gpt_propose_patches(
+    generated: dict,
+    spec: dict,
+    hypothesis: dict,
+) -> dict:
+    """GPT/Codex가 model.py / module.py / data.py에 대한 패치를 제안한다."""
+    hyp        = hypothesis.get("hypothesis", {})
+    primary    = spec["evaluation_config"]["primary_metric"]
+    param_budget = spec["model_architecture"]["param_budget_M"]
+
+    system_msg = (
+        "You are a PyTorch code reviewer (GPT/Codex role). "
+        "Your job is to propose concrete code patches to improve the generated experiment code. "
+        "Focus on: efficiency, stability, correctness, test coverage. "
+        "Do NOT rewrite train.py or module.py training loop. "
+        "Return valid JSON only."
+    )
+
+    user_msg = f"""Review the following PyTorch experiment code and propose patches.
+
+## Hypothesis
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+
+## Target
+- primary metric: {primary} ≥ {spec['evaluation_config']['target_value']}
+- param budget: ≤ {param_budget}M
+
+## Generated model.py
+```python
+{generated.get('model_py', '')[:3000]}
+```
+
+## Generated module.py
+```python
+{generated.get('module_py', '')[:2000]}
+```
+
+## Generated data.py
+```python
+{generated.get('data_py', '')[:2000]}
+```
+
+Propose patches as JSON. Each patch must include hypothesis_alignment_check.
+Return JSON only:
+{{
+  "patches": [
+    {{
+      "target_file": "model.py",
+      "rationale": "...",
+      "hypothesis_alignment_check": "...",
+      "complexity_delta_loc": 5,
+      "changes": [
+        {{"type": "replace", "old": "exact old code snippet", "new": "new code snippet"}}
+      ]
+    }}
+  ],
+  "overall_assessment": "...",
+  "critical_issues": []
+}}"""
+
+    print("  [Step 2 / GPT]   패치 제안...")
+    try:
+        client = get_openai_client()
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user",   "content": user_msg},
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(resp.choices[0].message.content)
+        print(f"    → {len(result.get('patches', []))}개 패치 제안")
+        return result
+    except Exception as e:
+        print(f"    [경고] GPT 패치 제안 실패: {e} → 빈 제안으로 계속")
+        return {"patches": [], "overall_assessment": f"GPT call failed: {e}", "critical_issues": []}
+
+
+# ──────────────────────────────────────────────────────────
+# Step 3 — Gemini: 설계 리뷰
+# ──────────────────────────────────────────────────────────
+
+def _gemini_design_review(
+    generated: dict,
+    spec: dict,
+    hypothesis: dict,
+) -> dict:
+    """Gemini가 아키텍처 설계와 가설 정합성을 리뷰한다."""
+    hyp    = hypothesis.get("hypothesis", {})
+    primary = spec["evaluation_config"]["primary_metric"]
+
+    prompt = f"""You are a deep learning research critic (Gemini role).
+Review the architecture design for hypothesis alignment, not implementation details.
+Return valid JSON only.
+
+## Hypothesis
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+Key mechanism: {hyp.get('key_mechanism', hyp.get('mechanism', ''))}
+
+## Architecture Summary
+{generated.get('architecture_summary', '')}
+
+## model.py (excerpt)
+```python
+{generated.get('model_py', '')[:2500]}
+```
+
+## Primary metric target: {primary} ≥ {spec['evaluation_config']['target_value']}
+
+Evaluate:
+1. Does the architecture actually implement the hypothesis mechanism?
+2. Are there missing components critical to the hypothesis?
+3. Is the design unnecessarily complex?
+4. What is the weakest point?
+
+Return JSON only:
+{{
+  "verdict": "accept_as_is | accept_with_patch | revise_experiment",
+  "hypothesis_alignment_score": 0.0,
+  "issues": [
+    {{"severity": "critical|major|minor", "description": "...", "suggestion": "..."}}
+  ],
+  "missing_components": [],
+  "unnecessary_complexity": [],
+  "overall_comment": "..."
+}}"""
+
+    print("  [Step 3 / Gemini] 설계 리뷰...")
+    try:
+        model = get_gemini_model()
+        resp  = model.generate_content(prompt)
+        text  = resp.text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+        result = json.loads(text)
+        print(f"    → verdict={result.get('verdict')}, "
+              f"alignment={result.get('hypothesis_alignment_score')}")
+        return result
+    except Exception as e:
+        print(f"    [경고] Gemini 리뷰 실패: {e} → 기본 리뷰로 계속")
+        return {
+            "verdict": "accept_as_is",
+            "hypothesis_alignment_score": 0.7,
+            "issues": [],
+            "missing_components": [],
+            "unnecessary_complexity": [],
+            "overall_comment": f"Gemini call failed: {e}",
+        }
+
+
+# ──────────────────────────────────────────────────────────
+# Step 4 — Claude: Merge
+# ──────────────────────────────────────────────────────────
+
+def _claude_merge(
+    generated: dict,
+    gpt_proposal: dict,
+    gemini_review: dict,
+    spec: dict,
+    hypothesis: dict,
+) -> dict:
+    """Claude가 GPT 패치와 Gemini 리뷰를 검토하고 최종 파일을 확정한다."""
+    hyp          = hypothesis.get("hypothesis", {})
+    primary      = spec["evaluation_config"]["primary_metric"]
+    param_budget = spec["model_architecture"]["param_budget_M"]
+
+    gpt_patches = gpt_proposal.get("patches", [])
+    gemini_issues = [
+        i for i in gemini_review.get("issues", [])
+        if i.get("severity") in ("critical", "major")
+    ]
+
+    prompt = f"""당신은 실험 패키지의 최종 통합자(Claude 역할)입니다.
+GPT/Codex의 패치 제안과 Gemini의 설계 리뷰를 검토하고,
+Merge Checklist를 적용하여 최종 파일을 확정하세요.
+
+## 가설 (최우선 기준)
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+목표: {primary} ≥ {spec['evaluation_config']['target_value']}, params ≤ {param_budget}M
+
+## 현재 코드 (Claude 초안)
+### model.py
+```python
+{generated.get('model_py', '')}
+```
+### module.py
+```python
+{generated.get('module_py', '')}
+```
+### data.py
+```python
+{generated.get('data_py', '')}
+```
+### default.yaml
+```yaml
+{generated.get('default_yaml', '')}
+```
+
+## GPT/Codex 패치 제안 ({len(gpt_patches)}개)
+{json.dumps(gpt_patches, ensure_ascii=False, indent=2)}
+
+## Gemini 설계 리뷰
+- verdict: {gemini_review.get('verdict')}
+- alignment_score: {gemini_review.get('hypothesis_alignment_score')}
+- critical/major issues: {json.dumps(gemini_issues, ensure_ascii=False)}
+- missing_components: {gemini_review.get('missing_components', [])}
+- overall: {gemini_review.get('overall_comment', '')}
+
+## Merge Checklist (모두 통과해야 적용)
+1. 패치가 가설 메커니즘을 구현하는가?
+2. 적용 후 smoke_test 통과 가능한가?
+3. complexity_delta_loc ≤ 50인가?
+4. 공개 코드 20줄 이상 복사 없는가?
+5. train.py / module.py 학습 루프 수정이 없는가?
+6. Gemini critical issue가 반영되는가?
+
+## 지시사항
+- 통과한 GPT 패치는 적용, 실패한 것은 거절 (패치별로 accepted: true/false 표시)
+- Gemini critical/major issue 중 가설에 도움되는 것은 직접 수정
+- train.py는 절대 수정하지 말 것
+
+아래 JSON으로만 출력:
+{{
+  "model_py": "최종 model.py 전체",
+  "module_py": "최종 module.py 전체",
+  "data_py": "최종 data.py 전체",
+  "default_yaml": "최종 default.yaml 전체",
+  "merge_log": [
+    {{"source": "GPT|Gemini", "item": "...", "accepted": true, "reason": "..."}}
+  ],
+  "description": "최종 모델 설명",
+  "architecture_summary": "한 줄 요약",
+  "param_estimate_M": 0.0
+}}"""
+
+    print("  [Step 4 / Claude] Merge & 최종 확정...")
+    return parse_json(query_claude(prompt))
+
+
+# ──────────────────────────────────────────────────────────
+# Step 5 — Post-generation validation + 1회 repair
+# ──────────────────────────────────────────────────────────
+
+def _validate_generated_package(pkg_dir: Path) -> dict:
+    """생성된 패키지의 syntax / smoke / forward 검증을 실행한다.
+
+    Returns:
+        {
+            "ok": bool,           # syntax_ok AND smoke_ok
+            "syntax_ok": bool,
+            "smoke_ok": bool,
+            "forward_ok": bool,
+            "errors": [...],
+            "warnings": [...]
+        }
+    """
+    errors:   list[str] = []
+    warnings: list[str] = []
+
+    # ── 1. Python syntax check ──────────────────────────
+    syntax_ok = True
+    for py_file in ["model.py", "module.py", "data.py", "train.py"]:
+        fpath = pkg_dir / py_file
+        if not fpath.exists():
+            errors.append(f"missing file: {py_file}")
+            syntax_ok = False
+            continue
+        try:
+            py_compile.compile(str(fpath), doraise=True)
+        except py_compile.PyCompileError as e:
+            errors.append(f"syntax error in {py_file}: {e}")
+            syntax_ok = False
+
+    # ── 2. Config / file sanity ─────────────────────────
+    for required in ["configs/default.yaml", "configs/fast.yaml", "scripts/smoke_test.py"]:
+        if not (pkg_dir / required).exists():
+            errors.append(f"missing required file: {required}")
+
+    # ── 3. smoke test ───────────────────────────────────
+    smoke_ok = False
+    if syntax_ok:
+        cmd = [sys.executable, "scripts/smoke_test.py", "--config", "configs/fast.yaml"]
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=180, cwd=str(pkg_dir)
+            )
+            smoke_ok = proc.returncode == 0
+            if not smoke_ok:
+                errors.append(f"smoke_test failed: {proc.stderr[-400:]}")
+        except subprocess.TimeoutExpired:
+            errors.append("smoke_test timeout (180s)")
+        except Exception as e:
+            errors.append(f"smoke_test exception: {e}")
+    else:
+        warnings.append("smoke_test skipped due to syntax errors")
+
+    # ── 4. forward test (non-blocking) ─────────────────
+    forward_ok = True
+    test_path = pkg_dir / "tests" / "test_forward.py"
+    if test_path.exists() and syntax_ok:
+        cmd = [sys.executable, "-m", "pytest", str(test_path), "-q", "--tb=short"]
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=120, cwd=str(pkg_dir)
+            )
+            forward_ok = proc.returncode == 0
+            if not forward_ok:
+                warnings.append(f"test_forward failed (non-blocking): {proc.stdout[-300:]}")
+        except Exception as e:
+            warnings.append(f"test_forward exception (non-blocking): {e}")
+    else:
+        warnings.append("tests/test_forward.py not found — skipped")
+
+    ok = syntax_ok and smoke_ok
+    return {
+        "ok":         ok,
+        "syntax_ok":  syntax_ok,
+        "smoke_ok":   smoke_ok,
+        "forward_ok": forward_ok,
+        "errors":     errors,
+        "warnings":   warnings,
+    }
+
+
+def _write_validation_report(pkg_dir: Path, report: dict, phase: str = "initial") -> Path:
+    """proposals/validation_{phase}_{ts_ms}.json 으로 저장하고 경로 반환.
+
+    Args:
+        phase: "initial" (첫 검증) 또는 "repaired" (repair 후 재검증).
+               phase 레이블 + 밀리초 타임스탬프로 파일명 충돌을 방지한다.
+    """
+    proposals_dir = pkg_dir / "proposals"
+    proposals_dir.mkdir(exist_ok=True)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S_%f")   # %f = 마이크로초 6자리
+    path = proposals_dir / f"validation_{phase}_{ts}.json"
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"    [validation] {path.name} 저장")
+    return path
+
+
+def _claude_repair_from_validation(
+    pkg_dir: Path,
+    validation_report: dict,
+    spec: dict,
+    hypothesis: dict,
+) -> dict:
+    """검증 실패 시 Claude가 1회 수정 패스를 수행한다.
+
+    - train.py 및 METRICS stdout 계약은 절대 수정 금지
+    - 오류를 유발하는 최소 부분만 수정
+    """
+    errors  = validation_report.get("errors", [])
+    hyp     = hypothesis.get("hypothesis", {})
+
+    # 현재 파일 읽기
+    file_contents: dict[str, str] = {}
+    for key, rel in [
+        ("model_py",     "model.py"),
+        ("module_py",    "module.py"),
+        ("data_py",      "data.py"),
+        ("default_yaml", "configs/default.yaml"),
+    ]:
+        fpath = pkg_dir / rel
+        file_contents[key] = fpath.read_text(encoding="utf-8") if fpath.exists() else ""
+
+    prompt = f"""당신은 실험 패키지 수리 담당자(Claude 역할)입니다.
+아래 검증 실패 오류를 분석하고 최소한의 수정으로 오류를 해결하세요.
+
+## 검증 오류
+{json.dumps(errors, ensure_ascii=False, indent=2)}
+
+## 수정 가능 파일 (train.py / METRICS stdout 계약은 절대 수정 금지)
+- model.py
+- module.py
+- data.py
+- configs/default.yaml
+
+## 현재 model.py
+```python
+{file_contents.get('model_py', '')[:3000]}
+```
+
+## 현재 module.py
+```python
+{file_contents.get('module_py', '')[:2000]}
+```
+
+## 현재 data.py
+```python
+{file_contents.get('data_py', '')[:2000]}
+```
+
+## 현재 default.yaml
+```yaml
+{file_contents.get('default_yaml', '')[:1000]}
+```
+
+## 가설 (변경 금지 — 구현 방향 참고용)
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+
+## 지시사항
+1. 오류를 유발하는 최소 부분만 수정
+2. train.py 수정 금지
+3. METRICS:{{...}} stdout 출력 계약 보존
+4. 불필요한 리팩토링 금지
+
+아래 JSON으로만 출력:
+{{
+  "model_py": "수정된 model.py 전체 (변경 없으면 빈 문자열)",
+  "module_py": "수정된 module.py 전체 (변경 없으면 빈 문자열)",
+  "data_py": "수정된 data.py 전체 (변경 없으면 빈 문자열)",
+  "default_yaml": "수정된 default.yaml 전체 (변경 없으면 빈 문자열)",
+  "repair_summary": "수정 내용 요약"
+}}"""
+
+    print("  [Step 5 / Claude] 검증 실패 — 1회 수정 패스...")
+    result = parse_json(query_claude(prompt))
+
+    # 빈 문자열 = 변경 없음 → 기존 파일 유지
+    for key in ("model_py", "module_py", "data_py", "default_yaml"):
+        if not result.get(key):
+            result[key] = file_contents.get(key, "")
 
     return result
 
 
-def print_result(result: dict) -> None:
-    print(f"\n{'='*60}")
-    print(f"  모델 생성 완료: {result.get('model_name', '')}")
-    print(f"{'='*60}")
-    print(f"  설명: {result.get('description', '')}")
-    print(f"  아키텍처: {result.get('architecture_summary', '')}")
-    print(f"  파일: {result.get('model_file', '')}")
-    exp = result.get("expected_metrics", {})
-    if exp:
-        print(f"\n  예상 성능:")
-        for k, v in exp.items():
-            print(f"    {k}: {v}")
-    print(f"\n  실행 방법: {result.get('usage', '')}")
-    print(f"{'='*60}")
+# ──────────────────────────────────────────────────────────
+# 생성 파일 저장
+# ──────────────────────────────────────────────────────────
 
+def _write_package_files(pkg_dir: Path, files: dict) -> None:
+    """model_py / module_py / data_py / default_yaml → 패키지에 저장."""
+    file_map = {
+        "model_py":     "model.py",
+        "module_py":    "module.py",
+        "data_py":      "data.py",
+        "default_yaml": "configs/default.yaml",
+    }
+    for key, rel_path in file_map.items():
+        content = files.get(key, "")
+        if not content:
+            print(f"    [경고] {rel_path} 비어있음 — template 유지")
+            continue
+        dest = pkg_dir / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+        print(f"    [저장] {dest.relative_to(pkg_dir.parent)}")
+
+
+# ──────────────────────────────────────────────────────────
+# 공통 후처리 (proposal archive + spec + readme 저장)
+# ──────────────────────────────────────────────────────────
+
+def _finalize_package(
+    pkg_dir: Path,
+    merged: dict,
+    gpt_path: Path,
+    gem_path: Path,
+    spec: dict,
+    topic_file: str,
+    version: int,
+    slug: str,
+) -> dict:
+    """Merge 완료 후 proposal archive, experiment_spec, README 갱신."""
+    merge_log = merged.get("merge_log", [])
+    _save_proposal(
+        pkg_dir, "merge_log",
+        {"merge_log": merge_log, "created_at": datetime.now().isoformat()},
+    )
+
+    accepted_count = sum(1 for m in merge_log if m.get("accepted"))
+    print(f"    Merge 완료: {accepted_count}/{len(merge_log)}개 제안 반영")
+
+    gpt_accepted = any(m.get("accepted") and m.get("source") == "GPT" for m in merge_log)
+    gem_accepted = any(m.get("accepted") and m.get("source") == "Gemini" for m in merge_log)
+    _archive_proposal(gpt_path, gpt_accepted)
+    _archive_proposal(gem_path, gem_accepted)
+
+    spec["model_architecture"]["param_estimate_M"] = merged.get("param_estimate_M")
+    spec["model_architecture"]["description"]      = merged.get("description", "")
+    spec_path = pkg_dir / "experiment_spec.json"
+    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    readme_path = pkg_dir / "README.md"
+    if readme_path.exists():
+        readme = readme_path.read_text(encoding="utf-8")
+        for placeholder, value in [
+            ("{TOPIC_SLUG}", slug), ("{N}", str(version)),
+            ("{hypothesis_summary}", merged.get("architecture_summary", "")),
+            ("{spec_id}", spec["spec_id"]),
+            ("{hypothesis_id}", spec["hypothesis_id"]),
+            ("{primary_metric}", spec["evaluation_config"]["primary_metric"]),
+            ("{target_value}", str(spec["evaluation_config"]["target_value"])),
+        ]:
+            readme = readme.replace(placeholder, value)
+        readme_path.write_text(readme, encoding="utf-8")
+
+    reports_dir = Path(topic_file).parent
+    (reports_dir / f"experiment_spec_v{version}.json").write_text(
+        json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    return {
+        "pkg_dir":               str(pkg_dir),
+        "spec_id":               spec["spec_id"],
+        "hypothesis_id":         spec["hypothesis_id"],
+        "experiment_version":    version,
+        "description":           merged.get("description", ""),
+        "architecture_summary":  merged.get("architecture_summary", ""),
+        "param_estimate_M":      merged.get("param_estimate_M"),
+        "primary_metric":        spec["evaluation_config"]["primary_metric"],
+        "target_value":          spec["evaluation_config"]["target_value"],
+        "merge_log":             merge_log,
+        "timestamp":             datetime.now().isoformat(),
+    }
+
+
+# ──────────────────────────────────────────────────────────
+# 패키지 생성 메인 함수
+# ──────────────────────────────────────────────────────────
+
+def generate_experiment_package(
+    topic_file: str,
+    hypothesis_file: str,
+    code_analysis_file: str,
+    version: int = 1,
+    revised_from: str | None = None,
+    revision_path: str | None = None,
+    improvement_hints: str = "",
+    accepted_gpt_patches: list | None = None,
+    accepted_gpt_indexes: list[int] | None = None,
+    gemini_review_ctx: dict | None = None,
+    result_summary_ctx: dict | None = None,
+) -> dict:
+    """
+    Multi-model Proposal-Review-Merge 흐름으로 실험 패키지를 생성한다.
+
+    Path A revision 모드 (revised_from 지정 + revision_path="A"):
+      - 이전 패키지를 복사 후 Claude가 최소 diff revision
+      - 전체 template 재생성 대신 변경 필요 파일만 수정
+
+    일반 생성 모드 (revised_from 없음 또는 Path B/C):
+      - experiments/template/ 복사 후 Claude가 처음부터 생성
+    """
+    topic         = json.loads(Path(topic_file).read_text(encoding="utf-8"))
+    hypothesis    = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
+    code_analysis = json.loads(Path(code_analysis_file).read_text(encoding="utf-8"))
+
+    inp      = topic.get("input", {})
+    slug     = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
+    pkg_name = f"{slug}_v{version}"
+    pkg_dir  = Path("experiments") / pkg_name
+
+    is_path_a_revision = bool(revised_from and revision_path == "A")
+
+    print(f"\n{'─'*60}")
+    print(f"  [7단계] 실험 패키지 생성: {pkg_dir}")
+    mode_label = "Path A revision" if is_path_a_revision else "template 기반 최초 생성"
+    print(f"  모드: {mode_label}")
+    print(f"  proposal-review-merge: Claude → GPT → Gemini → Claude")
+    print(f"{'─'*60}")
+
+    spec = _build_experiment_spec(
+        topic, hypothesis, code_analysis, version, revised_from, revision_path
+    )
+
+    # ── 패키지 초기화 ─────────────────────────────────────
+    if is_path_a_revision:
+        previous_pkg = Path(revised_from)
+        _copy_previous_package(previous_pkg, pkg_dir)
+        prev_ctx = _load_previous_package_context(previous_pkg)
+        if result_summary_ctx:
+            prev_ctx["result_summary"] = result_summary_ctx
+
+        # accepted_gpt_patches + accepted_gpt_indexes → 구조화된 patch context 생성
+        patch_ctx = None
+        if accepted_gpt_patches:
+            indexes = accepted_gpt_indexes if accepted_gpt_indexes is not None \
+                      else list(range(len(accepted_gpt_patches)))
+            patch_ctx = _prepare_accepted_patch_context(accepted_gpt_patches, indexes)
+            print(f"    [Path A] 구조화된 패치 context: {patch_ctx['accepted_count']}개 "
+                  f"→ 대상 파일: {patch_ctx['target_files']}")
+
+        base = _claude_generate_revision_patch(
+            prev_ctx, hypothesis, spec,
+            improvement_hints = improvement_hints,
+            patch_context     = patch_ctx,
+            gemini_review     = gemini_review_ctx,
+        )
+    else:
+        # template 복사 → Claude 기반 코드 생성
+        if pkg_dir.exists():
+            shutil.rmtree(pkg_dir)
+        shutil.copytree(TEMPLATE_DIR, pkg_dir)
+        (pkg_dir / "proposals").mkdir(exist_ok=True)
+        for sub in ["checkpoints", "logs", "metrics"]:
+            (pkg_dir / "artifacts" / sub).mkdir(parents=True, exist_ok=True)
+        print(f"  [template 복사] → {pkg_dir}")
+
+        base = _claude_generate_base(
+            topic, hypothesis, code_analysis, spec, improvement_hints
+        )
+
+    _write_package_files(pkg_dir, base)
+    print(f"    기반 코드 완료: {base.get('architecture_summary', '')}")
+
+    # ── Step 2: GPT 패치 제안 ─────────────────────────────
+    gpt_proposal = _gpt_propose_patches(base, spec, hypothesis)
+    gpt_path     = _save_proposal(pkg_dir, "gpt_patch", gpt_proposal)
+
+    # ── Step 3: Gemini 설계 리뷰 ─────────────────────────
+    gemini_review = _gemini_design_review(base, spec, hypothesis)
+    gem_path      = _save_proposal(pkg_dir, "gemini_review", gemini_review)
+
+    # ── Step 4: Claude Merge ──────────────────────────────
+    merged = _claude_merge(base, gpt_proposal, gemini_review, spec, hypothesis)
+    _write_package_files(pkg_dir, merged)
+
+    # ── Step 5: Post-generation validation + 1회 repair ──
+    print("  [Step 5 / Validation] 생성 패키지 검증...")
+    val_report = _validate_generated_package(pkg_dir)
+    _write_validation_report(pkg_dir, val_report, phase="initial")
+
+    # final_val_report: repair 전후 중 최종 유효 상태를 추적
+    final_val_report = {**val_report, "repaired": False}
+
+    if not val_report["ok"]:
+        print(f"    [경고] 검증 실패: {val_report['errors']}")
+        repaired = _claude_repair_from_validation(pkg_dir, val_report, spec, hypothesis)
+        _write_package_files(pkg_dir, repaired)
+        print(f"    수정 완료: {repaired.get('repair_summary', '')}")
+        # 1회 재검증 (추가 반복 없음) — phase="repaired"로 충돌 방지
+        val_report2 = _validate_generated_package(pkg_dir)
+        _write_validation_report(pkg_dir, val_report2, phase="repaired")
+        # repair 이후의 결과가 최종 상태
+        final_val_report = {**val_report2, "repaired": True}
+        if not val_report2["ok"]:
+            print(f"    [경고] 재검증 실패 — 계속 진행: {val_report2['errors']}")
+        else:
+            print("    [검증] 수정 후 검증 통과 ✅")
+    else:
+        print("  [검증] 통과 ✅")
+
+    # ── 후처리: proposal archive + spec + readme ──────────
+    result = _finalize_package(
+        pkg_dir, merged, gpt_path, gem_path, spec, topic_file, version, slug
+    )
+    # final_val_report: repair 없으면 초기 결과, repair 있으면 재검증 결과
+    result["validation"] = final_val_report
+
+    print(f"\n  ✅ 패키지 생성 완료: {pkg_dir}")
+    print(f"     아키텍처: {result['architecture_summary']}")
+    print(f"     예상 파라미터: {result['param_estimate_M']}M")
+    return result
+
+
+# ──────────────────────────────────────────────────────────
+# CLI
+# ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PyTorch 모델 코드 생성")
-    parser.add_argument("--topic-file",      required=True)
-    parser.add_argument("--hypothesis-file", required=True)
-    parser.add_argument("--code-file",       required=True)
-    parser.add_argument("--version",         default="v1", help="버전 태그 (기본: v1)")
+    parser = argparse.ArgumentParser(description="PyTorch Fabric 실험 패키지 생성 (Multi-model)")
+    parser.add_argument("--topic-file",        required=True)
+    parser.add_argument("--hypothesis-file",   required=True)
+    parser.add_argument("--code-file",         required=True)
+    parser.add_argument("--version",           type=int, default=1)
+    parser.add_argument("--revised-from",      default=None,
+                        help="Path A 시 이전 패키지 경로 (예: experiments/{slug}_v1)")
+    parser.add_argument("--revision-path",     default=None, choices=["A", "B", "C"])
+    parser.add_argument("--improvement-hints", default="")
     args = parser.parse_args()
 
-    result = generate_model(
-        args.topic_file,
-        args.hypothesis_file,
-        args.code_file,
-        args.version,
+    result = generate_experiment_package(
+        topic_file         = args.topic_file,
+        hypothesis_file    = args.hypothesis_file,
+        code_analysis_file = args.code_file,
+        version            = args.version,
+        revised_from       = args.revised_from,
+        revision_path      = args.revision_path,
+        improvement_hints  = args.improvement_hints,
     )
-    print_result(result)
+
+    print(f"\n{'='*60}")
+    print(f"  패키지: {result['pkg_dir']}")
+    print(f"  실행: python {result['pkg_dir']}/train.py "
+          f"--config {result['pkg_dir']}/configs/default.yaml")
+    print(f"{'='*60}")

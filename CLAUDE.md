@@ -41,10 +41,13 @@ flowchart TD
 project/
 ├── CLAUDE.md                    # 규칙 + 구조 참조
 ├── main.py                      # 전체 파이프라인 진입점
+├── .gitlab-ci.yml               # GitLab CI/CD 실험 실행 파이프라인
 ├── lab/                         # 각 단계 모듈 → lab/CLAUDE.md 참조
-├── experiments/                 # 생성된 모델 코드
-├── results/                     # 실험 결과 JSON
+├── experiments/                 # 생성된 모델 코드 + 패키지 템플릿
+├── results/                     # 실험 결과 JSON + previous_results.jsonl
 ├── reports/                     # 각 단계 보고서
+├── schemas/                     # JSON 스키마 (experiment_spec, result_summary, revision_request)
+├── docs/                        # 시스템 설계 문서, merge checklist
 └── tools/                       # tool registry
 ```
 
@@ -57,7 +60,9 @@ project/
 |---|---|---|
 | `lab/` | `lab/CLAUDE.md` | 파이프라인 모듈 상세, 실행 명령, LLM 설정, 데이터 스펙 |
 | `tools/` | `tools/CLAUDE.md` | tool 스키마 목록, execute_tool 라우터 규칙 |
-| `experiments/` | `experiments/CLAUDE.md` | 생성 모델 파일 명명 규칙, 모델 인터페이스 스펙 |
+| `experiments/` | `experiments/CLAUDE.md` | Fabric 코딩 규칙, 파일 소유권, 수정 정책(Path A/B/C), metric 명칭 규칙 |
+| `schemas/` | — | experiment_spec / result_summary / revision_request JSON Schema |
+| `docs/` | — | system_design.md (12섹션 설계서), merge_checklist.md |
 
 ## 문서 규칙
 - 아키텍처·흐름 다이어그램은 반드시 Mermaid로 작성 (ASCII 다이어그램 사용 금지)

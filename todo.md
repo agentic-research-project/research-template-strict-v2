@@ -20,6 +20,16 @@ PSNR 30dB 이상을 달성하고, 가능하면 실시간 처리도 되면 좋겠
 
 ## 측정 지표
 PSNR, SSIM
+<!-- 비워두면 연구 도메인에서 자동 추론됩니다. 예:
+     denoising/restoration → PSNR, SSIM, LPIPS
+     segmentation          → mIoU, Dice Score, Pixel Accuracy
+     detection             → mAP, AP50, AP75
+     classification/anomaly→ Accuracy, F1, AUC-ROC
+     generation/diffusion  → FID, IS, LPIPS
+     depth estimation      → AbsRel, RMSE, δ1
+     medical imaging       → AUC-ROC, Dice Score, Sensitivity
+     NLP/captioning        → BLEU, ROUGE, BERTScore
+-->
 
 ## 참조 이미지
 - lab/images/noisy.png   # 입력: 노이즈 있는 이미지

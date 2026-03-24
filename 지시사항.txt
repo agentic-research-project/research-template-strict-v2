@@ -1,0 +1,149 @@
+You are modifying an existing research automation codebase.
+
+Your goal is to fix two remaining quality issues with minimal structural changes.
+Do not rewrite unrelated parts.
+Preserve:
+- the current package layout
+- the current proposal archive behavior
+- the current Path A/B/C semantics
+- the current METRICS:{...valid json...} stdout contract
+- the current structured Path A patch context design
+- the current code_analysis.json output fields unless explicitly extended
+
+Read the current implementation first, then apply the following changes.
+
+==================================================
+TASK 1 — Clarify original GPT proposal index semantics in Path A revision prompt
+==================================================
+
+Current problem:
+- model_generator.py already preserves original GPT patch indexes internally
+- however the _claude_generate_revision_patch() prompt example still shows:
+  "applied_patch_indexes": [0, 1]
+  "skipped_patch_indexes": [2]
+- this example can still look like local renumbering
+- the prompt should make it explicit that these indexes must refer to the original GPT proposal indexes, not a reindexed local list
+
+Required change:
+Update the Path A revision prompt so Claude cannot misunderstand patch index semantics.
+
+Implement:
+1. In the prompt text for _claude_generate_revision_patch(), add an explicit sentence such as:
+   - "Indexes must refer to the original GPT proposal indexes."
+   - "Do not renumber accepted or skipped patches locally."
+   - "applied_patch_indexes and skipped_patch_indexes must use original proposal indexes."
+
+2. Update the example JSON in the prompt so it clearly signals original-index semantics.
+   For example:
+   - add a comment/explanation line before the example
+   - or use non-consecutive example indexes such as [1, 4] and [7]
+   - or explicitly label them as original proposal indexes in surrounding text
+
+3. Keep the current structured output fields:
+   - applied_patch_indexes
+   - skipped_patch_indexes
+   - patch_application_notes
+   but make their meaning unambiguous.
+
+Requirements:
+- do not change runtime logic unless needed
+- this is primarily a prompt clarity fix
+- preserve the current structured Path A behavior
+
+==================================================
+TASK 2 — Make code_analyzer.py less broad and more precise
+==================================================
+
+Current problems:
+- _build_search_queries() still includes a primary[2] single-keyword query, which can reintroduce broad retrieval
+- _score_file_relevance() still relies heavily on substring checks like kw in path_lower and kw in content_lower
+- this is practical but still too coarse for precise code selection
+
+Required change:
+Improve code_analyzer.py in two focused ways.
+
+------------------------------------------
+TASK 2A — Tighten _build_search_queries()
+------------------------------------------
+
+Goals:
+- reduce broad single-keyword search behavior
+- prefer composite search queries
+- keep repository recall reasonable without drifting back to generic search
+
+Implement:
+1. Remove or replace the standalone primary[2] query.
+2. Prefer 2–4 composite queries built from:
+   - primary keywords
+   - secondary keywords
+   - constraints tokens when available
+3. Make query priority:
+   - composite task/domain/constraint query first
+   - composite task + secondary/implementation clue query second
+   - only use a single-keyword query if there is no better composite candidate
+4. Deduplicate queries as before.
+
+Requirements:
+- do not over-engineer query generation
+- keep it simple and deterministic
+- prefer precision over broad recall
+
+------------------------------------------
+TASK 2B — Strengthen _score_file_relevance()
+------------------------------------------
+
+Goals:
+- reduce dependence on raw substring matching
+- make relevance scoring more token-aware
+- preserve lightweight implementation
+
+Implement:
+1. Add lightweight tokenization/normalization helpers for:
+   - file path
+   - file content
+   - topic keywords
+   - hypothesis-derived keywords
+
+2. Replace the most important substring checks with token-based overlap scoring.
+   Prefer:
+   - token set overlap
+   - normalized token intersection counts
+   - weighted overlap for important tokens
+   over:
+   - plain kw in content_lower
+   - plain kw in path_lower
+
+3. Keep the current scoring spirit:
+   - reward model/train/loss/dataset/module-related files
+   - reward overlap with topic/hypothesis/architecture terms
+   - keep utils-only or unrelated support files lower-ranked
+
+4. You may still keep a small substring bonus as a weak signal,
+   but token overlap should become the main relevance signal.
+
+Requirements:
+- keep the scorer lightweight
+- do not introduce heavy dependencies
+- do not add BM25/TF-IDF libraries unless absolutely necessary
+- keep the function easy to reason about
+
+==================================================
+IMPLEMENTATION CONSTRAINTS
+==================================================
+
+- Use helper functions and small local refactors
+- Do not redesign the whole system
+- Preserve backward compatibility where possible
+- Preserve current output schemas
+- Keep all new outputs machine-readable
+- Prefer minimal changes with clear function boundaries
+
+==================================================
+DELIVERABLES
+==================================================
+
+After modifying the code, provide a short summary:
+1. how the Path A prompt now clarifies original GPT proposal indexes
+2. how _build_search_queries() became less broad
+3. how _score_file_relevance() became more token-aware
+4. any remaining TODOs

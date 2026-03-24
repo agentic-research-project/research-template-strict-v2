@@ -147,25 +147,42 @@ Bash로 실행:
 결과: reports/{topic_slug}/code_analysis.json
 
 ────────────────────────────────────────────────────────
-## 7단계: PyTorch 모델 생성
+## 7단계: PyTorch Fabric 실험 패키지 생성
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.model_generator \
     --topic-file      reports/{topic_slug}/topic_analysis.json \
     --hypothesis-file reports/{topic_slug}/hypothesis.json \
-    --code-file       reports/{topic_slug}/code_analysis.json
+    --code-file       reports/{topic_slug}/code_analysis.json \
+    --version 1
 
-결과: experiments/{topic_slug}_v1.py
+이 명령은 experiments/template/ 을 복사한 후
+Claude가 model.py / module.py / data.py / configs/default.yaml을 가설 기반으로 생성한다.
+
+결과: experiments/{topic_slug}_v1/  (패키지 디렉토리)
+      experiments/{topic_slug}_v1/experiment_spec.json
 
 ────────────────────────────────────────────────────────
-## 8단계: 실험 실행
+## 8단계: 실험 실행 + Revision 루프
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.research_loop \
-    --model-file experiments/{topic_slug}_v1.py
+    --pkg-dir         experiments/{topic_slug}_v1 \
+    --topic-file      reports/{topic_slug}/topic_analysis.json \
+    --hypothesis-file reports/{topic_slug}/hypothesis.json \
+    --code-file       reports/{topic_slug}/code_analysis.json \
+    --max-rounds 3
 
-실험 완료 후 결과를 Read로 읽어 분석하고 최종 보고서를 작성한다.
-결과: results/{experiment_id}.json
+루프 동작:
+  - 각 round: smoke test → train → METRICS 파싱 → result_summary.json 생성
+  - 목표 달성: 종료
+  - Path A (코드 수정): 자동으로 v{N+1} 패키지 재생성 후 재실행 (최대 3회)
+  - Path B/C: revision_request.json 생성 후 종료
+
+실험 완료 후 result_summary.json 을 Read로 읽어 분석하고 최종 보고서를 작성한다.
+결과: experiments/{topic_slug}_v{N}/result_summary.json
+      results/previous_results.jsonl  (모든 run append)
+      reports/{topic_slug}/revision_request_v{N}.json  (Path B/C 시)
 
 ────────────────────────────────────────────────────────
 ## 전체 규칙
@@ -178,6 +195,8 @@ Bash로 실행:
 - 3단계(협업 가설)는 1회만 실행한다 — 토큰 절약을 위해 재수립하지 않는다
 - 개선은 4단계 refinement 루프(최대 3회) 내에서만 수행한다
 - 5단계 PDF는 점수 무관 항상 생성한다
+- 7단계 결과는 단일 .py 파일이 아닌 패키지 디렉토리(experiments/{slug}_v{N}/)다
+- 8단계 --pkg-dir 인자에는 패키지 디렉토리 경로를 지정한다
 """
 
 

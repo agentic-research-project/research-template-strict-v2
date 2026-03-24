@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "revision_request",
+  "title": "Revision Request",
+  "description": "Claude가 result_summary를 분석한 후 생성하는 수정 지시서.",
+  "type": "object",
+  "required": [
+    "schema_version", "revision_id", "path", "triggered_by_run_id",
+    "hypothesis_id", "justification", "evidence_strength",
+    "artifacts_may_change", "artifacts_must_stay", "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "revision_id": {
+      "type": "string",
+      "pattern": "^rev_[A-C]_[a-z0-9_]+_\\d{8}_\\d{6}$",
+      "description": "rev_{path}_{topic_slug}_{YYYYMMDD_HHMMSS}"
+    },
+    "path": {
+      "type": "string",
+      "enum": ["A", "B", "C"],
+      "description": "A=코드수정, B=가설정제, C=가설교체"
+    },
+    "triggered_by_run_id": {
+      "type": "string",
+      "description": "이 revision을 유발한 run_id"
+    },
+    "supporting_run_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Path B/C의 경우 패턴을 지지하는 추가 run_id 목록"
+    },
+    "hypothesis_id": {
+      "type": "string"
+    },
+    "experiment_version": {
+      "type": "integer"
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 50,
+      "description": "수정 결정 근거 (구체적, 최소 50자)"
+    },
+    "evidence_strength": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Path A=low 허용, B=medium 이상, C=high 필수"
+    },
+    "falsification_evidence": {
+      "type": ["string", "null"],
+      "description": "Path C 전용: 가설의 핵심 메커니즘이 틀렸다는 구체적 근거"
+    },
+
+    "path_A_details": {
+      "type": "object",
+      "description": "Path A 전용 필드",
+      "properties": {
+        "issue_type": {
+          "type": "string",
+          "enum": [
+            "unstable_training", "weak_baseline", "missing_ablation",
+            "poor_hyperparams", "code_bug", "insufficient_controls",
+            "pipeline_error", "oom_error"
+          ]
+        },
+        "files_to_change": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "specific_changes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "path_B_details": {
+      "type": "object",
+      "description": "Path B 전용 필드",
+      "properties": {
+        "original_claim":  { "type": "string" },
+        "refined_claim":   { "type": "string" },
+        "narrowing_reason":{ "type": "string" },
+        "preserved_core":  { "type": "string" }
+      }
+    },
+
+    "path_C_details": {
+      "type": "object",
+      "description": "Path C 전용 필드",
+      "properties": {
+        "supersedes_hypothesis_id": { "type": "string" },
+        "negative_evidence_runs":   {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 3,
+          "description": "반증 run_id 목록 (최소 3개 필수)"
+        },
+        "proposed_new_direction":   { "type": "string" }
+      }
+    },
+
+    "artifacts_may_change": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "이번 revision에서 변경 허용된 파일/디렉토리"
+    },
+    "artifacts_must_stay": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "이번 revision에서 변경 금지된 파일/디렉토리"
+    },
+    "comparability_note": {
+      "type": "string",
+      "description": "이번 수정이 이전 run들과의 비교 가능성에 미치는 영향"
+    },
+    "next_experiment_version": {
+      "type": "integer",
+      "description": "다음 실험 패키지 버전 번호"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "result_summary",
+  "title": "Experiment Result Summary",
+  "description": "GitLab CI가 생성하고 Claude/GPT/Gemini가 읽는 공통 결과 요약.",
+  "type": "object",
+  "required": [
+    "schema_version", "run_id", "spec_id", "hypothesis_id",
+    "experiment_version", "status", "primary_metric",
+    "secondary_metrics", "training_stability",
+    "confidence", "recommended_next_actions",
+    "gitlab_run_metadata", "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+_v\\d+_\\d{8}_\\d{6}$",
+      "description": "{topic_slug}_v{N}_{YYYYMMDD_HHMMSS}"
+    },
+    "spec_id": {
+      "type": "string",
+      "description": "이 run을 생성한 experiment_spec의 spec_id"
+    },
+    "hypothesis_id": {
+      "type": "string"
+    },
+    "experiment_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failed",
+        "timeout",
+        "smoke_failed",
+        "oom_error",
+        "metrics_parse_error",
+        "aborted"
+      ]
+    },
+    "primary_metric": {
+      "type": "object",
+      "required": ["name", "value", "unit", "target", "met"],
+      "properties": {
+        "name":   { "type": "string" },
+        "value":  { "type": "number" },
+        "unit":   { "type": "string" },
+        "target": { "type": "number" },
+        "met":    { "type": "boolean" }
+      }
+    },
+    "secondary_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value", "unit"],
+        "properties": {
+          "name":  { "type": "string" },
+          "value": { "type": "number" },
+          "unit":  { "type": "string" }
+        }
+      }
+    },
+    "deltas_vs_baseline": {
+      "type": "object",
+      "description": "이전 baseline run 대비 delta",
+      "properties": {
+        "baseline_run_id": { "type": ["string", "null"] },
+        "deltas": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "키: metric 이름, 값: current - baseline"
+        }
+      }
+    },
+    "training_stability": {
+      "type": "object",
+      "required": ["loss_converged", "nan_detected", "lr_schedule_ok"],
+      "properties": {
+        "loss_converged":   { "type": "boolean" },
+        "nan_detected":     { "type": "boolean" },
+        "lr_schedule_ok":   { "type": "boolean" },
+        "final_train_loss": { "type": ["number", "null"] },
+        "best_val_epoch":   { "type": ["integer", "null"] },
+        "notes":            { "type": "string" }
+      }
+    },
+    "bottleneck_candidates": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "예: ['small_dataset', 'lr_too_high', 'aux_loss_weight_off']"
+    },
+    "ablation_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ablation_name", "metric_delta", "conclusion"],
+        "properties": {
+          "ablation_name":  { "type": "string" },
+          "metric_delta":   { "type": "number" },
+          "conclusion":     { "type": "string" }
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "결과의 신뢰도 (0~1). 단일 run=낮음, 다중 run 일치=높음"
+    },
+    "recommended_next_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "rationale", "priority"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "enum": ["A", "B", "C", "done"],
+            "description": "A=코드수정, B=가설정제, C=가설교체, done=완료"
+          },
+          "rationale":  { "type": "string" },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "specific_changes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "stderr_tail": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "실패 시 stderr 마지막 200줄"
+    },
+    "stdout_tail": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "metrics_parse_error 시 stdout 마지막 50줄"
+    },
+    "gitlab_run_metadata": {
+      "type": "object",
+      "required": ["job_id", "git_sha", "duration_s"],
+      "properties": {
+        "job_id":        { "type": "string" },
+        "pipeline_id":   { "type": "string" },
+        "runner_id":     { "type": "string" },
+        "git_sha":       { "type": "string" },
+        "git_branch":    { "type": "string" },
+        "duration_s":    { "type": "number" },
+        "gpu_model":     { "type": "string" }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

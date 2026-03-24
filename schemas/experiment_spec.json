@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "experiment_spec",
+  "title": "Experiment Specification",
+  "description": "Claude가 생성하는 실험 패키지 명세. hypothesis.json 승인 후 생성된다.",
+  "type": "object",
+  "required": [
+    "schema_version", "spec_id", "hypothesis_id", "experiment_version",
+    "topic_slug", "created_at", "model_architecture", "training_config",
+    "evaluation_config", "ablations", "baselines", "output_contract"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "스키마 버전 — 변경 시 호환성 검토 필수"
+    },
+    "spec_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+_v\\d+_\\d{8}_\\d{6}$",
+      "description": "고유 식별자: {topic_slug}_v{N}_{YYYYMMDD_HHMMSS}"
+    },
+    "hypothesis_id": {
+      "type": "string",
+      "description": "연결된 hypothesis.json의 hypothesis_id"
+    },
+    "experiment_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "동일 가설 하의 실험 버전 (Path A/B마다 증가)"
+    },
+    "topic_slug": {
+      "type": "string",
+      "description": "파일 경로에 사용되는 slug"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revised_from_spec_id": {
+      "type": ["string", "null"],
+      "description": "이전 버전 spec_id (첫 버전은 null)"
+    },
+    "revision_path": {
+      "type": ["string", "null"],
+      "enum": ["A", "B", "C", null],
+      "description": "이 spec이 생성된 revision path"
+    },
+    "model_architecture": {
+      "type": "object",
+      "required": ["name", "description", "key_components", "param_budget_M"],
+      "properties": {
+        "name":          { "type": "string" },
+        "description":   { "type": "string" },
+        "key_components":{ "type": "array", "items": { "type": "string" } },
+        "param_budget_M":{ "type": "number", "description": "최대 허용 파라미터 수 (백만)" },
+        "input_shape":   { "type": "array", "items": { "type": "integer" } },
+        "output_shape":  { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+    "training_config": {
+      "type": "object",
+      "required": ["epochs", "batch_size", "optimizer", "lr", "loss_function", "seed"],
+      "properties": {
+        "epochs":         { "type": "integer", "minimum": 1 },
+        "batch_size":     { "type": "integer", "minimum": 1 },
+        "optimizer":      { "type": "string" },
+        "lr":             { "type": "number" },
+        "lr_schedule":    { "type": "string" },
+        "loss_function":  { "type": "string" },
+        "aux_loss_weight":{ "type": "number" },
+        "seed":           { "type": "integer" },
+        "precision":      { "type": "string", "enum": ["32-true", "bf16-mixed", "16-mixed"] },
+        "gradient_clip":  { "type": ["number", "null"] },
+        "early_stopping": {
+          "type": "object",
+          "properties": {
+            "enabled":  { "type": "boolean" },
+            "monitor":  { "type": "string" },
+            "patience": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "evaluation_config": {
+      "type": "object",
+      "required": ["primary_metric", "target_value", "secondary_metrics", "test_set"],
+      "properties": {
+        "primary_metric":    { "type": "string", "description": "§9 metric 명칭 규칙 준수" },
+        "target_value":      { "type": "number" },
+        "secondary_metrics": { "type": "array", "items": { "type": "string" } },
+        "test_set":          { "type": "string" },
+        "eval_frequency":    { "type": "integer", "description": "몇 epoch마다 검증" }
+      }
+    },
+    "ablations": {
+      "type": "array",
+      "description": "ablation variant 목록 (각각 별도 yaml)",
+      "items": {
+        "type": "object",
+        "required": ["name", "config_file", "removes"],
+        "properties": {
+          "name":        { "type": "string" },
+          "config_file": { "type": "string" },
+          "removes":     { "type": "string", "description": "제거되는 컴포넌트 설명" }
+        }
+      }
+    },
+    "baselines": {
+      "type": "array",
+      "description": "비교 baseline 목록",
+      "items": {
+        "type": "object",
+        "required": ["name", "source"],
+        "properties": {
+          "name":              { "type": "string" },
+          "source":            { "type": "string" },
+          "expected_metric":   { "type": "number" }
+        }
+      }
+    },
+    "output_contract": {
+      "type": "object",
+      "description": "METRICS stdout 계약 — 변경 불가",
+      "required": ["stdout_pattern", "required_keys"],
+      "properties": {
+        "stdout_pattern": {
+          "type": "string",
+          "enum": ["^METRICS:\\{.*\\}$"],
+          "description": "train.py 마지막 줄이 이 패턴과 일치해야 함"
+        },
+        "required_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "METRICS JSON에 반드시 포함될 키 목록"
+        }
+      }
+    },
+    "data_config": {
+      "type": "object",
+      "properties": {
+        "dataset_name":  { "type": "string" },
+        "train_size":    { "type": "integer" },
+        "val_size":      { "type": "integer" },
+        "test_size":     { "type": "integer" },
+        "preprocessing": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "additionalProperties": false
+}

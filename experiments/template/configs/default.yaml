@@ -1,0 +1,42 @@
+# configs/default.yaml — 기본 실험 설정
+# 모든 하이퍼파라미터는 여기에 정의한다 (train.py에 하드코딩 금지)
+# 버전 간 비교를 위해 키 이름을 변경하지 않는다 (§8 비교 가능성 규칙)
+
+# ── 재현성 ────────────────────────────────────
+seed: 42
+
+# ── Fabric 설정 ──────────────────────────────
+accelerator: "auto"
+precision: "bf16-mixed"
+devices: 1
+strategy: "auto"
+
+# ── 모델 ────────────────────────────────────
+in_channels: 1
+base_channels: 32
+depth: 3
+use_aux_head: false
+aux_loss_weight: 0.0
+
+# ── 학습 ────────────────────────────────────
+epochs: 100
+batch_size: 16
+optimizer: "adamw"
+lr: 1.0e-4
+lr_min: 1.0e-6
+weight_decay: 1.0e-4
+gradient_clip: 1.0
+
+# ── 데이터 ──────────────────────────────────
+data_dir: "data/"
+noise_std: 25.0
+patch_size: 64
+val_ratio: 0.1
+num_workers: 2
+
+# ── 평가 ────────────────────────────────────
+primary_metric: "psnr"
+eval_frequency: 1
+
+# ── 체크포인트 ────────────────────────────────
+checkpoint_dir: "artifacts/checkpoints"

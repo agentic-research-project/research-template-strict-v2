@@ -34,6 +34,98 @@ from lab.config import query_claude, parse_json
 
 
 # ──────────────────────────────────────────
+# 도메인 자동 지표 추론
+# ──────────────────────────────────────────
+
+# 도메인 키워드 → 대표 평가 지표 매핑
+_DOMAIN_METRICS: list[tuple[frozenset, list[str]]] = [
+    # 이미지 복원 / 노이즈 제거 / 초해상도
+    (frozenset({"denoising", "denoise", "denoised", "noise", "noisy",
+                "restoration", "restore", "super", "resolution", "upscaling",
+                "inpainting", "deblurring", "artifact"}),
+     ["PSNR", "SSIM", "LPIPS"]),
+
+    # 이미지/영상 생성 (GAN, diffusion)
+    (frozenset({"generation", "generative", "gan", "diffusion", "synthesis",
+                "synthesize", "synthesizing", "stylegan", "stable"}),
+     ["FID", "IS", "LPIPS", "SSIM"]),
+
+    # 의미론적 분할 (semantic/instance/panoptic segmentation)
+    (frozenset({"segmentation", "segment", "semantic", "instance",
+                "panoptic", "mask", "parsing"}),
+     ["mIoU", "Dice Score", "Pixel Accuracy"]),
+
+    # 객체 탐지
+    (frozenset({"detection", "detect", "object", "bounding", "yolo",
+                "faster", "rcnn", "fcos", "detr"}),
+     ["mAP", "AP50", "AP75"]),
+
+    # 분류 (이미지/의료/산업 등)
+    (frozenset({"classification", "classify", "recognition", "category",
+                "class", "label", "labeling", "anomaly", "defect"}),
+     ["Accuracy", "F1", "AUC-ROC", "AUROC"]),
+
+    # 깊이 추정
+    (frozenset({"depth", "estimation", "monocular", "stereo", "disparity"}),
+     ["AbsRel", "RMSE", "δ1"]),
+
+    # 광학 흐름
+    (frozenset({"optical", "flow", "motion", "tracking"}),
+     ["EPE", "Fl-all"]),
+
+    # 포즈 추정
+    (frozenset({"pose", "keypoint", "skeleton", "landmark", "human"}),
+     ["PCK", "MPJPE", "AP"]),
+
+    # 3D / 포인트 클라우드
+    (frozenset({"point", "cloud", "3d", "lidar", "voxel", "mesh",
+                "reconstruction", "nerf", "occupancy"}),
+     ["Chamfer Distance", "F-Score", "IoU"]),
+
+    # NLP / 텍스트 생성 / 번역
+    (frozenset({"translation", "nlp", "text", "language", "summarization",
+                "caption", "captioning", "question", "answering"}),
+     ["BLEU", "ROUGE", "BERTScore"]),
+
+    # 의료 영상 (분류/탐지/분할 포함)
+    (frozenset({"medical", "clinical", "ct", "mri", "xray", "x-ray",
+                "pathology", "histology", "tumor", "lesion"}),
+     ["AUC-ROC", "Dice Score", "Sensitivity", "Specificity"]),
+]
+
+
+def _infer_default_metrics(
+    topic: str,
+    details: str = "",
+    problem_definition: str = "",
+    desired_outcome: str = "",
+) -> str:
+    """
+    연구 도메인 키워드를 분석하여 대표 평가 지표를 추론한다.
+
+    Returns:
+        쉼표 구분 지표 문자열 (예: "PSNR, SSIM")
+        매칭 없으면 빈 문자열
+    """
+    text = " ".join([topic, details, problem_definition, desired_outcome]).lower()
+    tokens = set(re.split(r"\W+", text))
+
+    # 도메인별 매칭 점수 계산
+    scores: list[tuple[int, list[str]]] = []
+    for domain_kws, metrics in _DOMAIN_METRICS:
+        overlap = len(tokens & domain_kws)
+        if overlap > 0:
+            scores.append((overlap, metrics))
+
+    if not scores:
+        return ""
+
+    # 최고 점수 도메인 선택 (동점 시 첫 번째)
+    scores.sort(key=lambda x: x[0], reverse=True)
+    return ", ".join(scores[0][1])
+
+
+# ──────────────────────────────────────────
 # 키워드 후처리
 # ──────────────────────────────────────────
 
@@ -181,6 +273,15 @@ def analyze_topic(
     image_labels = image_labels or []
     has_images   = bool(image_paths)
 
+    # ── target_metric 미지정 시 도메인 자동 추론 ──────────────────────
+    if not target_metric:
+        inferred = _infer_default_metrics(topic, details, problem_definition, desired_outcome)
+        if inferred:
+            target_metric = inferred
+            print(f"  [Metric] target_metric 미지정 → 도메인 추론: {target_metric}")
+        else:
+            print("  [Metric] target_metric 미지정 + 도메인 추론 실패 → Claude가 제안")
+
     # ── 텍스트 프롬프트 ──
     image_instruction = ""
     if has_images:
@@ -262,6 +363,7 @@ def analyze_topic(
     result = parse_json(query_claude(text_prompt, image_paths=image_paths or None))
 
     # 원본 입력 보존 (후처리보다 먼저 세팅해야 _filter_search_keywords에서 참조 가능)
+    # target_metric은 추론된 값(비어있지 않음)이 이미 반영된 상태
     result["input"] = {
         "topic":              topic,
         "details":            details,
