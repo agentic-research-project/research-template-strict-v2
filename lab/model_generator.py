@@ -1298,8 +1298,17 @@ if __name__ == "__main__":
         improvement_hints  = args.improvement_hints,
     )
 
-    print(f"\n{'='*60}")
-    print(f"  패키지: {result['pkg_dir']}")
-    print(f"  실행: python {result['pkg_dir']}/train.py "
-          f"--config {result['pkg_dir']}/configs/default.yaml")
-    print(f"{'='*60}")
+    if result.get("success"):
+        print(f"\n{'='*60}")
+        print(f"  ✅ 패키지 생성 성공")
+        print(f"  패키지: {result['pkg_dir']}")
+        print(f"  실행: python {result['pkg_dir']}/train.py "
+              f"--config {result['pkg_dir']}/configs/default.yaml")
+        print(f"{'='*60}")
+    else:
+        print(f"\n{'='*60}")
+        print(f"  ❌ 패키지 생성 차단 (validation gate)")
+        print(f"  사유: {result.get('blocked_reason', 'unknown')}")
+        print(f"  디버그 경로: {result['pkg_dir']}")
+        print(f"{'='*60}")
+        sys.exit(1)
