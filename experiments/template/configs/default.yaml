@@ -11,12 +11,13 @@ precision: "bf16-mixed"
 devices: 1
 strategy: "auto"
 
-# ── 모델 ────────────────────────────────────
+# ── 모델 (가설에 따라 Claude가 교체) ────────
 in_channels: 1
 base_channels: 32
 depth: 3
 use_aux_head: false
 aux_loss_weight: 0.0
+param_budget_M: 5.0
 
 # ── 학습 ────────────────────────────────────
 epochs: 100
@@ -26,16 +27,15 @@ lr: 1.0e-4
 lr_min: 1.0e-6
 weight_decay: 1.0e-4
 gradient_clip: 1.0
+loss_function: "l1"      # l1 | l2 | ce | bce — 가설에 맞게 교체
 
-# ── 데이터 ──────────────────────────────────
+# ── 데이터 (가설에 따라 Claude가 교체) ──────
 data_dir: "data/"
-noise_std: 25.0
-patch_size: 64
 val_ratio: 0.1
 num_workers: 2
 
-# ── 평가 ────────────────────────────────────
-primary_metric: "psnr"
+# ── 평가 (experiment_spec과 반드시 일치) ─────
+primary_metric: ""       # 가설에서 결정 — 예: psnr, accuracy, iou, dice
 eval_frequency: 1
 
 # ── 체크포인트 ────────────────────────────────

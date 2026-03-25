@@ -15,8 +15,10 @@ models/
 
 # Experiments - 딥러닝 모델 코드는 GitLab 별도 관리
 # CLAUDE.md(스펙 문서)는 포함, 실제 실험 코드(.py)는 제외
+# template/ 하위 파일은 scaffolding 목적으로 예외 포함
 experiments/*.py
 experiments/**/*.py
+!experiments/template/**
 
 # IDE
 .vscode/
