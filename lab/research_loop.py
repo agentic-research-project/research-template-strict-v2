@@ -645,6 +645,17 @@ def run_research_loop(
                 gemini_review_ctx     = gemini_review,
                 result_summary_ctx    = summary,
             )
+
+            # validation gate: finalized=False 이면 루프 중단
+            if not gen.get("finalized", True):
+                blocked = gen.get("blocked_reason", "unknown")
+                print(f"\n  [루프 중단] Path A 패키지 finalization 차단: {blocked}")
+                print(f"     (생성된 파일은 디버깅용으로 {gen['pkg_dir']}에 보존됨)")
+                _write_revision_request(
+                    reports_dir, decision, summary, run_history, hypothesis, version,
+                )
+                break
+
             pkg = Path(gen["pkg_dir"])
             config_file = "configs/default.yaml"
             continue

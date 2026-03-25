@@ -1224,18 +1224,47 @@ def generate_experiment_package(
         # repair 이후의 결과가 최종 상태
         final_val_report = {**val_report2, "repaired": True}
         if not val_report2["ok"]:
-            print(f"    [경고] 재검증 실패 — 계속 진행: {val_report2['errors']}")
+            print(f"    [오류] 재검증 실패: {val_report2['errors']}")
         else:
             print("    [검증] 수정 후 검증 통과 ✅")
     else:
         print("  [검증] 통과 ✅")
 
-    # ── 후처리: proposal archive + spec + readme ──────────
+    # ── Finalization gate: 최종 validation 통과 시에만 승인 ──────
+    if not final_val_report["ok"]:
+        blocked_reason = (
+            "post-generation validation failed after repair"
+            if final_val_report.get("repaired")
+            else "post-generation validation failed"
+        )
+        blocked_msg = "Package generation blocked: final validation failed after one repair pass."
+        print(f"\n  ❌ {blocked_msg}")
+        print(f"     errors: {final_val_report.get('errors', [])}")
+        print(f"     (artifacts retained for debugging: {pkg_dir})")
+        # artifacts/proposals/validation reports는 디버깅을 위해 디스크에 유지
+        # _finalize_package()는 호출하지 않음 — finalization marker 없음
+        return {
+            "pkg_dir":            str(pkg_dir),
+            "spec_id":            spec["spec_id"],
+            "hypothesis_id":      spec["hypothesis_id"],
+            "experiment_version": version,
+            "success":            False,
+            "finalized":          False,
+            "validation_failed":  True,
+            "blocked_reason":     blocked_reason,
+            "validation":         final_val_report,
+            "timestamp":          datetime.now().isoformat(),
+        }
+
+    # ── 후처리: proposal archive + spec + readme (검증 통과한 경우만) ──
     result = _finalize_package(
         pkg_dir, merged, gpt_path, gem_path, spec, topic_file, version, slug
     )
-    # final_val_report: repair 없으면 초기 결과, repair 있으면 재검증 결과
-    result["validation"] = final_val_report
+    result["validation"]        = final_val_report
+    result["success"]           = True
+    result["finalized"]         = True
+    result["validation_failed"] = False
+    result["blocked_reason"]    = None
 
     print(f"\n  ✅ 패키지 생성 완료: {pkg_dir}")
     print(f"     아키텍처: {result['architecture_summary']}")
