@@ -42,9 +42,10 @@ flowchart TD
 project/
 ├── CLAUDE.md                    # 규칙 + 구조 참조
 ├── main.py                      # 전체 파이프라인 진입점
-├── .gitlab-ci.yml               # GitLab CI/CD 실험 실행 파이프라인
+├── todo.md                      # 연구 주제 입력 파일 (main.py 기본 입력)
+├── .github/workflows/           # GitHub Actions CI (실험 실행 파이프라인)
 ├── lab/                         # 각 단계 모듈 → lab/CLAUDE.md 참조
-│   ├── runners.py               # Runner 추상화 (local / GitLab CI)
+│   ├── runners.py               # Runner 추상화 (local / GitHub Actions)
 │   └── ...
 ├── experiments/                 # 생성된 실험 패키지 ({slug}_vN/) + template
 ├── results/                     # 실험 결과 JSON + previous_results.jsonl
