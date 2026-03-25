@@ -366,13 +366,27 @@ def _build_consensus(
     else:
         agreement_level = "weak"
 
+    # Path B 명시적 허용 조건 (모두 충족해야 B 허용)
+    # 1. GPT가 B 또는 C를 제안해야 함 (A를 제안하면 B 불가)
+    # 2. Gemini가 강한 반대(disagree)가 아니어야 함
+    # 3. 합의 수준이 최소 medium이어야 함
+    # 4. 실행 횟수 ≥ 2 (smoke/runtime 단일 실패 시 B 불가)
+    def _path_b_allowed() -> bool:
+        return (
+            gpt_path in ("B", "C")
+            and gem_agree != "disagree"
+            and agreement_level in ("medium", "strong")
+            and n_runs >= 2
+        )
+
     # 합의 경로 후보 — 과도한 에스컬레이션 방지
     if primary["met"]:
         consensus_path = "done"
     elif gpt_path == "C" and (n_runs < 3 or gpt_ev != "high" or agreement_level != "strong"):
-        consensus_path = "B"   # Path C 요건 미충족 → B로 하향
-    elif gpt_path == "B" and n_runs < 2:
-        consensus_path = "A"   # 실행 횟수 부족 → A로 하향
+        # Path C 요건 미충족 → B 시도, B 요건도 미충족 시 A로 하향
+        consensus_path = "B" if _path_b_allowed() else "A"
+    elif gpt_path == "B" and not _path_b_allowed():
+        consensus_path = "A"   # Path B 게이팅 미충족 → A로 하향
     else:
         consensus_path = gpt_path
 
@@ -397,6 +411,18 @@ def _build_consensus(
             f"Path C blocked (needs ≥3 runs and strong evidence; current n_runs={n_runs}, "
             f"evidence={gpt_ev}, agreement={agreement_level}) — consider B"
         )
+    # Path B 게이팅 미충족 시 사유 명시
+    if gpt_path in ("B", "C") and not _path_b_allowed():
+        reasons: list[str] = []
+        if gpt_path not in ("B", "C"):
+            reasons.append("GPT did not suggest B or C")
+        if gem_agree == "disagree":
+            reasons.append("Gemini strongly disagrees")
+        if agreement_level == "weak":
+            reasons.append(f"agreement too weak ({agreement_level})")
+        if n_runs < 2:
+            reasons.append(f"insufficient runs (n_runs={n_runs}, need ≥2)")
+        notes.append(f"Path B gating not met: {'; '.join(reasons)} — downgraded to A")
     if gemini_diagnosis.get("main_risk"):
         notes.append(f"Risk: {gemini_diagnosis['main_risk']}")
 
@@ -598,14 +624,35 @@ def _claude_final_decision(
 {json.dumps(patches, ensure_ascii=False, indent=2)}
 
 ## 결정 규칙 (엄격 적용)
-- Path A: 구현/훈련 문제, 가설 유효 (합의 불필요, 약한 합의도 허용)
-- Path B: 가설 방향성 유효하나 범위 조정 필요 (중간 합의 필요)
-- Path C: 가설 핵심 메커니즘 반증 (강한 합의 + ≥3회 실행 + high evidence 필수)
-- done: 목표 달성
-에스컬레이션 원칙: A→B→C 순서, escalation_risk=blocked이면 Path C 불가
+
+Path A = 구현/훈련/실험설계 문제 (가설 자체는 유효)
+  - 적용 조건: 약한 합의도 허용, 단일 실패도 가능
+  - 예: 코드 버그, 학습 불안정, 설정 오류, NaN, smoke 실패
+
+Path B = 가설 방향성 유효하나 범위/조건/클레임 정제 필요
+  - 적용 조건 (모두 충족 필요):
+    * GPT가 B 또는 C를 제안한 경우
+    * Gemini가 강한 반대(disagree) 아닌 경우
+    * consensus agreement_level이 medium 이상인 경우
+    * 실행 횟수 ≥ 2 (smoke/runtime 단일 실패 시 B 불가)
+  - 단순 구현 실패, smoke 실패, 단일 실행 실패는 B 불가
+  - consensus_path_candidate가 A이면 B 선택을 강한 이유로만 허용
+
+Path C = 가설 핵심 메커니즘 또는 주장하는 이점이 반증됨
+  - 적용 조건 (모두 충족 필수):
+    * 강한 합의 (agreement_level=strong)
+    * ≥3회 실행 증거
+    * evidence_strength=high
+    * escalation_risk=high (blocked이면 C 불가)
+
+done = 목표 달성
+
+에스컬레이션 원칙: A→B→C 순서, 단일 실패는 B 이상 불가, escalation_risk=blocked이면 C 불가.
+consensus_path_candidate를 존중하되, B/C 선택 시 위 조건을 명시적으로 확인하세요.
 
 Path A 결정 시: accepted_patch_indexes에 적용할 패치 인덱스, improvement_hints에 이유를 포함하세요.
-Path B/C 결정 시: 강한 정당화가 필요합니다.
+Path B 결정 시: 위 조건 충족 여부를 decision_reason에 명시하세요.
+Path C 결정 시: 위 조건 충족 여부를 decision_reason에 명시하세요.
 
 아래 JSON으로만 출력:
 {{
@@ -809,12 +856,28 @@ def run_research_loop(
         print(f"\n  [결과] {primary['name']} = {primary['value']:.4f} "
               f"(target={primary['target']:.2f}, met={primary['met']})")
 
-        run_history.append({
+        stability = summary.get("training_stability", {})
+        run_entry: dict = {
+            # 기본 실행 정보
             "run_id":  summary["run_id"],
             "version": version,
             "status":  summary["status"],
             "metrics": summary["primary_metric"],
-        })
+            # 훈련 안정성 요약
+            "training_stability": {
+                "loss_converged": stability.get("loss_converged", False),
+                "nan_detected":   stability.get("nan_detected", False),
+            },
+            # 결정 컨텍스트 — 분석 완료 후 업데이트됨
+            "decision_path":        None,
+            "consensus_level":      None,
+            "gpt_suggested_path":   None,
+            "gemini_suggested_path": None,
+            "accepted_patch_indexes": [],
+            "blocked_reason":       None,
+            "validation_failed":    False,
+        }
+        run_history.append(run_entry)
         prev_run_id  = summary["run_id"]
         prev_metrics = {
             primary["name"]: primary["value"],
@@ -836,14 +899,15 @@ def run_research_loop(
         # 3. 합의 레이어
         consensus     = _build_consensus(gpt_interp, gemini_diag, run_history, primary)
 
-        # 4. GPT: 패치 제안 (Path A 가능성 있을 때만, 목표 미달 시)
+        # 4. GPT: 패치 제안 — consensus_path_candidate == "A" 일 때만 실행
+        # Path B/C는 가설 정제/교체 영역이므로 코드 패치 생성 불필요
         candidate_path = consensus.get("consensus_path_candidate", "A")
-        if not primary["met"] and candidate_path in ("A", "B"):
-            # Path A 또는 경계(B)일 때 패치 준비 (Claude가 최종 A 결정 시 사용)
-            gpt_patches   = _gpt_propose_improvements(pkg, summary, gpt_interp)
+        if not primary["met"] and candidate_path == "A":
+            gpt_patches    = _gpt_propose_improvements(pkg, summary, gpt_interp)
             gpt_patch_path = _save_proposal(pkg, "gpt_patch_result", gpt_patches)
         else:
-            gpt_patches   = {"patches": [], "confidence": "high"}
+            gpt_patches    = {"patches": [], "confidence": "n/a",
+                              "skipped_reason": f"consensus_path={candidate_path} (patches only for A)"}
             gpt_patch_path = None
 
         # 5. Claude: 최종 결정자
@@ -858,6 +922,16 @@ def run_research_loop(
         if gpt_patch_path:
             accepted_indices = set(decision.get("accepted_patch_indexes", []))
             _archive_proposal(gpt_patch_path, bool(accepted_indices))
+
+        # run_history 마지막 항목에 결정 컨텍스트 보강
+        run_history[-1].update({
+            "decision_path":         decision.get("path"),
+            "consensus_level":       decision.get("consensus_level", consensus.get("agreement_level")),
+            "gpt_suggested_path":    gpt_interp.get("suggested_path"),
+            "gemini_suggested_path": gemini_diag.get("suggested_path"),
+            "accepted_patch_indexes": decision.get("accepted_patch_indexes",
+                                                   decision.get("accepted_gpt_patches", [])),
+        })
 
         print(f"  [결정] Path {decision['path']} — {decision['justification'][:80]}")
 
@@ -897,6 +971,9 @@ def run_research_loop(
                 blocked = gen.get("blocked_reason", "unknown")
                 print(f"\n  [루프 중단] Path A 패키지 finalization 차단: {blocked}")
                 print(f"     (생성된 파일은 디버깅용으로 {gen['pkg_dir']}에 보존됨)")
+                # 현재 run 항목에 차단 사유 기록
+                run_history[-1]["blocked_reason"]    = blocked
+                run_history[-1]["validation_failed"] = gen.get("validation_failed", True)
                 _write_revision_request(
                     reports_dir, decision, summary, run_history, hypothesis, version,
                 )

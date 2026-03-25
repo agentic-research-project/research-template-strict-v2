@@ -1,229 +1,114 @@
-You are modifying an existing automated research loop.
+You are modifying research_loop.py.
 
-Your goal is to refactor the result-interpretation / diagnosis / decision pipeline into a cleaner and more robust multi-model structure.
+Your goal is to tighten the remaining decision logic without redesigning the overall architecture.
 
-Do not redesign unrelated parts.
+Do NOT rewrite unrelated parts.
 Preserve:
-- the current experiment package flow
+- the current GPT interpretation stage
+- the current Gemini short diagnosis stage
+- the current consensus layer
+- the current Claude final decision stage
 - the current Path A / B / C / done semantics
-- the current METRICS:{...valid json...} stdout contract
-- the current previous_results.jsonl accumulation
+- the current package generation flow
+- the current METRICS:{...valid json...} contract
 - the current revision_request flow for Path B / C
-- the current idea that Path A means implementation/experiment improvement, not hypothesis replacement
+
+Apply the following three focused improvements.
 
 ==================================================
-TARGET ARCHITECTURE
+TASK 1 — Make Path B decision criteria stricter and more explicit
 ==================================================
 
-Refactor the system toward this ideal structure:
-
-1. GPT = main result interpreter
-2. Gemini = short independent diagnosis / second opinion
-3. GPT/Codex = patch proposer for Path A only
-4. Claude = final decision maker and merge controller
-
-The purpose is:
-- separate interpretation from patch generation
-- avoid over-relying on a single model for result interpretation
-- make high-cost decisions (especially Path B / Path C) more consensus-aware
-- keep Path A practical and implementation-focused
-
-==================================================
-TASK 1 — Move main result interpretation to GPT
-==================================================
+Current problem:
+- Path C already has strong guardrails
+- but Path B is still relatively loose and depends too much on Claude discretion
+- this makes the A vs B boundary less stable than it should be
 
 Required change:
-Create or refactor a GPT-based interpretation stage that becomes the main analytical reader of experiment outcomes.
+Strengthen the rule for when Path B is allowed.
 
-Inputs should include:
-- latest result_summary.json
-- recent run history
-- current hypothesis
-- current experiment_spec
-- previous revision context if useful
+Implement explicit Path B gating rules such as:
+- Path B is allowed only if GPT suggested_path is B or C
+- Gemini must be at least agree or partial, not strong disagreement
+- consensus agreement_level must be at least medium
+- Path B must not be selected for pure smoke/runtime/execution failures
+- Path B should require at least 2 runs of evidence unless there is unusually strong justification
+- Path B should mean:
+  the core idea is still directionally valid, but the claim/scope/condition needs refinement
 
-The GPT interpretation stage must output structured JSON with fields like:
-- suggested_path: A | B | C | done
-- evidence_strength: low | medium | high
-- root_cause_analysis
-- hypothesis_validity_assessment
-- bottleneck_candidates
-- confidence
-- why_not_other_paths
+Also make Claude final decision prompt reflect this clearly:
+- A = implementation/training/experimental-design issue
+- B = hypothesis refinement without replacing the core idea
+- C = core mechanism or claimed advantage is no longer supported
 
-Behavior requirements:
-- GPT should perform the main deep interpretation
-- it should explain whether the failure/success comes from implementation issues, experimental design limits, hypothesis overreach, or hypothesis contradiction
-- it should not generate code here
-- it should not propose raw file rewrites here
+Do not make Path B as expensive as Path C, but make it significantly stricter than it is now.
 
 ==================================================
-TASK 2 — Make Gemini a short diagnosis / second opinion stage
+TASK 2 — Generate GPT patches only when consensus candidate is Path A
 ==================================================
+
+Current problem:
+- patch proposals are currently generated too early or too broadly
+- if the likely path is B, generating code patches mixes implementation improvement with hypothesis refinement
 
 Required change:
-Refactor Gemini into a shorter, independent diagnosis role.
+Restrict patch generation to Path A only.
 
-Inputs should include:
-- latest result_summary.json
-- concise hypothesis summary
-- GPT interpretation summary or the same raw inputs if you prefer stronger independence
-
-Gemini should output compact structured JSON such as:
-- suggested_path: A | B | C | done
-- short_diagnosis
-- agreement_with_gpt: agree | partial | disagree
-- main_risk
-- confidence
-
-Behavior requirements:
-- Gemini should NOT perform the full long interpretation
-- Gemini should act as a concise second opinion
-- Gemini should help detect disagreement, uncertainty, or blind spots in GPT interpretation
-- Gemini should not generate code here
-
-==================================================
-TASK 3 — Keep GPT/Codex as Path A patch proposer only
-==================================================
-
-Required change:
-Keep the patch proposal stage, but make its role narrower and cleaner.
-
-Rules:
-- GPT/Codex patch proposals are only relevant if the decision is likely Path A
-- patch proposals must remain file-targeted and minimal
-- no full rewrite behavior
-- no hypothesis revision behavior
-- no final decision authority
-
-Patch proposal outputs should remain structured, for example:
-- patches
-- rationale
-- hypothesis_alignment_check
-- breaks_comparability
-- target_file
-- spec_field if available
-
-Behavior requirements:
-- interpretation and patching must be clearly separated
-- patch proposals should only support implementation/design improvement
-- patch proposals should not decide A/B/C
-
-==================================================
-TASK 4 — Introduce a consensus-aware decision layer before Claude final decision
-==================================================
-
-Required change:
-Before Claude produces the final decision, add an explicit consensus interpretation layer.
-
-This layer should combine:
-- GPT interpretation
-- Gemini short diagnosis
-- optional run-history heuristics / metric thresholds
-
-It should produce a compact structured summary such as:
-- consensus_path_candidate
-- agreement_level: weak | medium | strong
-- major_disagreements
-- escalation_risk
-- notes_for_claude
-
-Decision policy:
-- done can be decided quickly if target metric is clearly achieved
-- Path A can be allowed with weaker consensus if evidence suggests implementation/training issues
-- Path B should require stronger agreement that the core idea remains valid but needs narrowing/refinement
-- Path C should require the strongest evidence and multi-model agreement before hypothesis replacement/escalation
+Implement:
+- call _gpt_propose_improvements() only when consensus_path_candidate == "A"
+- do not generate code patches for B, C, or done
+- for B, allow only refinement notes / hypothesis-plan adjustment hints, not code patches
+- preserve the current structured patch proposal format for A
 
 Important:
-Do not let Path C happen too easily.
-A failed run alone is not enough for Path C.
+- keep Path A practical and implementation-focused
+- keep Path B as hypothesis refinement, not code patch mode
+- keep Path C as hypothesis revision/replacement, not code patch mode
 
 ==================================================
-TASK 5 — Make Claude the final decision maker and merge controller
+TASK 3 — Enrich run_history so future decisions have better evidence
 ==================================================
+
+Current problem:
+- run_history is useful but still too thin
+- later decisions would be stronger if the loop remembered not only metrics/status, but also decision and consensus context
 
 Required change:
-Claude should become the final controller that reads:
-- GPT interpretation
-- Gemini short diagnosis
-- consensus summary
-- GPT/Codex patch proposals
-- run history
-- hypothesis/spec context
+Extend what is stored in run_history / previous_results.jsonl.
 
-Claude must output structured JSON such as:
-- path: A | B | C | done
-- decision_reason
+At minimum, add fields such as:
+- decision_path
 - consensus_level
+- gpt_suggested_path
+- gemini_suggested_path
 - accepted_patch_indexes
-- rejected_patch_indexes
-- improvement_hints
-
-Behavior requirements:
-- Claude is the final decision maker
-- Claude must not ignore the interpretation stages
-- Claude should merge evidence, not replace it with arbitrary fresh reasoning
-- Claude should treat Path B/C as higher-cost decisions requiring stronger justification
-- Claude should preserve comparability and minimal-change discipline
-
-==================================================
-TASK 6 — Keep Path semantics strict
-==================================================
-
-Preserve and clarify these meanings:
-
-Path A:
-- hypothesis still valid
-- implementation / training / baseline / experimental design needs improvement
-- code/spec/config may change
-- hypothesis core claim should not change
-
-Path B:
-- hypothesis directionally valid
-- claim is too broad / underspecified / condition-dependent
-- hypothesis must be refined, not replaced
-- experiment plan should be updated accordingly
-
-Path C:
-- hypothesis core mechanism or claimed advantage is not supported
-- repeated evidence or strong contradiction exists
-- hypothesis revision or replacement is required
-
-done:
-- target metric achieved or strong stop condition met
-- no meaningful escalation needed
-
-==================================================
-TASK 7 — Keep everything machine-readable and automation-friendly
-==================================================
+- training_stability summary
+- blocked_reason if package generation was blocked
+- validation_failed if relevant
 
 Requirements:
-- all intermediate model outputs must remain structured JSON
-- preserve existing result_summary and revision_request compatibility where possible
-- keep previous_results accumulation intact
-- do not introduce vague free-form outputs where structured outputs already exist
-- preserve automation safety
+- preserve backward compatibility where possible
+- do not break existing downstream usage
+- keep the history machine-readable
+- keep the added fields concise and stable
+- use these richer history records in later interpretation/decision prompts when helpful
 
 ==================================================
-TASK 8 — Implementation constraints
+IMPLEMENTATION CONSTRAINTS
 ==================================================
 
-- Use minimal structural changes
-- Refactor with helper functions where possible
-- Do not rewrite the whole system
-- Preserve current package generation flow
-- Preserve current METRICS contract
-- Preserve backward compatibility where possible
-- Keep the pipeline understandable and deterministic
+- Use helper functions and small local refactors
+- Do not redesign the whole system
+- Preserve current output schemas where possible, only extend them
+- Keep everything machine-readable
+- Keep the code deterministic and automation-friendly
 
 ==================================================
 DELIVERABLES
 ==================================================
 
 After modifying the code, provide a short summary:
-1. how GPT now handles main result interpretation
-2. how Gemini now acts as short diagnosis / second opinion
-3. how GPT/Codex remains patch-only
-4. how the consensus layer works
-5. how Claude final decision now uses consensus evidence
-6. any remaining TODOs
+1. how Path B became stricter
+2. how patch generation is now restricted to Path A only
+3. what new fields are now stored in run_history
+4. any remaining TODOs
