@@ -97,48 +97,55 @@ TOOLS = [
     {
         "name": "analyze_github_code",
         "description": (
-            "관련 논문의 GitHub 구현체를 검색하고 코드 구조를 분석한다. "
+            "관련 GitHub 구현체를 검색하고 코드 구조를 분석한다. "
             "재사용 가능한 컴포넌트와 핵심 알고리즘을 파악한다."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "keywords":  {"type": "array", "items": {"type": "string"}, "description": "GitHub 검색 키워드"},
-                "papers":    {"type": "array", "description": "GitHub 링크가 포함된 논문 목록"},
-                "max_repos": {"type": "integer", "description": "최대 레포 수 (기본 5)", "default": 5},
+                "topic_file":     {"type": "string", "description": "topic_analysis.json 경로"},
+                "hypothesis_file":{"type": "string", "description": "hypothesis.json 경로"},
             },
-            "required": ["keywords"],
+            "required": ["topic_file", "hypothesis_file"],
         },
     },
     {
         "name": "generate_model",
         "description": (
-            "가설과 코드 분석을 바탕으로 PyTorch 모델 코드를 생성한다. "
-            "trainer, dataloader, loss function을 포함한 완전한 학습 코드를 작성한다."
+            "가설과 코드 분석을 바탕으로 PyTorch Fabric 실험 패키지를 생성한다. "
+            "Claude가 model.py/module.py/data.py/configs/를 포함한 패키지 디렉토리를 생성한다. "
+            "GPT 패치 제안 + Gemini 설계 리뷰 + Claude 최종 병합 후 validation gate 통과 시 완료."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "hypothesis":    {"type": "object", "description": "연구 가설"},
-                "code_analysis": {"type": "object", "description": "GitHub 코드 분석 결과"},
-                "topic_analysis":{"type": "object", "description": "주제 분석 결과"},
+                "topic_file":       {"type": "string", "description": "topic_analysis.json 경로"},
+                "hypothesis_file":  {"type": "string", "description": "hypothesis.json 경로"},
+                "code_analysis_file":{"type": "string", "description": "code_analysis.json 경로"},
+                "version":          {"type": "integer", "description": "실험 버전 번호 (기본 1)", "default": 1},
             },
-            "required": ["hypothesis", "code_analysis", "topic_analysis"],
+            "required": ["topic_file", "hypothesis_file", "code_analysis_file"],
         },
     },
     {
         "name": "run_experiment",
         "description": (
-            "생성된 모델로 실험을 실행하고 결과를 반환한다. "
-            "results/ 디렉토리에 JSON으로 저장된다."
+            "생성된 실험 패키지를 실행하고 revision 루프를 돌린다. "
+            "Runner(local/GitLab)로 smoke test → train → METRICS 파싱. "
+            "목표 미달 시 GPT→Gemini→합의→Claude→postcheck 분석 후 Path A/B/C 결정. "
+            "result_summary.json, previous_results.jsonl, revision_request.json 생성."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "model_code_path": {"type": "string", "description": "생성된 모델 코드 경로"},
-                "experiment_id":   {"type": "string", "description": "실험 ID"},
+                "pkg_dir":          {"type": "string", "description": "experiments/{slug}_vN 패키지 디렉토리 경로"},
+                "topic_file":       {"type": "string", "description": "topic_analysis.json 경로"},
+                "hypothesis_file":  {"type": "string", "description": "hypothesis.json 경로"},
+                "code_analysis_file":{"type": "string", "description": "code_analysis.json 경로"},
+                "max_rounds":       {"type": "integer", "description": "최대 revision 횟수 (기본 3)", "default": 3},
+                "runner_type":      {"type": "string", "description": "local | gitlab (기본 local)", "default": "local"},
             },
-            "required": ["model_code_path", "experiment_id"],
+            "required": ["pkg_dir", "topic_file", "hypothesis_file", "code_analysis_file"],
         },
     },
 ]
@@ -171,16 +178,16 @@ def execute_tool(tool_name: str, tool_input: dict) -> Any:
         return request_approval(**tool_input)
 
     elif tool_name == "analyze_github_code":
-        from lab.code_analyzer import analyze_github_code
-        return analyze_github_code(**tool_input)
+        from lab.code_analyzer import analyze_code
+        return analyze_code(**tool_input)
 
     elif tool_name == "generate_model":
-        from lab.model_generator import generate_model
-        return generate_model(**tool_input)
+        from lab.model_generator import generate_experiment_package
+        return generate_experiment_package(**tool_input)
 
     elif tool_name == "run_experiment":
-        from lab.research_loop import run_experiment
-        return run_experiment(**tool_input)
+        from lab.research_loop import run_research_loop
+        return run_research_loop(**tool_input)
 
     else:
         raise ValueError(f"Unknown tool: {tool_name}")

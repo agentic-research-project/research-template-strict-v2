@@ -89,6 +89,11 @@
         "primary_metric":    { "type": "string", "description": "§9 metric 명칭 규칙 준수" },
         "target_value":      { "type": "number" },
         "secondary_metrics": { "type": "array", "items": { "type": "string" } },
+        "metric_units": {
+          "type": "object",
+          "description": "metric 이름 → 단위 매핑 (e.g., {\"psnr\": \"dB\", \"accuracy\": \"%\"})",
+          "additionalProperties": { "type": "string" }
+        },
         "test_set":          { "type": "string" },
         "eval_frequency":    { "type": "integer", "description": "몇 epoch마다 검증" }
       }

@@ -129,7 +129,7 @@ def _build_result_summary(
         "primary_metric":   {
             "name":   primary_name,
             "value":  primary_value,
-            "unit":   "dB" if primary_name == "psnr" else "",
+            "unit":   spec.get("evaluation_config", {}).get("metric_units", {}).get(primary_name, ""),
             "target": float(target_value),
             "met":    primary_met,
         },
@@ -146,7 +146,12 @@ def _build_result_summary(
         },
         "bottleneck_candidates": [],
         "ablation_findings":     [],
-        "confidence":  0.5 if converged else 0.2,
+        "confidence":  (
+            0.9 if primary_met else
+            round(min(0.8, max(0.2, primary_value / float(target_value) * 0.8)), 2)
+            if converged and float(target_value) > 0 else
+            0.2
+        ),
         "recommended_next_actions": [],
         "stderr_tail": run_result.get("stderr_tail", [])[-50:],
         "stdout_tail": (
@@ -204,7 +209,7 @@ def _gpt_interpret_results(
 
 ## Hypothesis
 {hyp.get('statement_kr', hyp.get('statement', ''))}
-Key mechanism: {hyp.get('key_mechanism', hyp.get('mechanism', ''))}
+Key mechanism: {hyp.get('expected_mechanism', hyp.get('key_mechanism', hyp.get('mechanism', '')))}
 
 ## Experiment Spec
 - primary_metric: {ev_cfg.get('primary_metric', primary['name'])} ≥ {ev_cfg.get('target_value', primary['target'])}
@@ -859,6 +864,10 @@ def _write_revision_request(
         ),
         "comparability_note":      decision.get("improvement_hints", ""),
         "next_experiment_version": version + 1,
+        # postcheck 감사 필드 — postcheck_override=True이면 원본 Claude 결정과 다름
+        "postcheck_override":      decision.get("postcheck_override", False),
+        "original_claude_path":    decision.get("original_claude_path"),
+        "postcheck_note":          decision.get("postcheck_note"),
         "created_at":              datetime.now().isoformat(),
     }
 

@@ -9,7 +9,7 @@
     "experiment_version", "status", "primary_metric",
     "secondary_metrics", "training_stability",
     "confidence", "recommended_next_actions",
-    "gitlab_run_metadata", "created_at"
+    "runner_metadata", "created_at"
   ],
   "properties": {
     "schema_version": {
@@ -148,17 +148,17 @@
       "items": { "type": "string" },
       "description": "metrics_parse_error 시 stdout 마지막 50줄"
     },
-    "gitlab_run_metadata": {
+    "runner_metadata": {
       "type": "object",
-      "required": ["job_id", "git_sha", "duration_s"],
+      "description": "실행 환경 메타데이터 — local 또는 GitLab CI",
+      "required": ["runner", "duration_s"],
       "properties": {
+        "runner":        { "type": "string", "description": "local | gitlab" },
         "job_id":        { "type": "string" },
-        "pipeline_id":   { "type": "string" },
-        "runner_id":     { "type": "string" },
-        "git_sha":       { "type": "string" },
-        "git_branch":    { "type": "string" },
         "duration_s":    { "type": "number" },
-        "gpu_model":     { "type": "string" }
+        "artifact_uri":  { "type": "string" },
+        "job_url":       { "type": "string" },
+        "git_sha":       { "type": "string" }
       }
     },
     "created_at": {

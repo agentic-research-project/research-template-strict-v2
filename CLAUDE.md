@@ -18,10 +18,11 @@ flowchart TD
         E{5. user_approval\nPDF 보고서} -->|승인| F
         E -->|거절/수정| C
         F[6. code_analyzer\nGitHub API] -->|code_analysis.json| G
-        G[7. model_generator\nClaude] -->|experiments/model.py| H
-        H[8. research_loop\nPyTorch 실험] -->|results.json| I{목표 달성?}
-        I -->|No| G
-        I -->|Yes| Done([완료])
+        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] -->|experiments/{slug}_vN/| H
+        H[8. research_loop\nRunner + Multi-model 분석\nGPT→Gemini→합의→Claude→postcheck] -->|result_summary.json\nprevious_results.jsonl| I{목표 달성?}
+        I -->|Path A| G
+        I -->|Path B/C| Rev([revision_request.json])
+        I -->|done| Done([완료])
     end
 
     subgraph Storage["저장소"]
@@ -43,9 +44,11 @@ project/
 ├── main.py                      # 전체 파이프라인 진입점
 ├── .gitlab-ci.yml               # GitLab CI/CD 실험 실행 파이프라인
 ├── lab/                         # 각 단계 모듈 → lab/CLAUDE.md 참조
-├── experiments/                 # 생성된 모델 코드 + 패키지 템플릿
+│   ├── runners.py               # Runner 추상화 (local / GitLab CI)
+│   └── ...
+├── experiments/                 # 생성된 실험 패키지 ({slug}_vN/) + template
 ├── results/                     # 실험 결과 JSON + previous_results.jsonl
-├── reports/                     # 각 단계 보고서
+├── reports/                     # 각 단계 보고서 + proposals/
 ├── schemas/                     # JSON 스키마 (experiment_spec, result_summary, revision_request)
 ├── docs/                        # 시스템 설계 문서, merge checklist
 └── tools/                       # tool registry
@@ -60,9 +63,9 @@ project/
 |---|---|---|
 | `lab/` | `lab/CLAUDE.md` | 파이프라인 모듈 상세, 실행 명령, LLM 설정, 데이터 스펙 |
 | `tools/` | `tools/CLAUDE.md` | tool 스키마 목록, execute_tool 라우터 규칙 |
-| `experiments/` | `experiments/CLAUDE.md` | Fabric 코딩 규칙, 파일 소유권, 수정 정책(Path A/B/C), metric 명칭 규칙 |
+| `experiments/` | `experiments/CLAUDE.md` | Fabric 코딩 규칙, 파일 소유권, 수정 정책(Path A/B/C), validation gate, multi-model 파이프라인 규칙, metric 명칭 규칙 |
 | `schemas/` | — | experiment_spec / result_summary / revision_request JSON Schema |
-| `docs/` | — | system_design.md (12섹션 설계서), merge_checklist.md |
+| `docs/` | — | system_design.md (아키텍처 설계서), merge_checklist.md |
 
 ## 문서 규칙
 - 아키텍처·흐름 다이어그램은 반드시 Mermaid로 작성 (ASCII 다이어그램 사용 금지)

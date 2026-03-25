@@ -55,9 +55,10 @@ experiments/{topic_slug}_v{N}/
 
 **소유권 규칙:**
 - Claude writes: train.py, module.py, model.py, data.py, configs/, scripts/, tests/, README.md
-- GPT may propose patches: model.py, data.py, tests/, configs/ablation/
-- GPT must NOT write: train.py, module.py, hypothesis.json, experiment_plan.json
-- Gemini outputs JSON reviews only → proposals/gemini_review_{timestamp}.json
+- GPT may propose patches (Path A 한정): model.py, module.py, configs/default.yaml
+- GPT must NOT write: train.py, data.py, hypothesis.json, experiment_plan.json
+- Gemini (model_generator): 설계 리뷰만 → proposals/gemini_review_{timestamp}.json
+- Gemini (research_loop): 2차 진단만 → proposals/gemini_diagnosis_{timestamp}.json
 - 모든 제안은 proposals/ 에 저장 후 Claude가 검토·병합
 
 ---
@@ -148,6 +149,21 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 - 단 1회 실패는 Path C 트리거 불가
 - Path C는 Claude가 명시적 falsification 근거를 작성한 후에만 실행
 
+**Path B 명시적 허용 조건 (모두 충족 필요):**
+- GPT `suggested_path` ∈ {B, C}
+- Gemini `agreement_with_gpt` ≠ "disagree"
+- Consensus `agreement_level` ∈ {medium, strong}
+- `n_runs ≥ 2` (단일 smoke/execution 실패만으로는 B 불가)
+
+**Path C 명시적 허용 조건 (모두 충족 필요):**
+- `n_runs ≥ 3`
+- Consensus `agreement_level == "strong"`
+- GPT `evidence_strength == "high"`
+- `escalation_risk ≠ "blocked"`
+- 훈련 불안정(NaN, 미수렴)이 아닌 가설 핵심 메커니즘 실패일 것
+
+**Post-check guardrail:** Claude 결정 직후 `_postcheck_final_decision()`이 위 조건을 코드 레벨에서 재검증. 미충족 시 자동 다운그레이드.
+
 ---
 
 ## §6 ANTI-DRIFT RULES
@@ -205,14 +221,23 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 ### GPT 패치 형식
 ```json
 {
-  "target_file": "model.py",
+  "target_file": "model.py|module.py|configs/default.yaml",
+  "spec_field": "model_architecture|training_config|evaluation_config",
   "rationale": "conv3x3 → depthwise separable conv로 교체해 params 감소",
   "hypothesis_alignment_check": "hypothesis.json §constraints: params ≤ 5M에 부합",
+  "breaks_comparability": false,
   "complexity_delta_loc": 12,
-  "patch": "--- model.py\n+++ model.py\n..."
+  "changes": [
+    {"type": "replace", "old": "exact snippet", "new": "improved snippet"}
+  ]
 }
 ```
-저장 위치: `proposals/gpt_patch_{YYYYMMDD_HHMMSS}.diff`
+저장 위치: `proposals/gpt_patch_{YYYYMMDD_HHMMSS}.json`
+
+- `spec_field`: 패치가 연결된 experiment_spec 섹션 (필수)
+- `breaks_comparability`: 이전 run과의 비교 가능성 파괴 여부 (필수, true이면 Claude 명시 승인 필요)
+- full-file rewrite 금지 — 최소 diff만 허용
+- Path A 결정 시에만 패치 생성 (Path B/C/done에서는 패치 생성하지 않음)
 
 ### Claude 병합 체크리스트
 병합 전 반드시 `docs/merge_checklist.md`의 항목을 모두 확인한다.
@@ -224,10 +249,49 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 
 ---
 
-## §11 EXPERIMENT PACKAGE TEMPLATE
+## §11 VALIDATION GATE (패키지 생성 차단 정책)
+
+패키지 생성 완료 후 `_validate_generated_package()`가 아래 항목을 검사한다:
+- 필수 파일 존재 여부 (train.py, model.py, module.py, data.py, configs/, scripts/)
+- `METRICS:` stdout 패턴 존재 여부 (output_contract)
+- metric 키 계약 준수 여부 (experiment_spec의 `required_keys`)
+
+**검증 실패 시:**
+- `finalized=False`, `validation_failed=True` 반환
+- `_finalize_package()` 호출 차단
+- 생성된 파일은 디버깅용으로 보존
+- CLI는 `sys.exit(1)` 종료
+- research_loop에서는 루프 중단 + revision_request 생성
+
+---
+
+## §12 MULTI-MODEL ANALYSIS PIPELINE (research_loop)
+
+실험 실행 후 결과 분석은 5단계 파이프라인으로 처리된다:
+
+```
+1. GPT(interpret)  → 결과 심층 해석 + suggested_path (주요 해석자)
+2. Gemini(diagnose) → 독립 2차 진단, agreement_with_gpt (짧은 의견)
+3. consensus        → GPT+Gemini 통합, Path C 과도 에스컬레이션 방지 (코드 로직)
+4. GPT(patches)     → Path A 한정, 구현 패치 제안 (consensus==A 시에만)
+5. Claude(decide)   → 최종 결정 (GPT 해석 + Gemini 진단 + consensus 통합)
+   + postcheck      → Path B/C guardrail 코드 레벨 재검증 (LLM 없음)
+```
+
+**파이프라인 불변 규칙:**
+- GPT 해석 단계에서 코드 작성 금지
+- Gemini 진단 단계에서 코드 작성 금지
+- GPT 패치는 Path A 결정 시에만 생성 (B/C/done에서는 생략)
+- Claude는 독자적 재해석 대신 제공된 증거를 통합하여 결정
+- postcheck이 조건 미충족 결정을 자동 다운그레이드 (B→A, C→B 또는 A)
+
+---
+
+## §13 EXPERIMENT PACKAGE TEMPLATE
 
 새 패키지 생성 시 `experiments/template/` 을 복사하여 시작한다:
 ```bash
 cp -r experiments/template experiments/{topic_slug}_v{N}
 ```
 템플릿 구조는 `experiments/template/` 참조.
+생성 후 §11 Validation Gate 통과 필수.

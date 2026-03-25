@@ -8,44 +8,53 @@ flowchart TD
     B -->|code_analysis.json| C[experiment_spec_generator\nClaude]
     C -->|experiment_spec.json| D[multi-model proposal round]
 
-    subgraph Proposal["Multi-Model Proposal / Review / Merge"]
-        D1[GPT/Codex\ncode patch proposals] --> M
-        D2[Gemini\ndesign review] --> M
+    subgraph Proposal["model_generator — Multi-Model Proposal / Review / Merge"]
+        D1[GPT/Codex\nspec-linked code patches] --> M
+        D2[Gemini\ndesign review only] --> M
         M[Claude\nfinal merge & integrate]
     end
 
     D --> Proposal
-    M -->|experiments/{slug}_v{N}/| E[GitLab CI/CD]
+    M -->|experiments/{slug}_v{N}/| E[Runner\nlocal / GitLab CI]
 
-    subgraph GitLab["GitLab Execution"]
-        E1[setup] --> E2[smoke_test]
-        E2 --> E3[train]
-        E3 -->|stdout: METRICS:{...}| E4[package artifacts]
+    subgraph Execution["Execution"]
+        E1[smoke_test] --> E2[train]
+        E2 -->|stdout: METRICS:{...}| E3[result_summary.json]
     end
 
-    E --> GitLab
-    E4 -->|result_summary.json| F[Revision Decision\nClaude]
+    E --> Execution
+    E3 --> RI
 
-    F -->|Path A| G[Revise experiment/code]
-    F -->|Path B| H[Refine hypothesis]
-    F -->|Path C| I[Replace hypothesis]
+    subgraph Analysis["research_loop — Multi-Model Analysis Pipeline"]
+        RI[GPT\n결과 심층 해석] --> GD
+        GD[Gemini\n독립 2차 진단] --> CS
+        CS[합의 레이어\nconsensus] --> PP
+        PP[GPT\nPath A 패치 제안\n조건부] --> CF
+        CF[Claude\n최종 결정]
+        CF --> PC[Post-Check\n결정론적 guardrail]
+    end
 
+    PC -->|Path A| G[Revise experiment/code]
+    PC -->|Path B| H[Refine hypothesis]
+    PC -->|Path C| I[Replace hypothesis]
     G --> C
     H -->|updated hypothesis.json| C
     I -->|new hypothesis.json| B
-
-    F -->|done| Done([Final Report])
+    PC -->|done| Done([Final Report])
 ```
 
 **Ownership summary:**
 | Stage | Owner | Writes |
 |---|---|---|
 | Spec generation | Claude | experiment_spec.json |
-| Code proposal | GPT/Codex | proposals/gpt_*.diff |
-| Design review | Gemini | proposals/gemini_*.json |
+| Code proposal | GPT/Codex | proposals/gpt_patch_*.json (spec-linked) |
+| Design review | Gemini | proposals/gemini_review_*.json (no code) |
 | Final merge | Claude | experiments/{pkg}/ |
-| Execution | GitLab CI | result_summary.json, artifacts/ |
-| Revision decision | Claude | revision_request.json |
+| Execution | Runner (local/GitLab) | result_summary.json, artifacts/ |
+| Result interpretation | GPT | proposals/gpt_interpretation_*.json |
+| Short diagnosis | Gemini | proposals/gemini_diagnosis_*.json |
+| Consensus | research_loop (code) | in-memory consensus dict |
+| Final decision + postcheck | Claude + deterministic check | revision_request.json |
 
 ---
 
@@ -105,29 +114,40 @@ experiments/{topic_slug}_v{N}/
 
 ## 4. MODEL_ROLE_SPLIT
 
-### Claude — Architect & Final Integrator
-- Generates experiment_spec.json
+### Claude — Architect, Final Merger & Final Decision Maker
+- Generates experiment_spec.json (spec-first 방식)
 - Writes initial train.py, module.py, model.py, data.py, configs/default.yaml
-- Reviews all GPT patches and Gemini reviews
-- Performs final merge into the package
-- Makes revision decisions (Path A/B/C)
+- Reviews GPT patches and Gemini design reviews; performs final merge
+- **최종 결정자**: GPT 해석 + Gemini 진단 + consensus 통합 후 Path A/B/C/done 결정
 - Owns experiments/claude.md
 
-### GPT/Codex — Code Patcher & Test Writer
-- Proposes patches to model.py, data.py, tests/, configs/
-- Format: unified diff saved to `proposals/gpt_patch_{timestamp}.diff`
-- Also proposes `tests/test_forward.py` content
-- Must not write to train.py, module.py, or hypothesis.json
-- Each patch must include: `target_file`, `rationale`, `hypothesis_alignment_check`
+### GPT — Result Interpreter (primary) + Path A Patch Proposer
+**역할 1 — 결과 심층 해석 (research_loop):**
+- result_summary.json + run_history 기반 심층 해석
+- Format: `proposals/gpt_interpretation_*.json`
+- Required fields: `suggested_path`, `evidence_strength`, `confidence`, `root_cause_analysis`, `hypothesis_validity_assessment`, `bottleneck_candidates`, `improvement_suggestions`, `why_not_other_paths`
+- **No code here**: 해석만 수행, 코드 작성 금지
 
-### Gemini — Result Interpreter & Design Critic
-- Reads result_summary.json and proposes revision direction
-- Critiques experiment design (baselines, ablations, controls)
-- Format: `proposals/gemini_review_{timestamp}.json`
-- Must not write code; outputs structured JSON review only
-- Required fields: `verdict`, `issues[]`, `suggested_path` (A/B/C), `evidence_strength`
+**역할 2 — Path A 구현 패치 제안 (consensus_path == "A" 시에만):**
+- model.py, module.py, configs/default.yaml 대상 최소 diff 패치
+- Format: `proposals/gpt_patch_*.json`
+- Required fields per patch: `target_file`, `spec_field`, `rationale`, `hypothesis_alignment_check`, `breaks_comparability`, `changes[]`
+- **No full rewrites, no hypothesis revision, no path decisions**
 
-**No-direct-write rule:** GPT and Gemini write only to `proposals/`. Claude reads proposals and applies what aligns with the hypothesis. Proposal files are archived, never deleted.
+### Gemini — Short Diagnosis / Second Opinion
+**역할 — 독립 2차 진단 (research_loop):**
+- GPT 해석과 독립적으로 짧은 진단 제공
+- Format: `proposals/gemini_diagnosis_*.json`
+- Required fields: `suggested_path`, `short_diagnosis`, `agreement_with_gpt`, `disagreement_reason`, `main_risk`, `confidence`
+- **No code, no patches, no full interpretation**: 간결한 2차 의견만
+
+**역할 — 실험 설계 리뷰 (model_generator):**
+- experiment_spec 설계 수준 검토 (메커니즘, 기준선, 병목)
+- Format: `proposals/gemini_review_*.json`
+- Required fields: `verdict`, `mechanism_check`, `spec_alignment`, `bottlenecks`, `suggested_path`, `evidence_strength`
+- **No code, no direct code edits**: 설계 리뷰만
+
+**No-direct-write rule:** GPT와 Gemini는 `proposals/`에만 기록. Claude가 proposals를 검토하고 합의 기반으로 최종 병합. 사후 검증(postcheck)이 Path B/C guardrail을 코드 레벨에서 재확인.
 
 ---
 
@@ -251,7 +271,13 @@ See `schemas/result_summary.json` for full JSON Schema.
 - Primary metric close to target (within 10%) but claim needs narrowing
 - Result is condition-dependent (e.g., works on high-noise but not low-noise)
 - Core mechanism confirmed but scope over-claimed
-- Gemini review returns `evidence_strength: medium` with `suggested_path: B`
+
+**Explicit gating conditions (모두 충족 필요):**
+- GPT `suggested_path` ∈ {B, C}
+- Gemini `agreement_with_gpt` ≠ "disagree"
+- Consensus `agreement_level` ∈ {medium, strong}
+- `n_runs ≥ 2`
+- 단순 smoke/execution 실패만으로는 B 불가
 
 **Evidence threshold:** 2+ runs with consistent pattern
 
@@ -290,6 +316,13 @@ See `schemas/result_summary.json` for full JSON Schema.
 ---
 
 **Decision rule (enforced):** Prefer Path A → Path B → Path C. Do not escalate without meeting the evidence threshold. A single failed run never triggers Path C.
+
+**Post-check guardrail (코드 레벨 강제):**
+Claude 결정 직후 `_postcheck_final_decision()`이 Path B/C 허용 조건을 재검증한다 (LLM 없음).
+- Path C 미충족 → B 가능 시 B, 아니면 A로 자동 다운그레이드
+- Path B 미충족 → A로 자동 다운그레이드
+- done 조건 미충족(primary_met=False) → consensus 후보 또는 A
+- 모든 override는 `postcheck_override`, `original_claude_path`, `postcheck_note` 필드로 기록
 
 ---
 
@@ -366,6 +399,8 @@ See `experiments/claude.md` §Fabric Rules for full specification.
 | **Incompatible metric names** | Canonical metric registry in claude.md §Metric Naming; metric names frozen after v1 |
 | **Broken comparability** | Config inheritance rule; baseline_run_id required in all result_summary.json |
 | **Overfitting to one failed run** | Path C requires ≥3 runs + strong controls; single failure always starts with Path A |
+| **Claude LLM over-escalation** | Deterministic `_postcheck_final_decision()` enforces B/C guardrails in code after Claude returns — no LLM bypass |
+| **Stale run context** | run_history now stores `decision_path`, `consensus_level`, `gpt/gemini_suggested_path`, `postcheck_override` — richer evidence for future rounds |
 | **Uncontrolled code complexity** | Minimal-change merge policy; GPT patches must pass `complexity_delta ≤ 50 LOC` check |
 | **Public-code over-copying** | Max 20 consecutive lines rule; Claude explicitly checks before merging GPT patches |
 | **Brittle automation contracts** | METRICS stdout contract is immutable; schema_version field in all JSON artifacts |

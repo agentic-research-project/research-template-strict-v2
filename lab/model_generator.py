@@ -91,26 +91,49 @@ def _build_experiment_spec(
     slug     = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
     ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # ── 지표 추출 (도메인 무관 일반화) ────────────────────────────────
     metrics_list = exp_plan.get("evaluation_metrics", [])
-    primary_name = "psnr"
-    secondary    = []
-    for m in metrics_list:
-        key = re.split(r"[\s\(—]", m.strip())[0].lower().replace("-", "_")
-        if key and key != "psnr":
-            secondary.append(key)
-        elif key == "psnr":
-            primary_name = key
+    primary_name: str = ""
+    secondary:    list[str] = []
+    metric_units: dict[str, str] = {}
 
-    target_raw = inp.get("target_metric", "")
-    target_val = 30.0
-    m_val = re.search(r"(\d+(?:\.\d+)?)\s*(?:dB|db)?", target_raw)
+    for i, m in enumerate(metrics_list):
+        # 첫 번째 토큰을 지표명으로, 괄호 내 단위 추출 (e.g., "PSNR (dB)", "Accuracy (%)")
+        key = re.split(r"[\s\(\-—/]", m.strip())[0].lower().replace("-", "_").strip("_")
+        if not key:
+            continue
+        unit_match = re.search(r"\(([^)]+)\)", m)
+        metric_units[key] = unit_match.group(1) if unit_match else ""
+        if i == 0:
+            primary_name = key
+        else:
+            secondary.append(key)
+
+    # target_metric에서 첫 번째 지표명을 primary로 대체 (더 명시적)
+    target_raw   = inp.get("target_metric", "")
+    if not primary_name and target_raw:
+        first_tok = re.split(r"[\s,\(\-]", target_raw.strip())[0].lower().replace("-", "_").strip("_")
+        if first_tok:
+            primary_name = first_tok
+
+    # 최후 fallback
+    if not primary_name:
+        primary_name = "primary_metric"
+
+    # target_val: 숫자 추출 (단위 무관)
+    target_val = 0.0
+    m_val = re.search(r"(\d+(?:\.\d+)?)", target_raw)
     if m_val:
         target_val = float(m_val.group(1))
 
+    # param budget: constraints에서 추출
     param_budget = 5.0
     m_param = re.search(r"(\d+(?:\.\d+)?)\s*[Mm]", inp.get("constraints", ""))
     if m_param:
         param_budget = float(m_param.group(1))
+
+    # training_config: experiment_plan에서 우선 참조
+    train_plan = exp_plan.get("training", exp_plan.get("training_config", {}))
 
     return {
         "schema_version": "1.0",
@@ -128,16 +151,22 @@ def _build_experiment_spec(
             "param_budget_M": param_budget,
         },
         "training_config": {
-            "epochs": 50, "batch_size": 16, "optimizer": "adamw",
-            "lr": 1e-4, "loss_function": "l1", "seed": 42,
-            "precision": "bf16-mixed", "gradient_clip": 1.0,
+            "epochs":        train_plan.get("epochs", 50),
+            "batch_size":    train_plan.get("batch_size", 16),
+            "optimizer":     train_plan.get("optimizer", "adamw"),
+            "lr":            float(train_plan.get("lr", train_plan.get("learning_rate", 1e-4))),
+            "loss_function": train_plan.get("loss_function", "auto"),
+            "seed":          train_plan.get("seed", 42),
+            "precision":     train_plan.get("precision", "bf16-mixed"),
+            "gradient_clip": train_plan.get("gradient_clip", 1.0),
         },
         "evaluation_config": {
             "primary_metric":    primary_name,
             "target_value":      target_val,
-            "secondary_metrics": secondary[:3],
-            "test_set":          "val_split",
-            "eval_frequency":    1,
+            "secondary_metrics": secondary,
+            "metric_units":      metric_units,
+            "test_set":          exp_plan.get("test_set", "val_split"),
+            "eval_frequency":    exp_plan.get("eval_frequency", 1),
         },
         "ablations": [],
         "baselines": [
@@ -147,7 +176,7 @@ def _build_experiment_spec(
         ],
         "output_contract": {
             "stdout_pattern": "^METRICS:\\{.*\\}$",
-            "required_keys":  [primary_name] + secondary[:2],
+            "required_keys":  [primary_name] + secondary,
         },
     }
 
@@ -637,7 +666,7 @@ Return valid JSON only.
 
 ## Hypothesis (scientific truth)
 {hyp.get('statement_kr', hyp.get('statement', ''))}
-Key mechanism: {hyp.get('key_mechanism', hyp.get('mechanism', ''))}
+Key mechanism: {hyp.get('expected_mechanism', hyp.get('key_mechanism', hyp.get('mechanism', '')))}
 
 ## Architecture Summary
 {generated.get('architecture_summary', '')}
