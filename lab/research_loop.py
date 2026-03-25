@@ -5,10 +5,12 @@ experiments/{slug}_v{N}/ 패키지를 실행하고 결과를 분석한다.
 목표 미달이면 Path A (코드 수정) 로 최대 max_rounds회 재시도한다.
 Path B/C가 필요하면 revision_request.json을 생성하고 루프를 종료한다.
 
-Path A 변경:
-  - generate_experiment_package()에 이전 패키지 + accepted_gpt_patches +
-    gemini_review + result_summary를 함께 전달
-  - model_generator 내부에서 전체 재생성 대신 최소 diff revision 수행
+분석 파이프라인 (Multi-model):
+  GPT  → 주요 해석자 (심층 결과 해석, suggested_path + evidence)
+  Gemini → 독립 2차 진단 (short diagnosis, agreement_with_gpt)
+  합의 레이어 → GPT+Gemini 통합, Path C 과도 에스컬레이션 방지
+  GPT  → Path A 시 구현 패치 제안 (patch-only, 결정 권한 없음)
+  Claude → 최종 결정자 (합의 증거 통합 → path A/B/C/done 결정)
 
 Runner 추상화:
   --runner-type local   (기본값) 로컬 subprocess 실행
@@ -173,22 +175,40 @@ def _build_result_summary(
 # 결과 분석 — Multi-model Proposal-Review-Merge
 # ──────────────────────────────────────────────────────────
 
-def _gemini_interpret_results(
-    pkg_dir: Path,
+def _gpt_interpret_results(
     summary: dict,
     hypothesis: dict,
+    spec: dict,
     run_history: list[dict],
 ) -> dict:
-    """Gemini가 실험 결과를 해석하고 revision 방향을 제안한다."""
+    """GPT가 실험 결과를 심층 해석하고 revision 방향을 제안한다 (주요 해석자).
+
+    해석에 집중하며 코드 패치는 생성하지 않는다.
+    출력: suggested_path, evidence_strength, root_cause_analysis,
+           hypothesis_validity_assessment, bottleneck_candidates,
+           confidence, why_not_other_paths
+    """
     primary = summary["primary_metric"]
     hyp     = hypothesis.get("hypothesis", {})
+    ev_cfg  = spec.get("evaluation_config", {})
 
-    prompt = f"""You are a deep learning research analyst (Gemini role).
-Interpret the experiment results and suggest a revision direction.
-Return valid JSON only.
+    system_msg = (
+        "You are a deep learning research analyst (GPT role). "
+        "Your job is to perform DEEP INTERPRETATION of experiment results. "
+        "Do NOT generate code or propose patches here — that is a separate step. "
+        "Focus on: root cause analysis, hypothesis validity, and revision direction. "
+        "Return valid JSON only."
+    )
+
+    user_msg = f"""Interpret the experiment results and suggest a revision direction.
 
 ## Hypothesis
 {hyp.get('statement_kr', hyp.get('statement', ''))}
+Key mechanism: {hyp.get('key_mechanism', hyp.get('mechanism', ''))}
+
+## Experiment Spec
+- primary_metric: {ev_cfg.get('primary_metric', primary['name'])} ≥ {ev_cfg.get('target_value', primary['target'])}
+- secondary_metrics: {ev_cfg.get('secondary_metrics', [])}
 
 ## Run History ({len(run_history)} runs)
 {json.dumps(run_history, ensure_ascii=False, indent=2)}
@@ -197,29 +217,103 @@ Return valid JSON only.
 - status: {summary['status']}
 - {primary['name']}: {primary['value']:.4f} (target={primary['target']:.2f}, met={primary['met']})
 - training_stability: {json.dumps(summary.get('training_stability', {}), ensure_ascii=False)}
+- deltas_vs_baseline: {json.dumps(summary.get('deltas_vs_baseline', {}), ensure_ascii=False)}
 
-## Your task
-1. Identify the most likely root cause of underperformance
-2. Determine if the hypothesis mechanism is fundamentally valid
-3. Suggest concrete improvement direction
+## Revision criteria (strict)
+- Path A: implementation issue — hypothesis still valid (code bug, config, training instability)
+- Path B: hypothesis directionally valid but needs refinement (50-80% target met, scope too broad)
+- Path C: hypothesis CORE MECHANISM contradicted by repeated strong evidence (requires ≥3 runs)
+- done: target metric achieved
 
-## Revision criteria
-- Path A: implementation issue (code bug, wrong config, unstable training)
-- Path B: hypothesis valid but needs scope refinement (50-80% of target met)
-- Path C: hypothesis core mechanism contradicted (consistent failure, ≥3 runs)
-- done: target met
+Rules: single failure cannot go to Path C. Escalation must follow A → B → C.
 
 Return JSON only:
 {{
   "suggested_path": "A|B|C|done",
   "evidence_strength": "low|medium|high",
+  "confidence": "low|medium|high",
   "root_cause_analysis": "...",
+  "hypothesis_validity_assessment": "...",
   "bottleneck_candidates": ["..."],
   "improvement_suggestions": ["..."],
-  "hypothesis_validity_assessment": "..."
+  "why_not_other_paths": "..."
 }}"""
 
-    print("  [분석 / Gemini] 결과 해석...")
+    print("  [해석 / GPT]    결과 심층 분석...")
+    try:
+        client = get_openai_client()
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user",   "content": user_msg},
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(resp.choices[0].message.content)
+        print(f"    → suggested_path={result.get('suggested_path')}, "
+              f"evidence={result.get('evidence_strength')}, "
+              f"confidence={result.get('confidence')}")
+        return result
+    except Exception as e:
+        print(f"    [경고] GPT 결과 해석 실패: {e}")
+        return {
+            "suggested_path": "A",
+            "evidence_strength": "low",
+            "confidence": "low",
+            "root_cause_analysis": f"GPT call failed: {e}",
+            "hypothesis_validity_assessment": "unknown",
+            "bottleneck_candidates": [],
+            "improvement_suggestions": [],
+            "why_not_other_paths": "",
+        }
+
+
+def _gemini_short_diagnosis(
+    summary: dict,
+    hypothesis: dict,
+    gpt_interpretation: dict,
+) -> dict:
+    """Gemini가 짧은 독립 진단 / 2차 의견을 제공한다.
+
+    GPT의 주요 해석과 독립적으로 진단하고, 동의/불일치를 명확히 한다.
+    코드를 작성하거나 패치를 제안하지 않는다.
+    출력: suggested_path, short_diagnosis, agreement_with_gpt,
+           disagreement_reason, main_risk, confidence
+    """
+    primary = summary["primary_metric"]
+    hyp     = hypothesis.get("hypothesis", {})
+
+    prompt = f"""You are a deep learning research second opinion (Gemini role).
+Provide a SHORT independent diagnosis. Do NOT write code. Do NOT propose code changes.
+Return valid JSON only.
+
+## Hypothesis
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+
+## Latest Result
+- status: {summary['status']}
+- {primary['name']}: {primary['value']:.4f} (target={primary['target']:.2f}, met={primary['met']})
+- stability: {json.dumps(summary.get('training_stability', {}), ensure_ascii=False)}
+
+## GPT Interpretation (for reference — you may agree or disagree)
+- suggested_path: {gpt_interpretation.get('suggested_path')}
+- evidence_strength: {gpt_interpretation.get('evidence_strength')}
+- root_cause: {gpt_interpretation.get('root_cause_analysis', '')}
+- hypothesis_validity: {gpt_interpretation.get('hypothesis_validity_assessment', '')}
+
+Provide your SHORT independent second opinion:
+{{
+  "suggested_path": "A|B|C|done",
+  "short_diagnosis": "one clear sentence explaining the main issue",
+  "agreement_with_gpt": "agree|partial|disagree",
+  "disagreement_reason": "if partial or disagree, explain briefly; else empty string",
+  "main_risk": "biggest risk if GPT suggestion is followed",
+  "confidence": "low|medium|high"
+}}"""
+
+    print("  [진단 / Gemini] 2차 의견...")
     try:
         model  = get_gemini_model()
         resp   = model.generate_content(prompt)
@@ -230,48 +324,130 @@ Return JSON only:
             text = text.split("```")[1].split("```")[0].strip()
         result = json.loads(text)
         print(f"    → suggested_path={result.get('suggested_path')}, "
-              f"evidence={result.get('evidence_strength')}")
+              f"agreement={result.get('agreement_with_gpt')}")
         return result
     except Exception as e:
-        print(f"    [경고] Gemini 결과 해석 실패: {e}")
+        print(f"    [경고] Gemini 2차 진단 실패: {e}")
         return {
-            "suggested_path": "A",
-            "evidence_strength": "low",
-            "root_cause_analysis": f"Gemini call failed: {e}",
-            "bottleneck_candidates": [],
-            "improvement_suggestions": [],
-            "hypothesis_validity_assessment": "unknown",
+            "suggested_path": gpt_interpretation.get("suggested_path", "A"),
+            "short_diagnosis": f"Gemini call failed: {e}",
+            "agreement_with_gpt": "agree",
+            "disagreement_reason": "",
+            "main_risk": "",
+            "confidence": "low",
         }
+
+
+def _build_consensus(
+    gpt_interpretation: dict,
+    gemini_diagnosis: dict,
+    run_history: list[dict],
+    primary: dict,
+) -> dict:
+    """GPT 해석 + Gemini 진단을 통합하여 합의 요약을 생성한다.
+
+    Decision policy:
+    - done: target met → 즉시 허용
+    - Path A: 약한 합의도 허용 (구현 개선)
+    - Path B: 중간 합의 필요 (가설 정제)
+    - Path C: 강한 합의 + ≥3회 실행 + high evidence 필요 (가설 교체)
+    """
+    gpt_path  = gpt_interpretation.get("suggested_path", "A")
+    gem_path  = gemini_diagnosis.get("suggested_path", "A")
+    gpt_ev    = gpt_interpretation.get("evidence_strength", "low")
+    gem_agree = gemini_diagnosis.get("agreement_with_gpt", "agree")
+    n_runs    = len(run_history)
+
+    # 합의 수준 계산
+    if gpt_path == gem_path and gem_agree == "agree":
+        agreement_level = "strong"
+    elif gpt_path == gem_path or gem_agree in ("agree", "partial"):
+        agreement_level = "medium"
+    else:
+        agreement_level = "weak"
+
+    # 합의 경로 후보 — 과도한 에스컬레이션 방지
+    if primary["met"]:
+        consensus_path = "done"
+    elif gpt_path == "C" and (n_runs < 3 or gpt_ev != "high" or agreement_level != "strong"):
+        consensus_path = "B"   # Path C 요건 미충족 → B로 하향
+    elif gpt_path == "B" and n_runs < 2:
+        consensus_path = "A"   # 실행 횟수 부족 → A로 하향
+    else:
+        consensus_path = gpt_path
+
+    # 에스컬레이션 위험
+    escalation_risk = "low"
+    if consensus_path == "C":
+        escalation_risk = "blocked" if (n_runs < 3 or agreement_level != "strong") else "high"
+    elif consensus_path == "B":
+        escalation_risk = "medium"
+
+    major_disagreements: list[str] = []
+    if gpt_path != gem_path:
+        major_disagreements.append(f"GPT suggests {gpt_path}, Gemini suggests {gem_path}")
+    if gem_agree == "disagree":
+        major_disagreements.append(
+            f"Gemini disagrees: {gemini_diagnosis.get('disagreement_reason', '')}"
+        )
+
+    notes: list[str] = []
+    if escalation_risk == "blocked":
+        notes.append(
+            f"Path C blocked (needs ≥3 runs and strong evidence; current n_runs={n_runs}, "
+            f"evidence={gpt_ev}, agreement={agreement_level}) — consider B"
+        )
+    if gemini_diagnosis.get("main_risk"):
+        notes.append(f"Risk: {gemini_diagnosis['main_risk']}")
+
+    return {
+        "consensus_path_candidate": consensus_path,
+        "agreement_level":          agreement_level,
+        "major_disagreements":      major_disagreements,
+        "escalation_risk":          escalation_risk,
+        "notes_for_claude":         " | ".join(notes) if notes else "none",
+        "gpt_suggested":            gpt_path,
+        "gemini_suggested":         gem_path,
+        "n_runs":                   n_runs,
+    }
 
 
 def _gpt_propose_improvements(
     pkg_dir: Path,
     summary: dict,
-    gemini_review: dict,
+    gpt_interpretation: dict,
 ) -> dict:
-    """GPT/Codex가 결과 기반으로 코드 개선 패치를 제안한다 (Path A 시)."""
+    """GPT/Codex가 Path A 시에만 코드 개선 패치를 제안한다 (patch-only 역할).
+
+    해석이나 path 결정 권한 없음. 오직 구현 레벨 패치만 제안.
+    GPT 해석 결과를 컨텍스트로 활용하여 더 정확한 패치를 생성한다.
+    출력: patches (spec_field, breaks_comparability 포함), expected_improvement, confidence
+    """
     primary = summary["primary_metric"]
 
     model_code   = (pkg_dir / "model.py").read_text(encoding="utf-8")   if (pkg_dir / "model.py").exists()   else ""
     default_yaml = (pkg_dir / "configs/default.yaml").read_text(encoding="utf-8") if (pkg_dir / "configs/default.yaml").exists() else ""
 
     system_msg = (
-        "You are a PyTorch optimization engineer (GPT/Codex role). "
-        "Propose concrete code patches to improve experiment performance. "
-        "Focus on model capacity, training stability, and metric improvement. "
+        "You are a PyTorch optimization engineer (GPT/Codex patch role). "
+        "Propose MINIMAL, targeted code patches to improve experiment performance. "
+        "Rules: NO full-file rewrites. NO hypothesis revision. NO path decisions (A/B/C). "
+        "Patches must be implementation-level only (code, config, training setup). "
+        "Each patch must be spec-linked and must NOT break result comparability unless absolutely necessary. "
         "Return valid JSON only."
     )
 
-    user_msg = f"""Propose code patches to improve experiment performance.
+    user_msg = f"""Propose targeted implementation patches for Path A improvement.
 
 ## Current Result
 - {primary['name']}: {primary['value']:.4f} → target: {primary['target']:.2f}
 - gap: {primary['target'] - primary['value']:.4f}
+- status: {summary['status']}
 
-## Gemini Analysis
-- root_cause: {gemini_review.get('root_cause_analysis', '')}
-- bottlenecks: {gemini_review.get('bottleneck_candidates', [])}
-- suggestions: {gemini_review.get('improvement_suggestions', [])}
+## GPT Interpretation (root cause context — do not reproduce, use as guidance)
+- root_cause: {gpt_interpretation.get('root_cause_analysis', '')}
+- bottlenecks: {gpt_interpretation.get('bottleneck_candidates', [])}
+- improvement_suggestions: {gpt_interpretation.get('improvement_suggestions', [])}
 
 ## Current model.py (excerpt)
 ```python
@@ -283,14 +459,20 @@ def _gpt_propose_improvements(
 {default_yaml[:1000]}
 ```
 
-Propose targeted patches. Each patch must include hypothesis_alignment_check.
+Propose minimal patches. Each patch must:
+- target a specific file (not full rewrite)
+- be linked to a spec field (e.g. model_architecture, training_config, evaluation_config)
+- state whether it breaks result comparability with previous runs
+
 Return JSON only:
 {{
   "patches": [
     {{
-      "target_file": "model.py|configs/default.yaml",
+      "target_file": "model.py|module.py|configs/default.yaml",
+      "spec_field": "model_architecture|training_config|evaluation_config",
       "rationale": "...",
       "hypothesis_alignment_check": "...",
+      "breaks_comparability": false,
       "complexity_delta_loc": 5,
       "changes": [
         {{"type": "replace", "old": "exact snippet", "new": "improved snippet"}}
@@ -301,7 +483,7 @@ Return JSON only:
   "confidence": "low|medium|high"
 }}"""
 
-    print("  [분석 / GPT]    개선 패치 제안...")
+    print("  [패치 / GPT]    Path A 구현 패치 제안...")
     try:
         client = get_openai_client()
         resp = client.chat.completions.create(
@@ -318,49 +500,70 @@ Return JSON only:
               f"(confidence={result.get('confidence')})")
         return result
     except Exception as e:
-        print(f"    [경고] GPT 개선 제안 실패: {e}")
+        print(f"    [경고] GPT 패치 제안 실패: {e}")
         return {"patches": [], "expected_improvement": f"GPT call failed: {e}", "confidence": "low"}
 
 
-def _claude_decide_and_merge(
+def _claude_final_decision(
     pkg_dir: Path,
     summary: dict,
     hypothesis: dict,
     run_history: list[dict],
-    gemini_review: dict,
-    gpt_proposal: dict,
+    gpt_interpretation: dict,
+    gemini_diagnosis: dict,
+    consensus: dict,
+    gpt_patches: dict,
     max_rounds: int,
 ) -> dict:
-    """
-    Claude가 Gemini 리뷰 + GPT 제안을 검토하고
-    Path A/B/C/done을 결정한다.
-    Path A일 경우 GPT 패치를 적용할 improvement_hints도 생성한다.
+    """Claude가 GPT 해석 + Gemini 진단 + 합의 요약 + GPT 패치를 종합하여 최종 결정한다.
+
+    Claude는 독자적 재해석 대신 제공된 증거를 통합하여 결정한다.
+    Path B/C는 높은 기준을 요구하며, 합의 수준을 존중한다.
+    출력: path, decision_reason, consensus_level, accepted_patch_indexes,
+           rejected_patch_indexes, improvement_hints, evidence_strength
     """
     primary  = summary["primary_metric"]
     n_runs   = len(run_history)
     status   = summary["status"]
-
-    # 빠른 결정 — 실행 에러
-    if status in ("smoke_failed", "failed", "metrics_parse_error", "timeout"):
-        hints = (
-            f"status={status}. "
-            f"Gemini: {gemini_review.get('root_cause_analysis', '')}. "
-            f"GPT patches: {len(gpt_proposal.get('patches', []))}개 제안됨."
-        )
-        return {"path": "A", "justification": f"실험 실패 ({status})",
-                "improvement_hints": hints, "evidence_strength": "low",
-                "accepted_gpt_patches": list(range(len(gpt_proposal.get("patches", []))))}
+    patches  = gpt_patches.get("patches", [])
 
     # 빠른 결정 — 목표 달성
     if primary["met"]:
-        return {"path": "done",
-                "justification": f"{primary['name']}={primary['value']:.4f} ≥ {primary['target']:.2f}",
-                "improvement_hints": "", "evidence_strength": "high",
-                "accepted_gpt_patches": []}
+        return {
+            "path": "done",
+            "decision_reason": f"{primary['name']}={primary['value']:.4f} ≥ {primary['target']:.2f}",
+            "justification":   f"{primary['name']}={primary['value']:.4f} ≥ {primary['target']:.2f}",
+            "consensus_level": "strong",
+            "improvement_hints": "",
+            "evidence_strength": "high",
+            "accepted_patch_indexes": [],
+            "rejected_patch_indexes": [],
+            "accepted_gpt_patches":   [],
+        }
 
-    # Claude 최종 판단
+    # 빠른 결정 — 실행 에러 (Path A 기본)
+    if status in ("smoke_failed", "failed", "metrics_parse_error", "timeout"):
+        accepted = list(range(len(patches)))
+        hints = (
+            f"status={status}. GPT root_cause: {gpt_interpretation.get('root_cause_analysis', '')}. "
+            f"Applying all {len(patches)} GPT patches."
+        )
+        return {
+            "path": "A",
+            "decision_reason": f"실험 실패 ({status}) → 구현 수정 필요",
+            "justification":   f"실험 실패 ({status})",
+            "consensus_level": consensus.get("agreement_level", "weak"),
+            "improvement_hints": hints,
+            "evidence_strength": "low",
+            "accepted_patch_indexes": accepted,
+            "rejected_patch_indexes": [],
+            "accepted_gpt_patches":   accepted,
+        }
+
+    # Claude 최종 판단 (합의 증거 통합)
     prompt = f"""당신은 연구 파이프라인의 최종 결정자(Claude 역할)입니다.
-Gemini의 결과 해석과 GPT의 패치 제안을 검토하고 최종 revision path를 결정하세요.
+아래 다중 모델 분석 결과를 통합하여 최종 revision path를 결정하세요.
+독자적 재해석 대신 제공된 증거를 존중하고 통합하세요.
 
 ## 실험 이력 ({n_runs}회)
 {json.dumps(run_history, ensure_ascii=False, indent=2)}
@@ -368,53 +571,82 @@ Gemini의 결과 해석과 GPT의 패치 제안을 검토하고 최종 revision 
 ## 현재 가설
 {json.dumps(hypothesis.get('hypothesis', {}), ensure_ascii=False, indent=2)}
 
-## Gemini 분석
-- suggested_path: {gemini_review.get('suggested_path')}
-- evidence_strength: {gemini_review.get('evidence_strength')}
-- root_cause: {gemini_review.get('root_cause_analysis', '')}
-- bottlenecks: {gemini_review.get('bottleneck_candidates', [])}
-- suggestions: {gemini_review.get('improvement_suggestions', [])}
+## GPT 심층 해석 (주요 해석자)
+- suggested_path: {gpt_interpretation.get('suggested_path')}
+- evidence_strength: {gpt_interpretation.get('evidence_strength')}
+- confidence: {gpt_interpretation.get('confidence')}
+- root_cause_analysis: {gpt_interpretation.get('root_cause_analysis', '')}
+- hypothesis_validity_assessment: {gpt_interpretation.get('hypothesis_validity_assessment', '')}
+- bottleneck_candidates: {gpt_interpretation.get('bottleneck_candidates', [])}
+- why_not_other_paths: {gpt_interpretation.get('why_not_other_paths', '')}
 
-## GPT 패치 제안 ({len(gpt_proposal.get('patches', []))}개)
-{json.dumps(gpt_proposal.get('patches', []), ensure_ascii=False, indent=2)}
+## Gemini 2차 진단 (독립 의견)
+- suggested_path: {gemini_diagnosis.get('suggested_path')}
+- short_diagnosis: {gemini_diagnosis.get('short_diagnosis', '')}
+- agreement_with_gpt: {gemini_diagnosis.get('agreement_with_gpt')}
+- disagreement_reason: {gemini_diagnosis.get('disagreement_reason', '')}
+- main_risk: {gemini_diagnosis.get('main_risk', '')}
+
+## 합의 요약
+- consensus_path_candidate: {consensus.get('consensus_path_candidate')}
+- agreement_level: {consensus.get('agreement_level')}
+- escalation_risk: {consensus.get('escalation_risk')}
+- major_disagreements: {consensus.get('major_disagreements', [])}
+- notes_for_claude: {consensus.get('notes_for_claude', '')}
+
+## GPT 패치 제안 ({len(patches)}개 — Path A 시에만 적용)
+{json.dumps(patches, ensure_ascii=False, indent=2)}
 
 ## 결정 규칙 (엄격 적용)
-- Path A: 구현 문제 (1~2회 실패, 개선 가능성 있음)
-- Path B: 핵심 아이디어 유효, 범위 조정 필요 (target 50~80% 달성)
-- Path C: 가설 메커니즘 반증 (≥3회 일관 실패 + Gemini evidence_strength=high)
+- Path A: 구현/훈련 문제, 가설 유효 (합의 불필요, 약한 합의도 허용)
+- Path B: 가설 방향성 유효하나 범위 조정 필요 (중간 합의 필요)
+- Path C: 가설 핵심 메커니즘 반증 (강한 합의 + ≥3회 실행 + high evidence 필수)
 - done: 목표 달성
-에스컬레이션 원칙: A→B→C 순서, 단일 실패는 C 불가
+에스컬레이션 원칙: A→B→C 순서, escalation_risk=blocked이면 Path C 불가
 
-Path A일 경우 improvement_hints에 GPT 패치 중 적용할 항목과 이유를 포함하세요.
+Path A 결정 시: accepted_patch_indexes에 적용할 패치 인덱스, improvement_hints에 이유를 포함하세요.
+Path B/C 결정 시: 강한 정당화가 필요합니다.
 
 아래 JSON으로만 출력:
 {{
   "path": "A|B|C|done",
-  "justification": "...",
+  "decision_reason": "...",
+  "consensus_level": "weak|medium|strong",
   "improvement_hints": "...",
   "evidence_strength": "low|medium|high",
-  "accepted_gpt_patches": [0, 1],
-  "rejected_gpt_patches": [2]
+  "accepted_patch_indexes": [0, 1],
+  "rejected_patch_indexes": [2]
 }}"""
 
     try:
         result = parse_json(query_claude(prompt))
+        # 하위 호환: accepted_gpt_patches 필드 동기화
+        result["accepted_gpt_patches"]   = result.get("accepted_patch_indexes", [])
+        result["rejected_gpt_patches"]   = result.get("rejected_patch_indexes", [])
+        result.setdefault("justification", result.get("decision_reason", ""))
         print(f"  [결정 / Claude] path={result.get('path')}, "
+              f"consensus={result.get('consensus_level')}, "
               f"evidence={result.get('evidence_strength')}")
         return result
     except Exception as e:
-        print(f"    [경고] Claude 최종 결정 실패 ({e}) → 기본값 Path A")
-        gap  = primary["target"] - primary["value"]
-        path = "A" if n_runs < max_rounds else "B"
+        print(f"    [경고] Claude 최종 결정 실패 ({e}) → 합의 경로 기본 사용")
+        gap          = primary["target"] - primary["value"]
+        fallback_path = consensus.get("consensus_path_candidate", "A")
+        accepted      = list(range(len(patches)))
         return {
-            "path": path,
-            "justification": f"{primary['name']}={primary['value']:.4f}, gap={gap:.4f}",
+            "path": fallback_path,
+            "decision_reason": f"{primary['name']}={primary['value']:.4f}, gap={gap:.4f} (fallback from consensus)",
+            "justification":   f"{primary['name']}={primary['value']:.4f}, gap={gap:.4f}",
+            "consensus_level": consensus.get("agreement_level", "weak"),
             "improvement_hints": (
-                f"Gemini suggests: {gemini_review.get('improvement_suggestions', [])}. "
-                f"GPT: {len(gpt_proposal.get('patches', []))}개 패치 제안."
+                f"GPT: {gpt_interpretation.get('improvement_suggestions', [])}. "
+                f"Patches: {len(patches)}개."
             ),
-            "evidence_strength": "low" if n_runs < 2 else "medium",
-            "accepted_gpt_patches": list(range(len(gpt_proposal.get("patches", [])))),
+            "evidence_strength": gpt_interpretation.get("evidence_strength", "low"),
+            "accepted_patch_indexes": accepted,
+            "rejected_patch_indexes": [],
+            "accepted_gpt_patches":   accepted,
+            "rejected_gpt_patches":   [],
         }
 
 
@@ -590,28 +822,42 @@ def run_research_loop(
         }
 
         # ── Multi-model 분석 ───────────────────────────────
-        print(f"\n  [분석] Gemini → GPT → Claude (proposal-review-merge)")
+        # 파이프라인: GPT(해석) → Gemini(진단) → 합의 → GPT(패치, Path A 한정) → Claude(결정)
+        print(f"\n  [분석] GPT(해석) → Gemini(진단) → 합의 → GPT(패치) → Claude(결정)")
 
-        gemini_review = _gemini_interpret_results(pkg, summary, hypothesis, run_history)
-        gem_path = _save_proposal(pkg, "gemini_review_result", gemini_review)
+        # 1. GPT: 주요 해석자
+        gpt_interp    = _gpt_interpret_results(summary, hypothesis, spec, run_history)
+        gpt_interp_path = _save_proposal(pkg, "gpt_interpretation", gpt_interp)
 
-        if not primary["met"]:
-            gpt_proposal = _gpt_propose_improvements(pkg, summary, gemini_review)
-            gpt_path     = _save_proposal(pkg, "gpt_patch_result", gpt_proposal)
+        # 2. Gemini: 독립 2차 진단
+        gemini_diag   = _gemini_short_diagnosis(summary, hypothesis, gpt_interp)
+        gemini_diag_path = _save_proposal(pkg, "gemini_diagnosis", gemini_diag)
+
+        # 3. 합의 레이어
+        consensus     = _build_consensus(gpt_interp, gemini_diag, run_history, primary)
+
+        # 4. GPT: 패치 제안 (Path A 가능성 있을 때만, 목표 미달 시)
+        candidate_path = consensus.get("consensus_path_candidate", "A")
+        if not primary["met"] and candidate_path in ("A", "B"):
+            # Path A 또는 경계(B)일 때 패치 준비 (Claude가 최종 A 결정 시 사용)
+            gpt_patches   = _gpt_propose_improvements(pkg, summary, gpt_interp)
+            gpt_patch_path = _save_proposal(pkg, "gpt_patch_result", gpt_patches)
         else:
-            gpt_proposal = {"patches": [], "confidence": "high"}
-            gpt_path     = None
+            gpt_patches   = {"patches": [], "confidence": "high"}
+            gpt_patch_path = None
 
-        decision = _claude_decide_and_merge(
+        # 5. Claude: 최종 결정자
+        decision = _claude_final_decision(
             pkg, summary, hypothesis, run_history,
-            gemini_review, gpt_proposal, max_rounds,
+            gpt_interp, gemini_diag, consensus, gpt_patches, max_rounds,
         )
 
         # proposal archive
-        _archive_proposal(gem_path, decision.get("path") in ("A", "B", "C", "done"))
-        if gpt_path:
-            accepted_indices = set(decision.get("accepted_gpt_patches", []))
-            _archive_proposal(gpt_path, bool(accepted_indices))
+        _archive_proposal(gpt_interp_path, True)
+        _archive_proposal(gemini_diag_path, True)
+        if gpt_patch_path:
+            accepted_indices = set(decision.get("accepted_patch_indexes", []))
+            _archive_proposal(gpt_patch_path, bool(accepted_indices))
 
         print(f"  [결정] Path {decision['path']} — {decision['justification'][:80]}")
 
@@ -626,9 +872,9 @@ def run_research_loop(
 
             # 원본 GPT 패치 전체 + 원본 인덱스를 그대로 전달
             # (재번호 매기기 없이 _prepare_accepted_patch_context가 원본 인덱스를 보존)
-            all_patches   = gpt_proposal.get("patches", [])
+            all_patches   = gpt_patches.get("patches", [])
             accepted_idxs = sorted(
-                i for i in decision.get("accepted_gpt_patches", [])
+                i for i in decision.get("accepted_patch_indexes", decision.get("accepted_gpt_patches", []))
                 if i < len(all_patches)
             )
 
@@ -642,7 +888,7 @@ def run_research_loop(
                 improvement_hints     = decision.get("improvement_hints", ""),
                 accepted_gpt_patches  = all_patches,       # 전체 패치 목록 (원본 순서)
                 accepted_gpt_indexes  = accepted_idxs,     # 원본 인덱스 그대로
-                gemini_review_ctx     = gemini_review,
+                gemini_review_ctx     = gpt_interp,        # GPT 해석이 메인 컨텍스트
                 result_summary_ctx    = summary,
             )
 
