@@ -1,114 +1,165 @@
 You are modifying research_loop.py.
 
-Your goal is to tighten the remaining decision logic without redesigning the overall architecture.
+Your goal is to add a deterministic post-check after Claude final decision so that Path B / Path C cannot be selected unless the code-level guardrails are actually satisfied.
 
-Do NOT rewrite unrelated parts.
+Do NOT redesign the current architecture.
 Preserve:
-- the current GPT interpretation stage
-- the current Gemini short diagnosis stage
-- the current consensus layer
-- the current Claude final decision stage
-- the current Path A / B / C / done semantics
-- the current package generation flow
-- the current METRICS:{...valid json...} contract
-- the current revision_request flow for Path B / C
-
-Apply the following three focused improvements.
+- GPT result interpretation
+- Gemini short diagnosis
+- consensus building
+- GPT patch proposals for Path A only
+- Claude as the final decision maker
+- current Path A / B / C / done semantics
+- current revision_request flow
+- current METRICS:{...valid json...} contract
 
 ==================================================
-TASK 1 — Make Path B decision criteria stricter and more explicit
+TASK — Add a code-level post-check after Claude final decision
 ==================================================
 
 Current problem:
-- Path C already has strong guardrails
-- but Path B is still relatively loose and depends too much on Claude discretion
-- this makes the A vs B boundary less stable than it should be
+- research_loop.py already has strong logic in _build_consensus()
+- Claude final decision prompt also describes strict conditions for Path B and Path C
+- however, after Claude returns a final decision, there is no deterministic code-level recheck that enforces those same rules
+- this means Claude could still return B or C even when the formal guardrails are not actually satisfied
 
 Required change:
-Strengthen the rule for when Path B is allowed.
+Add a post-check stage immediately after _claude_final_decision(...) returns.
 
-Implement explicit Path B gating rules such as:
-- Path B is allowed only if GPT suggested_path is B or C
-- Gemini must be at least agree or partial, not strong disagreement
-- consensus agreement_level must be at least medium
-- Path B must not be selected for pure smoke/runtime/execution failures
-- Path B should require at least 2 runs of evidence unless there is unusually strong justification
-- Path B should mean:
-  the core idea is still directionally valid, but the claim/scope/condition needs refinement
+Implement a helper such as:
+- _postcheck_final_decision(...)
+or
+- _validate_claude_decision(...)
+that receives at minimum:
+- claude decision
+- consensus summary
+- gpt interpretation
+- gemini diagnosis
+- run history
+- latest result summary
 
-Also make Claude final decision prompt reflect this clearly:
-- A = implementation/training/experimental-design issue
-- B = hypothesis refinement without replacing the core idea
-- C = core mechanism or claimed advantage is no longer supported
-
-Do not make Path B as expensive as Path C, but make it significantly stricter than it is now.
-
-==================================================
-TASK 2 — Generate GPT patches only when consensus candidate is Path A
-==================================================
-
-Current problem:
-- patch proposals are currently generated too early or too broadly
-- if the likely path is B, generating code patches mixes implementation improvement with hypothesis refinement
-
-Required change:
-Restrict patch generation to Path A only.
-
-Implement:
-- call _gpt_propose_improvements() only when consensus_path_candidate == "A"
-- do not generate code patches for B, C, or done
-- for B, allow only refinement notes / hypothesis-plan adjustment hints, not code patches
-- preserve the current structured patch proposal format for A
-
-Important:
-- keep Path A practical and implementation-focused
-- keep Path B as hypothesis refinement, not code patch mode
-- keep Path C as hypothesis revision/replacement, not code patch mode
+This helper must return:
+- corrected/final decision JSON
+- optional adjustment reason
+- whether the original Claude decision was overridden
 
 ==================================================
-TASK 3 — Enrich run_history so future decisions have better evidence
+POST-CHECK RULES
 ==================================================
 
-Current problem:
-- run_history is useful but still too thin
-- later decisions would be stronger if the loop remembered not only metrics/status, but also decision and consensus context
+1. done
+- allow if the existing done criteria are satisfied
+- otherwise downgrade to consensus_path_candidate or A as appropriate
 
-Required change:
-Extend what is stored in run_history / previous_results.jsonl.
+2. Path A
+- generally allowed as the lowest-risk revision path
+- preserve current behavior unless there is a very strong reason not to
 
-At minimum, add fields such as:
-- decision_path
+3. Path B
+Allow Path B only if all required conditions are satisfied:
+- GPT suggested_path is B or C
+- Gemini is not "disagree"
+- consensus agreement_level is at least "medium"
+- there are at least 2 runs of evidence
+- the latest failure is not just a pure smoke/runtime/execution failure
+- the case really fits “hypothesis refinement without replacing the core idea”
+
+If these conditions are not satisfied:
+- downgrade B to A
+- or downgrade to consensus_path_candidate if that is safer
+- add an explicit adjustment note
+
+4. Path C
+Allow Path C only if all required conditions are satisfied:
+- repeated evidence exists
+- consensus agreement_level is "strong"
+- GPT evidence_strength is "high"
+- enough runs exist (preserve current strong threshold logic)
+- this is not just an implementation/training instability case
+- the case really fits “core mechanism or claimed advantage is unsupported”
+
+If these conditions are not satisfied:
+- downgrade C to B if B is allowed
+- otherwise downgrade C to A
+- add an explicit adjustment note
+
+==================================================
+IMPLEMENTATION DETAILS
+==================================================
+
+Implement the post-check as code logic, not as another LLM call.
+
+Preserve Claude as the final decision maker in spirit, but make the system safe by enforcing hard policy rules after Claude returns.
+
+The post-check output should remain machine-readable.
+Recommended fields to add/update in the returned decision:
+- path
+- decision_reason
 - consensus_level
-- gpt_suggested_path
-- gemini_suggested_path
-- accepted_patch_indexes
-- training_stability summary
-- blocked_reason if package generation was blocked
-- validation_failed if relevant
+- postcheck_applied: bool
+- postcheck_override: bool
+- postcheck_note: str | None
 
-Requirements:
-- preserve backward compatibility where possible
-- do not break existing downstream usage
-- keep the history machine-readable
-- keep the added fields concise and stable
-- use these richer history records in later interpretation/decision prompts when helpful
+If Claude’s original path is changed by the post-check:
+- record both the original path and the corrected path if practical
+- log the reason clearly
+- keep the system auditable
 
 ==================================================
-IMPLEMENTATION CONSTRAINTS
+WHERE TO INTEGRATE
 ==================================================
 
-- Use helper functions and small local refactors
-- Do not redesign the whole system
-- Preserve current output schemas where possible, only extend them
-- Keep everything machine-readable
-- Keep the code deterministic and automation-friendly
+Integration point:
+- run GPT interpretation
+- run Gemini diagnosis
+- build consensus
+- if candidate path == A, generate GPT patches
+- run Claude final decision
+- THEN run the new post-check
+- use the post-checked decision as the actual decision for downstream behavior
+
+Downstream behavior must use the corrected decision, not the raw Claude output.
+
+This includes:
+- Path A package regeneration
+- Path B / C revision_request creation
+- done termination
+- run_history recording
+
+==================================================
+RUN HISTORY / TRACEABILITY
+==================================================
+
+When the post-check changes Claude’s decision:
+- store the raw Claude path
+- store the final corrected path
+- store whether post-check override happened
+- store a short post-check reason in run history / previous_results.jsonl when feasible
+
+This is important so later analysis can see:
+- what Claude wanted
+- what the system allowed
+- why the correction happened
+
+==================================================
+CONSTRAINTS
+==================================================
+
+- Use small helper functions and local refactors
+- Do not rewrite the whole loop
+- Preserve current structured JSON outputs
+- Preserve current package generation flow
+- Preserve current revision_request flow
+- Preserve current Path A/B/C meanings
+- Keep everything deterministic and machine-readable
 
 ==================================================
 DELIVERABLES
 ==================================================
 
 After modifying the code, provide a short summary:
-1. how Path B became stricter
-2. how patch generation is now restricted to Path A only
-3. what new fields are now stored in run_history
-4. any remaining TODOs
+1. what new post-check helper was added
+2. what exact rules are enforced for B and C
+3. how overrides are recorded
+4. where the corrected decision is now used
+5. any remaining TODOs
