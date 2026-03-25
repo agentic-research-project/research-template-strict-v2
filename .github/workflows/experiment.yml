@@ -1,0 +1,314 @@
+# .github/workflows/experiment.yml — AI Research Experiment Runner
+# stdout contract: METRICS:{...valid json...}  (train.py 마지막 줄)
+# schema_version: 1.0
+#
+# 트리거: workflow_dispatch (experiment_pkg 입력 필수)
+# 실행 환경: self-hosted GPU runner (runs-on: [self-hosted, gpu])
+# 환경 변수: GitHub Secrets에 등록 필요
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
+
+name: AI Research Experiment Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      experiment_pkg:
+        description: "실험 패키지 경로 (예: experiments/topic_slug_v1)"
+        required: true
+        type: string
+      config_file:
+        description: "학습 config 파일 (패키지 내 상대 경로)"
+        required: false
+        default: "configs/default.yaml"
+        type: string
+
+env:
+  EXPERIMENT_PKG: ${{ inputs.experiment_pkg }}
+  CONFIG_FILE:    ${{ inputs.config_file }}
+  PYTHON:         python
+
+# ──────────────────────────────────────────────────────────
+# 1. SETUP — 환경 구성 및 패키지 구조 검증
+# ──────────────────────────────────────────────────────────
+jobs:
+  setup:
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print run info
+        run: |
+          echo "=== Run: ${{ github.run_id }} | SHA: ${{ github.sha }} ==="
+          echo "=== Experiment: ${{ env.EXPERIMENT_PKG }} ==="
+
+      - name: Validate experiment package path
+        run: |
+          test -n "${{ env.EXPERIMENT_PKG }}" \
+            || (echo "ERROR: experiment_pkg is not set" && exit 1)
+          test -d "${{ env.EXPERIMENT_PKG }}" \
+            || (echo "ERROR: ${{ env.EXPERIMENT_PKG }} not found" && exit 1)
+
+      - name: Install dependencies
+        run: pip install -q -r requirements.txt
+
+      - name: Validate package structure
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          for f in train.py module.py model.py data.py \
+                    scripts/smoke_test.py \
+                    configs/default.yaml configs/fast.yaml; do
+            test -f "$f" || (echo "MISSING: $f" && exit 1)
+          done
+
+      - name: Create artifact directories
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: mkdir -p artifacts/checkpoints artifacts/logs artifacts/metrics
+
+      - name: Save runner metadata
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          python -c "
+          import json, datetime
+          meta = {
+            'runner':       'github',
+            'job_id':       '${{ github.run_id }}',
+            'pipeline_id':  '${{ github.run_number }}',
+            'runner_name':  '${{ runner.name }}',
+            'git_sha':      '${{ github.sha }}',
+            'git_branch':   '${{ github.ref_name }}',
+            'started_at':   datetime.datetime.utcnow().isoformat(),
+            'experiment_pkg': '${{ env.EXPERIMENT_PKG }}'
+          }
+          open('runner_metadata.json', 'w').write(json.dumps(meta, indent=2))
+          print('runner metadata saved.')
+          "
+
+      - name: Upload setup artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-artifacts
+          retention-days: 30
+          path: ${{ env.EXPERIMENT_PKG }}/runner_metadata.json
+
+# ──────────────────────────────────────────────────────────
+# 2. SMOKE — forward pass 및 2 step 검증
+# ──────────────────────────────────────────────────────────
+  smoke:
+    needs: setup
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: ${{ env.EXPERIMENT_PKG }}
+
+      - name: Run smoke test
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: ${{ env.PYTHON }} scripts/smoke_test.py --config configs/fast.yaml
+
+      - name: Write smoke_failed result
+        if: failure()
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          python -c "
+          import json, datetime
+          r = {'schema_version':'1.0','status':'smoke_failed',
+               'run_id':'','created_at':datetime.datetime.utcnow().isoformat()}
+          open('result_summary.json','w').write(json.dumps(r,indent=2))
+          "
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          retention-days: 30
+          path: ${{ env.EXPERIMENT_PKG }}/result_summary.json
+
+# ──────────────────────────────────────────────────────────
+# 3. TRAIN — 본 학습 실행
+# ──────────────────────────────────────────────────────────
+  train:
+    needs: smoke
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: ${{ env.EXPERIMENT_PKG }}
+
+      - name: Create artifact directories
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: mkdir -p artifacts/checkpoints artifacts/logs artifacts/metrics
+
+      - name: Run training
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          set -o pipefail
+          ${{ env.PYTHON }} train.py --config ${{ env.CONFIG_FILE }} \
+            2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
+
+      - name: Validate METRICS output
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          METRICS_LINE=$(grep -E '^METRICS:\{.*\}$' artifacts/logs/stdout.txt | tail -1)
+          if [ -z "$METRICS_LINE" ]; then
+            echo "ERROR: METRICS line not found in stdout"
+            exit 1
+          fi
+          echo "Parsed: $METRICS_LINE"
+          python -c "
+          import json, sys
+          lines = open('artifacts/logs/stdout.txt').readlines()
+          m_lines = [l.strip() for l in lines if l.strip().startswith('METRICS:{')]
+          if not m_lines:
+              print('ERROR: no METRICS line'); sys.exit(1)
+          m = json.loads(m_lines[-1][len('METRICS:'):])
+          print('Metrics keys:', list(m.keys()))
+          json.dump(m, open('artifacts/metrics/final_metrics.json','w'), indent=2)
+          "
+
+      - name: Write failed result
+        if: failure()
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          python -c "
+          import json, datetime
+          try:
+              stderr = open('artifacts/logs/stderr.txt').readlines()[-200:]
+          except Exception:
+              stderr = []
+          r = {'schema_version':'1.0','status':'failed',
+               'stderr_tail': [l.rstrip() for l in stderr],
+               'created_at': datetime.datetime.utcnow().isoformat()}
+          open('result_summary.json','w').write(json.dumps(r,indent=2))
+          " 2>/dev/null || true
+
+      - name: Upload train artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-artifacts
+          retention-days: 30
+          path: |
+            ${{ env.EXPERIMENT_PKG }}/artifacts/
+            ${{ env.EXPERIMENT_PKG }}/result_summary.json
+
+# ──────────────────────────────────────────────────────────
+# 4. PACKAGE — 결과 패키징 및 result_summary.json 생성
+# ──────────────────────────────────────────────────────────
+  package:
+    needs: train
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download train artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: train-artifacts
+          path: ${{ env.EXPERIMENT_PKG }}
+
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: ${{ env.EXPERIMENT_PKG }}
+
+      - name: Build result_summary.json
+        working-directory: ${{ env.EXPERIMENT_PKG }}
+        run: |
+          python -c "
+          import json, datetime, os, re
+
+          stdout_lines = open('artifacts/logs/stdout.txt').readlines()
+          metrics_lines = [l.strip() for l in stdout_lines
+                           if re.match(r'^METRICS:\{.*\}$', l.strip())]
+          metrics = json.loads(metrics_lines[-1][len('METRICS:'):]) if metrics_lines else {}
+
+          epoch_metrics = []
+          jsonl_path = 'artifacts/metrics/per_epoch_metrics.jsonl'
+          if os.path.exists(jsonl_path):
+              epoch_metrics = [json.loads(l) for l in open(jsonl_path) if l.strip()]
+
+          meta = json.load(open('runner_metadata.json'))
+          meta['duration_s'] = (
+              datetime.datetime.utcnow() -
+              datetime.datetime.fromisoformat(meta['started_at'])
+          ).total_seconds()
+          open('runner_metadata.json', 'w').write(json.dumps(meta, indent=2))
+
+          spec_id       = os.environ.get('EXPERIMENT_PKG','').replace('/','_')
+          primary_name  = list(metrics.keys())[0] if metrics else 'unknown'
+          primary_value = metrics.get(primary_name, 0.0)
+          run_id = (
+              os.environ.get('EXPERIMENT_PKG','run').replace('experiments/','')
+              + '_' + datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+          )
+
+          summary = {
+              'schema_version':  '1.0',
+              'run_id':          run_id,
+              'spec_id':         spec_id,
+              'hypothesis_id':   '',
+              'experiment_version': 1,
+              'status':          'success',
+              'primary_metric':  {
+                  'name': primary_name, 'value': primary_value,
+                  'unit': '', 'target': 0.0, 'met': False
+              },
+              'secondary_metrics': [
+                  {'name': k, 'value': float(v), 'unit': ''}
+                  for k, v in metrics.items() if k != primary_name
+              ],
+              'deltas_vs_baseline':  {'baseline_run_id': None, 'deltas': {}},
+              'training_stability':  {
+                  'loss_converged': True, 'nan_detected': False, 'lr_schedule_ok': True,
+                  'final_train_loss': epoch_metrics[-1].get('train_loss') if epoch_metrics else None,
+                  'best_val_epoch':  None
+              },
+              'bottleneck_candidates':    [],
+              'ablation_findings':        [],
+              'confidence':               0.6,
+              'recommended_next_actions': [
+                  {'path': 'done', 'rationale': 'Review metrics and decide', 'priority': 'high'}
+              ],
+              'runner_metadata': meta,
+              'created_at':      datetime.datetime.utcnow().isoformat()
+          }
+          open('result_summary.json','w').write(json.dumps(summary, indent=2))
+          print('result_summary.json saved.')
+          print(f'Primary metric: {primary_name} = {primary_value}')
+          "
+
+      - name: Append to previous_results.jsonl
+        run: |
+          python -c "
+          import json
+          summary = json.load(open('${{ env.EXPERIMENT_PKG }}/result_summary.json'))
+          with open('results/previous_results.jsonl','a') as f:
+              f.write(json.dumps(summary) + '\n')
+          print('Appended to previous_results.jsonl')
+          "
+
+      - name: Upload final artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-results
+          retention-days: 90
+          path: |
+            ${{ env.EXPERIMENT_PKG }}/result_summary.json
+            ${{ env.EXPERIMENT_PKG }}/runner_metadata.json
+            ${{ env.EXPERIMENT_PKG }}/artifacts/

@@ -131,7 +131,7 @@ TOOLS = [
         "name": "run_experiment",
         "description": (
             "생성된 실험 패키지를 실행하고 revision 루프를 돌린다. "
-            "Runner(local/GitLab)로 smoke test → train → METRICS 파싱. "
+            "Runner(local/GitHub Actions)로 smoke test → train → METRICS 파싱. "
             "목표 미달 시 GPT→Gemini→합의→Claude→postcheck 분석 후 Path A/B/C 결정. "
             "result_summary.json, previous_results.jsonl, revision_request.json 생성."
         ),
@@ -143,7 +143,7 @@ TOOLS = [
                 "hypothesis_file":  {"type": "string", "description": "hypothesis.json 경로"},
                 "code_analysis_file":{"type": "string", "description": "code_analysis.json 경로"},
                 "max_rounds":       {"type": "integer", "description": "최대 revision 횟수 (기본 3)", "default": 3},
-                "runner_type":      {"type": "string", "description": "local | gitlab (기본 local)", "default": "local"},
+                "runner_type":      {"type": "string", "description": "local | github (기본 local)", "default": "local"},
             },
             "required": ["pkg_dir", "topic_file", "hypothesis_file", "code_analysis_file"],
         },

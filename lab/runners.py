@@ -1,8 +1,8 @@
 """
 Runner abstractions for experiment execution.
 
-  LocalRunner   — 로컬 subprocess 실행 (현재 동작 유지)
-  GitLabRunner  — GitLab CI/CD 트리거 + 결과 수집 (skeleton, TODO 경계 명시)
+  LocalRunner          — 로컬 subprocess 실행 (현재 동작 유지)
+  GitHubActionsRunner  — GitHub Actions 워크플로우 트리거 + 결과 수집 (skeleton)
 
 공통 결과 형태 (RunResult):
   {
@@ -12,7 +12,7 @@ Runner abstractions for experiment execution.
     "stderr_tail":  [...],
     "returncode":   int,
     "metadata": {
-      "runner":       "local | gitlab",
+      "runner":       "local | github",
       "job_id":       "...",
       "duration_s":   float,
       "artifact_uri": "...",
@@ -109,6 +109,7 @@ class BaseRunner(ABC):
             "artifact_uri": "",
             "job_url":      "",
             "git_sha":      "",
+            "git_branch":   "",
         }
 
 
@@ -204,35 +205,38 @@ class LocalRunner(BaseRunner):
 
 
 # ──────────────────────────────────────────────────────────
-# GitLabRunner — GitLab CI/CD 기반 실행 (skeleton)
+# GitHubActionsRunner — GitHub Actions 기반 실행 (skeleton)
 # ──────────────────────────────────────────────────────────
 
-class GitLabRunner(BaseRunner):
+class GitHubActionsRunner(BaseRunner):
     """
-    GitLab CI/CD 파이프라인 트리거 + 결과 수집.
+    GitHub Actions 워크플로우 트리거 + 결과 수집.
 
     현재 상태: interface + metadata shape 완성, 실제 API 호출은 TODO.
 
     필요 환경 변수 (또는 생성자 인자):
-      GITLAB_URL         GitLab 인스턴스 URL (예: https://gitlab.example.com)
-      GITLAB_TOKEN       personal access token (api scope)
-      GITLAB_PROJECT_ID  프로젝트 ID (정수 또는 URL-encoded namespace/path)
-      GITLAB_REF         트리거할 브랜치/태그 (기본값: main)
+      GITHUB_TOKEN    personal access token (workflow scope)
+      GITHUB_OWNER    레포지토리 소유자 (예: myorg)
+      GITHUB_REPO     레포지토리 이름 (예: my-research)
+      GITHUB_REF      트리거 브랜치 (기본값: main)
+      GITHUB_WORKFLOW 워크플로우 파일명 (기본값: experiment.yml)
     """
 
     def __init__(
         self,
-        gitlab_url: str = "",
         token: str = "",
-        project_id: str = "",
+        owner: str = "",
+        repo: str = "",
         ref: str = "main",
+        workflow: str = "experiment.yml",
         poll_interval: int = 30,
         max_poll_secs: int = 10800,
     ):
-        self.gitlab_url    = gitlab_url
         self.token         = token
-        self.project_id    = project_id
+        self.owner         = owner
+        self.repo          = repo
         self.ref           = ref
+        self.workflow      = workflow
         self.poll_interval = poll_interval
         self.max_poll_secs = max_poll_secs
 
@@ -240,14 +244,14 @@ class GitLabRunner(BaseRunner):
     _FULLY_IMPLEMENTED = False   # run_smoke / run_train 구현 완료 시 True로 변경
 
     def is_ready(self) -> tuple[bool, str]:
-        """GitLabRunner는 구현 완료 전까지 실행 불가 상태를 반환한다.
+        """GitHubActionsRunner는 구현 완료 전까지 실행 불가 상태를 반환한다.
 
         side-effect 없이 즉시 반환한다 (네트워크/파일 접근 없음).
         _FULLY_IMPLEMENTED = True로 변경하면 준비됨으로 전환된다.
         """
         if not self._FULLY_IMPLEMENTED:
             return False, (
-                "GitLabRunner 미구현 (skeleton only). "
+                "GitHubActionsRunner 미구현 (skeleton only). "
                 "lab/runners.py의 run_smoke / run_train을 구현 후 "
                 "_FULLY_IMPLEMENTED = True 로 변경하세요."
             )
@@ -255,21 +259,19 @@ class GitLabRunner(BaseRunner):
 
     def run_smoke(self, pkg_dir: Path) -> dict:
         """
-        TODO: GitLab smoke 실행
-          1. POST /projects/{id}/trigger/pipeline
-               variables: {"SMOKE": "true", "PKG_DIR": str(pkg_dir)}
-          2. poll GET /projects/{id}/pipelines/{pipeline_id}
-               until status in ("success", "failed", "canceled")
-          3. GET job logs → parse stdout for smoke result
-          4. return RunResult with metadata.runner="gitlab"
-
-        현재는 NotImplementedError 발생.
+        TODO: GitHub Actions smoke 실행
+          1. POST /repos/{owner}/{repo}/actions/workflows/{workflow}/dispatches
+               inputs: {"experiment_pkg": str(pkg_dir), "config_file": "configs/fast.yaml"}
+          2. GET /repos/{owner}/{repo}/actions/runs?head_sha={sha}
+               until status in ("completed") — conclusion: "success" | "failure"
+          3. GET /repos/{owner}/{repo}/actions/runs/{run_id}/logs → smoke 결과 파싱
+          4. return RunResult with metadata.runner="github"
         """
         raise NotImplementedError(
-            "GitLabRunner.run_smoke() — 구현 필요:\n"
-            "  1. POST /projects/{id}/trigger/pipeline (SMOKE=true)\n"
-            "  2. poll pipeline status\n"
-            "  3. collect job logs → returncode 파싱\n"
+            "GitHubActionsRunner.run_smoke() — 구현 필요:\n"
+            "  1. POST workflow_dispatch (experiment_pkg, fast config)\n"
+            "  2. poll run status (GET /actions/runs)\n"
+            "  3. collect logs → smoke 결과 파싱\n"
             "  4. return RunResult"
         )
 
@@ -280,37 +282,37 @@ class GitLabRunner(BaseRunner):
         timeout: int = 7200,
     ) -> dict:
         """
-        TODO: GitLab full train 실행
-          1. POST /projects/{id}/trigger/pipeline
-               variables: {"PKG_DIR": str(pkg_dir), "CONFIG": config_file}
-          2. poll GET /projects/{id}/pipelines/{pipeline_id}
-               until status in ("success", "failed", "canceled") or timeout
-          3. GET /projects/{id}/jobs/{train_job_id}/artifacts → result_summary.json
-          4. GET /projects/{id}/jobs/{train_job_id}/trace → METRICS 라인 파싱
+        TODO: GitHub Actions full train 실행
+          1. POST /repos/{owner}/{repo}/actions/workflows/{workflow}/dispatches
+               inputs: {"experiment_pkg": str(pkg_dir), "config_file": config_file}
+          2. poll GET /repos/{owner}/{repo}/actions/runs
+               until conclusion != null or timeout
+          3. GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts
+               → download result_summary.json, artifacts/
+          4. GET run logs → METRICS 라인 파싱
           5. return RunResult with metadata:
-               runner="gitlab", job_id, job_url, artifact_uri, git_sha, duration_s
-
-        현재는 NotImplementedError 발생.
+               runner="github", job_id=run_id, job_url, artifact_uri, git_sha, duration_s
         """
         raise NotImplementedError(
-            "GitLabRunner.run_train() — 구현 필요:\n"
-            "  1. POST /projects/{id}/trigger/pipeline\n"
-            "  2. poll pipeline status (timeout 고려)\n"
-            "  3. artifact 수집 → result_summary.json\n"
-            "  4. job trace → METRICS 파싱\n"
+            "GitHubActionsRunner.run_train() — 구현 필요:\n"
+            "  1. POST workflow_dispatch\n"
+            "  2. poll run status (timeout 고려)\n"
+            "  3. artifact 다운로드 → result_summary.json\n"
+            "  4. run logs → METRICS 파싱\n"
             "  5. return RunResult with full metadata"
         )
 
     @classmethod
-    def from_config(cls, cfg: dict) -> "GitLabRunner":
-        """config dict에서 GitLabRunner를 생성한다."""
+    def from_config(cls, cfg: dict) -> "GitHubActionsRunner":
+        """config dict에서 GitHubActionsRunner를 생성한다."""
         return cls(
-            gitlab_url    = cfg.get("gitlab_url", ""),
-            token         = cfg.get("gitlab_token", ""),
-            project_id    = cfg.get("gitlab_project_id", ""),
-            ref           = cfg.get("gitlab_ref", "main"),
-            poll_interval = cfg.get("gitlab_poll_interval", 30),
-            max_poll_secs = cfg.get("gitlab_max_poll_secs", 10800),
+            token         = cfg.get("github_token", ""),
+            owner         = cfg.get("github_owner", ""),
+            repo          = cfg.get("github_repo", ""),
+            ref           = cfg.get("github_ref", "main"),
+            workflow      = cfg.get("github_workflow", "experiment.yml"),
+            poll_interval = cfg.get("github_poll_interval", 30),
+            max_poll_secs = cfg.get("github_max_poll_secs", 10800),
         )
 
 
@@ -322,14 +324,14 @@ def create_runner(runner_type: str = "local", runner_config: dict | None = None)
     """runner_type에 따라 Runner 인스턴스를 생성한다.
 
     Args:
-        runner_type:   "local" | "gitlab"
-        runner_config: GitLabRunner에 필요한 설정 dict
-                       {"gitlab_url": ..., "gitlab_token": ..., "gitlab_project_id": ...}
+        runner_type:   "local" | "github"
+        runner_config: GitHubActionsRunner에 필요한 설정 dict
+                       {"github_token": ..., "github_owner": ..., "github_repo": ...}
     """
     runner_config = runner_config or {}
     if runner_type == "local":
         return LocalRunner()
-    elif runner_type == "gitlab":
-        return GitLabRunner.from_config(runner_config)
+    elif runner_type == "github":
+        return GitHubActionsRunner.from_config(runner_config)
     else:
-        raise ValueError(f"알 수 없는 runner_type: {runner_type!r}  (local | gitlab)")
+        raise ValueError(f"알 수 없는 runner_type: {runner_type!r}  (local | github)")

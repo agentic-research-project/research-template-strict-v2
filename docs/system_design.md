@@ -15,7 +15,7 @@ flowchart TD
     end
 
     D --> Proposal
-    M -->|experiments/{slug}_v{N}/| E[Runner\nlocal / GitLab CI]
+    M -->|experiments/{slug}_v{N}/| E[Runner\nlocal / GitHub Actions]
 
     subgraph Execution["Execution"]
         E1[smoke_test] --> E2[train]
@@ -50,7 +50,7 @@ flowchart TD
 | Code proposal | GPT/Codex | proposals/gpt_patch_*.json (spec-linked) |
 | Design review | Gemini | proposals/gemini_review_*.json (no code) |
 | Final merge | Claude | experiments/{pkg}/ |
-| Execution | Runner (local/GitLab) | result_summary.json, artifacts/ |
+| Execution | Runner (local/GitHub Actions) | result_summary.json, artifacts/ |
 | Result interpretation | GPT | proposals/gpt_interpretation_*.json |
 | Short diagnosis | Gemini | proposals/gemini_diagnosis_*.json |
 | Consensus | research_loop (code) | in-memory consensus dict |
@@ -66,7 +66,7 @@ flowchart TD
 | `experiment_plan.json` | Path A/B | Claude | Code generation |
 | `code_analysis.json` | Read-only reference | code_analyzer | Code generation only |
 | `approval.json` | Immutable after gate | user_approval | All post-approval stages |
-| `previous_results.jsonl` | Append-only | GitLab CI | Revision decision |
+| `previous_results.jsonl` | Append-only | GitHub Actions | Revision decision |
 | `experiments/claude.md` | Versioned | Claude | All code generation |
 
 **Update rules:**
@@ -176,17 +176,19 @@ experiments/{topic_slug}_v{N}/
 
 ---
 
-## 6. GITLAB_EXECUTION_DESIGN
+## 6. GITHUB_ACTIONS_EXECUTION_DESIGN
 
 ```yaml
-# .gitlab-ci.yml — see template file
+# .github/workflows/experiment.yml — see template file
+# 트리거: workflow_dispatch (experiment_pkg 입력 필수)
+# 실행 환경: self-hosted GPU runner (runs-on: [self-hosted, gpu])
 ```
 
-**Stage sequence:**
-1. `setup`: conda/venv, pip install, validate experiment package structure
-2. `smoke`: `python scripts/smoke_test.py` — must exit 0 within 3 minutes
-3. `train`: `python train.py --config configs/default.yaml` — captures stdout
-4. `package`: parse METRICS line, save artifacts, write result_summary.json
+**Job sequence:**
+1. `setup`: pip install, 패키지 구조 검증, `runner_metadata.json` 생성
+2. `smoke`: `python scripts/smoke_test.py` — 5분 이내 exit 0 필수
+3. `train`: `python train.py --config configs/default.yaml` — stdout 캡처
+4. `package`: METRICS 파싱, artifacts 업로드, `result_summary.json` 생성
 
 **METRICS contract (mandatory):**
 ```
@@ -201,7 +203,7 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 |---|---|
 | smoke fail | abort, write `status: smoke_failed` to result_summary |
 | train crash | capture stderr last 200 lines, write `status: crashed` |
-| timeout (>6h) | GitLab kills job, runner writes `status: timeout` |
+| timeout (>6h) | GitHub cancels job, runner writes `status: timeout` |
 | METRICS absent | write `status: metrics_parse_error`, save last 50 stdout lines |
 | OOM | captured via stderr, write `status: oom_error` |
 
@@ -210,7 +212,7 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 - `artifacts/logs/` (all)
 - `artifacts/metrics/per_epoch_metrics.jsonl`
 - `result_summary.json`
-- `gitlab_run_metadata.json` (job_id, runner, duration, git_sha)
+- `runner_metadata.json` (job_id, runner, duration, git_sha, git_branch)
 
 ---
 
@@ -234,7 +236,7 @@ See `schemas/result_summary.json` for full JSON Schema.
   "ablation_findings": [],
   "confidence": 0.7,
   "recommended_next_actions": [{"path": "A", "rationale": "...", "priority": "high"}],
-  "gitlab_run_metadata": {"job_id": "...", "duration_s": 3600, "git_sha": "..."}
+  "runner_metadata": {"runner": "github", "job_id": "...", "duration_s": 3600, "git_sha": "..."}
 }
 ```
 
@@ -367,13 +369,13 @@ See `experiments/claude.md` §Fabric Rules for full specification.
 - [ ] Create `schemas/experiment_spec.json`
 - [ ] Create `schemas/result_summary.json`
 - [ ] Create `schemas/revision_request.json`
-- [ ] Create `.gitlab-ci.yml` template
+- [ ] Create `.github/workflows/experiment.yml`
 - [ ] Create `experiments/template/` package skeleton
 - [ ] Create `docs/merge_checklist.md`
 
-### Phase 2 — GitLab Integration
-- [ ] Register GitLab runner with GPU
-- [ ] Test `.gitlab-ci.yml` with smoke-only run
+### Phase 2 — GitHub Actions Integration
+- [ ] Register self-hosted GPU runner on GitHub
+- [ ] Test `.github/workflows/experiment.yml` with smoke-only run
 - [ ] Verify METRICS parsing works end-to-end
 - [ ] Verify artifact upload and result_summary.json generation
 
@@ -404,4 +406,4 @@ See `experiments/claude.md` §Fabric Rules for full specification.
 | **Uncontrolled code complexity** | Minimal-change merge policy; GPT patches must pass `complexity_delta ≤ 50 LOC` check |
 | **Public-code over-copying** | Max 20 consecutive lines rule; Claude explicitly checks before merging GPT patches |
 | **Brittle automation contracts** | METRICS stdout contract is immutable; schema_version field in all JSON artifacts |
-| **GitLab runtime instability** | Smoke test stage catches environment issues before 6h train; timeout → Path A auto-trigger |
+| **GitHub Actions runner instability** | Smoke test stage catches environment issues before 6h train; timeout → Path A auto-trigger |
