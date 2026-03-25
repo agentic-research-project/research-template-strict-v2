@@ -182,29 +182,53 @@ def _claude_generate_base(
         f"\n## 이전 실험 개선 요청\n{improvement_hints}" if improvement_hints else ""
     )
 
-    prompt = f"""당신은 PyTorch Fabric 전문 딥러닝 엔지니어입니다.
-아래 연구 가설을 구현하는 실험 패키지 핵심 파일 4종의 **초안**을 생성하세요.
-(이후 GPT/Codex가 패치 제안, Gemini가 설계 리뷰, 당신이 최종 merge합니다)
+    arch      = spec["model_architecture"]
+    tr_cfg    = spec["training_config"]
+    ev_cfg    = spec["evaluation_config"]
+    out_ctr   = spec.get("output_contract", {})
+    baselines = spec.get("baselines", [])
 
-## 연구 가설
+    prompt = f"""당신은 PyTorch Fabric 전문 딥러닝 엔지니어이며, 이 실험 패키지의 **유일한 코드 작성자**입니다.
+GPT/Codex는 이후 패치만 제안하고, Gemini는 설계만 리뷰하며, 최종 merge도 당신이 수행합니다.
+코드 생성 결정은 아래 experiment_spec을 최우선 계약으로 따르세요.
+
+## [최우선] 구현 계약 (experiment_spec)
+- spec_id: {spec['spec_id']}
+- model_architecture:
+    name: {arch['name']}
+    key_components: {arch.get('key_components', [])}
+    param_budget_M: ≤ {param_budget}M
+- training_config:
+    optimizer: {tr_cfg['optimizer']}, lr: {tr_cfg['lr']}, epochs: {tr_cfg['epochs']}
+    loss_function: {tr_cfg['loss_function']}, batch_size: {tr_cfg['batch_size']}, seed: {tr_cfg['seed']}
+    precision: {tr_cfg.get('precision','bf16-mixed')}, gradient_clip: {tr_cfg.get('gradient_clip',1.0)}
+- evaluation_config:
+    primary_metric: {primary} ≥ {ev_cfg['target_value']}
+    secondary_metrics: {secondary}
+- output_contract:
+    stdout_pattern: {out_ctr.get('stdout_pattern', 'METRICS:{{...}}')}
+    required_keys: {out_ctr.get('required_keys', [primary])}
+- baselines: {[b['name'] for b in baselines]}
+
+## [과학적 근거] 연구 가설
 - 주제: {inp.get('topic', '')}
 - 가설: {hyp.get('statement_kr', hyp.get('statement', ''))}
 - 핵심 아키텍처: {exp_plan.get('architecture', '')}
-- 목표: {primary} ≥ {spec['evaluation_config']['target_value']} / params ≤ {param_budget}M
 - 제약: {inp.get('constraints', '')}
 
-## 참고 컴포넌트
+## [참고] code_analysis 컴포넌트
 {component_info if component_info else '없음'}
 
-## 구현 팁
+## [참고] 구현 팁
 {chr(10).join(f'- {t}' for t in tips)}
 {improvement_section}
 
-## 생성 규칙
-1. model.py: `build_model(config) -> nn.Module`, 모든 크기는 config에서 읽기
-2. module.py: `TrainingModule(model, config)` — train_epoch / val_epoch 포함, val에 '{primary}' 키
+## 생성 규칙 (spec 우선)
+1. model.py: `build_model(config) -> nn.Module` — spec.model_architecture 구현, 모든 크기는 config에서 읽기
+2. module.py: `TrainingModule(model, config)` — train_epoch/val_epoch 포함, val에 spec.required_keys 전부 포함
 3. data.py: `build_dataloaders(config)` — 합성 더미 데이터 fallback 포함
-4. default.yaml: 모든 하이퍼파라미터 포함 (epochs=50, batch_size=16, lr=1e-4, seed=42)
+4. default.yaml: spec.training_config 기반 (모든 하이퍼파라미터 포함)
+5. METRICS stdout 계약: print(f"METRICS:{{json.dumps({{...}})}}") — required_keys 모두 출력
 
 아래 JSON으로만 출력 (코드 블록 없이):
 {{
@@ -388,14 +412,28 @@ def _claude_generate_revision_patch(
             f"- suggestions: {gemini_review.get('improvement_suggestions', [])}"
         )
 
-    prompt = f"""당신은 실험 패키지 revision 담당자(Claude 역할)입니다.
-이전 패키지 코드를 기반으로 **최소한의 변경**만 적용하여 개선하세요.
+    arch    = spec["model_architecture"]
+    tr_cfg  = spec["training_config"]
+    ev_cfg  = spec["evaluation_config"]
+    out_ctr = spec.get("output_contract", {})
+
+    prompt = f"""당신은 실험 패키지 revision 담당자이자 **유일한 코드 작성자(Claude 역할)**입니다.
+이전 패키지 코드를 기반으로 **최소한의 변경(minimal diff)**만 적용하여 개선하세요.
 불필요한 리팩토링, 파일 이동, 전체 재작성은 금지입니다.
 {prev_result_section}
 
+## [최우선] 구현 계약 (experiment_spec — 이 버전의 활성 계약)
+- spec_id: {spec['spec_id']}
+- model_architecture: name={arch['name']}, key_components={arch.get('key_components', [])}, param_budget_M≤{arch.get('param_budget_M','N/A')}M
+- training_config: optimizer={tr_cfg['optimizer']}, lr={tr_cfg['lr']}, loss={tr_cfg['loss_function']}
+- evaluation_config: {primary} ≥ {ev_cfg['target_value']}
+- output_contract: required_keys={out_ctr.get('required_keys', [primary])}
+
+## [과학적 기준] 가설 (변경 금지 — 방향 참고용)
+{hyp.get('statement_kr', hyp.get('statement', ''))}
+
 ## 개선 목표
-- 가설: {hyp.get('statement_kr', hyp.get('statement', ''))}
-- 목표: {primary} ≥ {spec['evaluation_config']['target_value']}
+- 목표: {primary} ≥ {ev_cfg['target_value']}
 - 개선 요청: {improvement_hints}
 {gpt_section}{gemini_section}
 
@@ -481,22 +519,34 @@ def _gpt_propose_patches(
     primary    = spec["evaluation_config"]["primary_metric"]
     param_budget = spec["model_architecture"]["param_budget_M"]
 
+    arch    = spec["model_architecture"]
+    ev_cfg  = spec["evaluation_config"]
+    out_ctr = spec.get("output_contract", {})
+
     system_msg = (
-        "You are a PyTorch code reviewer (GPT/Codex role). "
-        "Your job is to propose concrete code patches to improve the generated experiment code. "
-        "Focus on: efficiency, stability, correctness, test coverage. "
-        "Do NOT rewrite train.py or module.py training loop. "
+        "You are a PyTorch code patch reviewer (GPT/Codex role). "
+        "Your ONLY job is to propose TARGETED patches to improve the generated code. "
+        "RULES: "
+        "(1) Propose only minimal targeted patches — full-file rewrites are FORBIDDEN. "
+        "(2) Each patch must be linked to a specific experiment_spec field. "
+        "(3) Do NOT rewrite train.py or the module.py training loop. "
+        "(4) Claude is the sole code author — you only suggest; Claude decides. "
         "Return valid JSON only."
     )
 
-    user_msg = f"""Review the following PyTorch experiment code and propose patches.
+    user_msg = f"""Review the PyTorch experiment code below and propose spec-driven targeted patches.
 
-## Hypothesis
+## Experiment Spec (implementation contract — patches must align with this)
+- spec_id: {spec['spec_id']}
+- model_architecture.name: {arch['name']}
+- model_architecture.key_components: {arch.get('key_components', [])}
+- model_architecture.param_budget_M: ≤ {param_budget}M
+- evaluation_config.primary_metric: {primary} ≥ {ev_cfg['target_value']}
+- evaluation_config.secondary_metrics: {ev_cfg.get('secondary_metrics', [])}
+- output_contract.required_keys: {out_ctr.get('required_keys', [primary])}
+
+## Hypothesis (scientific truth — do not contradict)
 {hyp.get('statement_kr', hyp.get('statement', ''))}
-
-## Target
-- primary metric: {primary} ≥ {spec['evaluation_config']['target_value']}
-- param budget: ≤ {param_budget}M
 
 ## Generated model.py
 ```python
@@ -513,14 +563,17 @@ def _gpt_propose_patches(
 {generated.get('data_py', '')[:2000]}
 ```
 
-Propose patches as JSON. Each patch must include hypothesis_alignment_check.
+Propose ONLY targeted patches. Full-file rewrites are forbidden.
+Each patch MUST include spec_field, hypothesis_alignment_check, and breaks_comparability.
 Return JSON only:
 {{
   "patches": [
     {{
       "target_file": "model.py",
+      "spec_field": "model_architecture.key_components",
       "rationale": "...",
       "hypothesis_alignment_check": "...",
+      "breaks_comparability": false,
       "complexity_delta_loc": 5,
       "changes": [
         {{"type": "replace", "old": "exact old code snippet", "new": "new code snippet"}}
@@ -564,39 +617,55 @@ def _gemini_design_review(
     hyp    = hypothesis.get("hypothesis", {})
     primary = spec["evaluation_config"]["primary_metric"]
 
-    prompt = f"""You are a deep learning research critic (Gemini role).
-Review the architecture design for hypothesis alignment, not implementation details.
+    arch   = spec["model_architecture"]
+    ev_cfg = spec["evaluation_config"]
+
+    prompt = f"""You are a deep learning design reviewer (Gemini role).
+Your ONLY job is to review architecture design and hypothesis alignment.
+CRITICAL RULES:
+  - Do NOT write code. Do NOT suggest direct code edits.
+  - Do NOT act as a second patch engine or code author.
+  - Only provide structured design critique that Claude (the code author) can interpret.
 Return valid JSON only.
 
-## Hypothesis
+## Experiment Spec (implementation contract)
+- spec_id: {spec['spec_id']}
+- model_architecture.name: {arch['name']}
+- model_architecture.key_components: {arch.get('key_components', [])}
+- model_architecture.param_budget_M: ≤ {arch.get('param_budget_M', 'N/A')}M
+- evaluation_config.primary_metric: {primary} ≥ {ev_cfg['target_value']}
+
+## Hypothesis (scientific truth)
 {hyp.get('statement_kr', hyp.get('statement', ''))}
 Key mechanism: {hyp.get('key_mechanism', hyp.get('mechanism', ''))}
 
 ## Architecture Summary
 {generated.get('architecture_summary', '')}
 
-## model.py (excerpt)
+## model.py (for design review only — do NOT propose code changes)
 ```python
 {generated.get('model_py', '')[:2500]}
 ```
 
-## Primary metric target: {primary} ≥ {spec['evaluation_config']['target_value']}
-
-Evaluate:
-1. Does the architecture actually implement the hypothesis mechanism?
-2. Are there missing components critical to the hypothesis?
-3. Is the design unnecessarily complex?
-4. What is the weakest point?
+Review ONLY the following dimensions:
+1. mechanism_check: does the architecture actually implement the hypothesis mechanism?
+2. spec_alignment: does the design match spec.model_architecture fields?
+3. missing_components: what critical components are absent?
+4. unnecessary_complexity: what adds complexity without serving the hypothesis?
+5. bottlenecks: where is the most likely experimental failure point?
 
 Return JSON only:
 {{
   "verdict": "accept_as_is | accept_with_patch | revise_experiment",
   "hypothesis_alignment_score": 0.0,
+  "mechanism_check": "does the architecture implement the key mechanism? explain",
+  "spec_alignment": "does the design match the spec fields? explain",
   "issues": [
-    {{"severity": "critical|major|minor", "description": "...", "suggestion": "..."}}
+    {{"severity": "critical|major|minor", "description": "...", "design_suggestion": "..."}}
   ],
   "missing_components": [],
   "unnecessary_complexity": [],
+  "bottlenecks": [],
   "overall_comment": "..."
 }}"""
 
@@ -647,13 +716,22 @@ def _claude_merge(
         if i.get("severity") in ("critical", "major")
     ]
 
-    prompt = f"""당신은 실험 패키지의 최종 통합자(Claude 역할)입니다.
-GPT/Codex의 패치 제안과 Gemini의 설계 리뷰를 검토하고,
-Merge Checklist를 적용하여 최종 파일을 확정하세요.
+    arch    = spec["model_architecture"]
+    ev_cfg  = spec["evaluation_config"]
+    out_ctr = spec.get("output_contract", {})
 
-## 가설 (최우선 기준)
+    prompt = f"""당신은 실험 패키지의 최종 통합자이자 **유일한 코드 작성자(Claude 역할)**입니다.
+GPT/Codex 패치와 Gemini 설계 리뷰를 아래 우선순위 체크리스트로 판단하여 최종 파일을 확정하세요.
+GPT/Codex나 Gemini의 코드를 그대로 복사하지 말고, 판단 후 당신이 직접 반영 여부를 결정하세요.
+
+## [최우선] 구현 계약 (experiment_spec — 모든 결정의 기준)
+- spec_id: {spec['spec_id']}
+- model_architecture: name={arch['name']}, key_components={arch.get('key_components', [])}, param_budget_M≤{param_budget}M
+- evaluation_config: {primary} ≥ {ev_cfg['target_value']}, secondary={ev_cfg.get('secondary_metrics', [])}
+- output_contract: required_keys={out_ctr.get('required_keys', [primary])}, stdout_pattern={out_ctr.get('stdout_pattern', '')}
+
+## [과학적 기준] 연구 가설
 {hyp.get('statement_kr', hyp.get('statement', ''))}
-목표: {primary} ≥ {spec['evaluation_config']['target_value']}, params ≤ {param_budget}M
 
 ## 현재 코드 (Claude 초안)
 ### model.py
@@ -673,28 +751,30 @@ Merge Checklist를 적용하여 최종 파일을 확정하세요.
 {generated.get('default_yaml', '')}
 ```
 
-## GPT/Codex 패치 제안 ({len(gpt_patches)}개)
+## GPT/Codex 패치 제안 ({len(gpt_patches)}개) — 패치만 제안, 전체 재작성 아님
 {json.dumps(gpt_patches, ensure_ascii=False, indent=2)}
 
-## Gemini 설계 리뷰
+## Gemini 설계 리뷰 — 설계 비평만, 코드 제안 아님
 - verdict: {gemini_review.get('verdict')}
+- mechanism_check: {gemini_review.get('mechanism_check', '')}
+- spec_alignment: {gemini_review.get('spec_alignment', '')}
 - alignment_score: {gemini_review.get('hypothesis_alignment_score')}
 - critical/major issues: {json.dumps(gemini_issues, ensure_ascii=False)}
 - missing_components: {gemini_review.get('missing_components', [])}
-- overall: {gemini_review.get('overall_comment', '')}
+- bottlenecks: {gemini_review.get('bottlenecks', [])}
 
-## Merge Checklist (모두 통과해야 적용)
-1. 패치가 가설 메커니즘을 구현하는가?
-2. 적용 후 smoke_test 통과 가능한가?
-3. complexity_delta_loc ≤ 50인가?
-4. 공개 코드 20줄 이상 복사 없는가?
-5. train.py / module.py 학습 루프 수정이 없는가?
-6. Gemini critical issue가 반영되는가?
+## Merge 우선순위 체크리스트 (이 순서로 판단)
+1. [spec 호환성] 패치/수정이 spec.model_architecture / training_config / output_contract를 위반하지 않는가?
+2. [가설 정합성] 패치/수정이 가설 메커니즘을 구현하거나 보강하는가?
+3. [머신 검증 가능성] 적용 후 syntax compile + smoke_test 통과 가능한가?
+4. [output contract 보존] METRICS stdout 계약 및 required_keys가 유지되는가?
+5. [최소 변경] complexity_delta_loc ≤ 50이고 불필요한 리팩토링이 없는가?
+6. [선택적 개선] 위 5가지 통과 후에만 optional 개선 반영
 
 ## 지시사항
-- 통과한 GPT 패치는 적용, 실패한 것은 거절 (패치별로 accepted: true/false 표시)
-- Gemini critical/major issue 중 가설에 도움되는 것은 직접 수정
-- train.py는 절대 수정하지 말 것
+- train.py 절대 수정 금지
+- METRICS stdout 계약 보존 (required_keys 이름 변경 금지)
+- 패치별 accepted/rejected 이유를 spec_field와 함께 명시
 
 아래 JSON으로만 출력:
 {{
@@ -703,7 +783,7 @@ Merge Checklist를 적용하여 최종 파일을 확정하세요.
   "data_py": "최종 data.py 전체",
   "default_yaml": "최종 default.yaml 전체",
   "merge_log": [
-    {{"source": "GPT|Gemini", "item": "...", "accepted": true, "reason": "..."}}
+    {{"source": "GPT|Gemini", "item": "...", "spec_field": "...", "accepted": true, "reason": "..."}}
   ],
   "description": "최종 모델 설명",
   "architecture_summary": "한 줄 요약",
@@ -788,14 +868,46 @@ def _validate_generated_package(pkg_dir: Path) -> dict:
     else:
         warnings.append("tests/test_forward.py not found — skipped")
 
+    # ── 5. metric key contract check ────────────────────
+    # spec.output_contract.required_keys 가 module.py 또는 train.py에 존재하는지 확인
+    metric_contract_ok = True
+    spec_path = pkg_dir / "experiment_spec.json"
+    if spec_path.exists() and syntax_ok:
+        try:
+            spec_data   = json.loads(spec_path.read_text(encoding="utf-8"))
+            req_keys    = spec_data.get("output_contract", {}).get("required_keys", [])
+            module_src  = (pkg_dir / "module.py").read_text(encoding="utf-8") if (pkg_dir / "module.py").exists() else ""
+            train_src   = (pkg_dir / "train.py").read_text(encoding="utf-8") if (pkg_dir / "train.py").exists() else ""
+            combined_src = module_src + train_src
+            missing_keys = [k for k in req_keys if f'"{k}"' not in combined_src and f"'{k}'" not in combined_src]
+            if missing_keys:
+                warnings.append(f"metric key contract: required_keys {missing_keys} not found in module.py/train.py")
+                metric_contract_ok = False
+        except Exception as e:
+            warnings.append(f"metric contract check error: {e}")
+    else:
+        warnings.append("metric contract check skipped (no experiment_spec.json or syntax errors)")
+
+    # ── 6. output contract check ─────────────────────
+    # METRICS:{...} stdout 패턴이 train.py 또는 module.py에 존재하는지 확인
+    output_contract_ok = False
+    train_src_check = (pkg_dir / "train.py").read_text(encoding="utf-8") if (pkg_dir / "train.py").exists() else ""
+    module_src_check = (pkg_dir / "module.py").read_text(encoding="utf-8") if (pkg_dir / "module.py").exists() else ""
+    if "METRICS:" in train_src_check or "METRICS:" in module_src_check:
+        output_contract_ok = True
+    else:
+        warnings.append("output contract: METRICS: stdout pattern not found in train.py or module.py")
+
     ok = syntax_ok and smoke_ok
     return {
-        "ok":         ok,
-        "syntax_ok":  syntax_ok,
-        "smoke_ok":   smoke_ok,
-        "forward_ok": forward_ok,
-        "errors":     errors,
-        "warnings":   warnings,
+        "ok":                  ok,
+        "syntax_ok":           syntax_ok,
+        "smoke_ok":            smoke_ok,
+        "forward_ok":          forward_ok,
+        "metric_contract_ok":  metric_contract_ok,
+        "output_contract_ok":  output_contract_ok,
+        "errors":              errors,
+        "warnings":            warnings,
     }
 
 

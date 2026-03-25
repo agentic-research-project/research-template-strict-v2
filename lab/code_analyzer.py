@@ -165,14 +165,39 @@ def get_repo_structure(full_name: str, path: str = "") -> list[str]:
     return files
 
 
-def get_file_content(full_name: str, file_path: str) -> str:
-    """파일 내용을 가져온다 (최대 200줄)."""
+def get_file_content(full_name: str, file_path: str, max_lines: int = 300) -> str:
+    """파일 내용을 가져온다 (early+middle+late 섹션 조합, 최대 max_lines줄).
+
+    짧은 파일(≤ max_lines)은 전체 반환.
+    긴 파일은 앞(1/3) + 중간(1/3) + 뒤(1/3) 섹션을 스킵 마커와 함께 조합하여
+    파일 전체에 분산된 앵커(class/forward/loss 등)를 탐색 가능하게 한다.
+    """
     data = _gh_get(f"/repos/{full_name}/contents/{file_path}")
-    if isinstance(data, dict) and data.get("encoding") == "base64":
-        content = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
-        lines = content.splitlines()[:200]
+    if not (isinstance(data, dict) and data.get("encoding") == "base64"):
+        return ""
+    content = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+    lines   = content.splitlines()
+    total   = len(lines)
+
+    if total <= max_lines:
         return "\n".join(lines)
-    return ""
+
+    section    = max_lines // 3
+    early      = lines[:section]
+    mid_start  = max(section, total // 2 - section // 2)
+    middle     = lines[mid_start: mid_start + section]
+    late_start = max(mid_start + section, total - section)
+    late       = lines[late_start:]
+
+    parts: list[str] = []
+    parts.extend(early)
+    if mid_start > section:
+        parts.append(f"# ... [{mid_start - section} lines skipped] ...")
+    parts.extend(middle)
+    if late_start > mid_start + section:
+        parts.append(f"# ... [{late_start - (mid_start + section)} lines skipped] ...")
+    parts.extend(late)
+    return "\n".join(parts)
 
 
 # ──────────────────────────────────────────
@@ -212,11 +237,32 @@ _LOW_VALUE_PATH_PATTERNS: list[str] = [
 
 
 def _tokenize(text: str, min_len: int = 3) -> frozenset[str]:
-    """텍스트를 소문자 정규화 토큰 집합으로 변환한다."""
-    return frozenset(
-        t.lower() for t in re.split(r"\W+", text)
-        if len(t) >= min_len
-    )
+    """텍스트를 소문자 정규화 토큰 집합으로 변환한다.
+
+    [\\W+]로 1차 분리 → snake_case를 _ 기준으로 2차 분리
+    → CamelCase 경계를 3차 분리 후 전체 합집합을 반환한다.
+
+    예시:
+      feature_extractor  → {feature, extractor, feature_extractor}
+      ResidualBlock       → {residual, block, residualblock}
+      train_step          → {train, step, train_step}
+    """
+    tokens: set[str] = set()
+    for raw in re.split(r"\W+", text):
+        if not raw:
+            continue
+        # snake_case 분리
+        snake_parts = [p for p in raw.split("_") if p]
+        # CamelCase 분리 (예: ResidualBlock → [Residual, Block])
+        camel_parts: list[str] = []
+        for part in snake_parts:
+            camel_parts.extend(re.sub(r"([a-z])([A-Z])", r"\1 \2", part).split())
+        # 원본 토큰 + 분리된 부분 모두 포함
+        for t in [raw] + snake_parts + camel_parts:
+            tl = t.lower()
+            if len(tl) >= min_len:
+                tokens.add(tl)
+    return frozenset(tokens)
 
 
 def _get_hypothesis_tokens(hypothesis: dict) -> frozenset[str]:
@@ -336,6 +382,7 @@ def _score_file_relevance(
 
 
 # 스니펫 추출용 앵커 패턴 (우선순위 순서, 레이블, 블록 크기)
+# priority 0 = 최우선 (forward); 인덱스 순서가 우선순위
 _SNIPPET_ANCHORS: list[tuple[str, str, int]] = [
     (r"^\s*def\s+forward\s*\(",          "forward",          40),
     (r"^\s*def\s+training_step\s*\(",    "training_step",    35),
@@ -347,48 +394,80 @@ _SNIPPET_ANCHORS: list[tuple[str, str, int]] = [
     (r"^\s*def\s+__init__\s*\(",         "constructor",      35),
 ]
 
+# 블록 내 재사용 가능성을 나타내는 코드 품질 신호
+_BLOCK_QUALITY_SIGNALS: list[tuple[str, float]] = [
+    (r"\bnn\.Module\b|\bnn\.\w+\(",  0.20),   # nn.Module / nn 레이어 사용
+    (r"\btorch\.\w+\b|\bF\.\w+\b",   0.15),   # torch.* / F.* 호출
+    (r"\bDataLoader\b|\bDataset\b",   0.15),   # DataLoader / Dataset
+    (r"\boptim\.\w+\(",               0.10),   # optimizer 생성
+    (r"\bloss\s*=\s*\w+\s*\(",        0.10),   # loss = func(...)
+]
 
-def _extract_relevant_snippet(content: str, max_chars: int = 2000) -> tuple[str, str]:
+
+def _score_block(
+    block_lines: list[str],
+    anchor_pri: int,
+    topic_tokens: frozenset[str],
+) -> float:
+    """앵커 블록의 품질 점수를 계산한다 (앵커 우선순위 + 코드 신호 + 토픽 오버랩)."""
+    block_text = "\n".join(block_lines)
+    # 앵커 우선순위 기반 기본 점수 (priority 0 = 1.0, 마지막 = ~0.12)
+    base = (len(_SNIPPET_ANCHORS) - anchor_pri) / len(_SNIPPET_ANCHORS)
+    # 블록 내 코드 품질 신호
+    quality = sum(w for pat, w in _BLOCK_QUALITY_SIGNALS if re.search(pat, block_text))
+    quality = min(quality, 0.40)
+    # 토픽 토큰 오버랩 (선택적)
+    overlap = 0.0
+    if topic_tokens:
+        block_tokens = _tokenize(block_text)
+        overlap = min(len(block_tokens & topic_tokens) * 0.05, 0.20)
+    return base + quality + overlap
+
+
+def _extract_relevant_snippet(
+    content: str,
+    max_chars: int = 2000,
+    topic_tokens: frozenset[str] | None = None,
+) -> tuple[str, str]:
     """파일에서 모델/학습 핵심 코드 블록을 추출한다.
 
-    forward → training_step → class_def → dataset → dataloader → loss 순서로
-    우선 앵커를 찾아 해당 블록을 추출하고, max_chars 이내로 합쳐서 반환한다.
+    각 앵커(forward/training_step/class_def 등)에 대해 블록을 수집하고
+    품질 점수로 정렬하여 상위 2~3개를 max_chars 이내로 반환한다.
     적합한 앵커가 없으면 파일 앞부분(head_fallback)을 반환한다.
 
     Returns:
-        (snippet, strategy) — strategy: 적용된 추출 전략 레이블
+        (snippet, strategy) — strategy: 적용된 추출 전략 레이블 (machine-readable)
     """
     lines = content.splitlines()
-    found: list[tuple[int, str, int]] = []  # (priority, label, line_idx)
+    _topic = topic_tokens or frozenset()
 
+    # 앵커별 후보 블록 수집 (동일 레이블 내 최고 점수 블록만 유지)
+    best_per_label: dict[str, tuple[float, list[str]]] = {}
     for i, line in enumerate(lines):
-        for pri, (pattern, label, _) in enumerate(_SNIPPET_ANCHORS):
+        for pri, (pattern, label, block_size) in enumerate(_SNIPPET_ANCHORS):
             if re.search(pattern, line):
-                found.append((pri, label, i))
+                block_lines = lines[max(0, i - 1): i + block_size]
+                score = _score_block(block_lines, pri, _topic)
+                if label not in best_per_label or score > best_per_label[label][0]:
+                    best_per_label[label] = (score, block_lines)
                 break  # 한 줄에 하나의 앵커만
 
-    if not found:
+    if not best_per_label:
         return content[:max_chars], "head_fallback"
 
-    # 우선순위 정렬 후 중복 레이블 제거, max_chars까지 블록 수집
-    found.sort(key=lambda x: x[0])
-    seen_labels: set[str] = set()
-    blocks: list[str] = []
+    # 점수 내림차순 정렬 후 상위 블록 선택
+    ranked = sorted(best_per_label.items(), key=lambda x: x[1][0], reverse=True)
+    selected_blocks: list[str] = []
     strategy_labels: list[str] = []
 
-    for pri, label, line_idx in found:
-        if label in seen_labels:
-            continue
-        seen_labels.add(label)
-        _, _, block_size = _SNIPPET_ANCHORS[pri]
-        block_lines = lines[max(0, line_idx - 1): line_idx + block_size]
-        blocks.extend(block_lines)
-        blocks.append("")  # 블록 구분
+    for label, (score, block_lines) in ranked:
+        selected_blocks.extend(block_lines)
+        selected_blocks.append("")  # 블록 구분
         strategy_labels.append(label)
-        if len("\n".join(blocks)) >= max_chars:
+        if len("\n".join(selected_blocks)) >= max_chars:
             break
 
-    snippet  = "\n".join(blocks)[:max_chars]
+    snippet  = "\n".join(selected_blocks)[:max_chars]
     strategy = "+".join(strategy_labels) if strategy_labels else "head_fallback"
     return snippet, strategy
 
@@ -499,6 +578,8 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
     # Stage 1: 파일명 기반 코스 필터
     # Stage 2: 콘텐츠 토큰 오버랩 + 구조적 코드 신호 스코링
     # Stage 3: 스코어 기반 상위 선택 (레포 인기도는 동점 해소에만 사용)
+    # 스니펫 추출용 토픽 토큰 집합 (사전 계산)
+    snippet_topic_tokens = frozenset(kw.lower() for kw in topic_file_kw if len(kw) >= 3)
     candidate_files: list[dict] = []
     for repo in unique_repos[:5]:
         fname = repo["full_name"]
@@ -511,8 +592,10 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
                 continue
             # Stage 2: 토큰 + 구조 스코링 (signals 포함)
             score, signals = _score_file_relevance(fpath, content, topic_file_kw, hypothesis)
-            # GOAL 4: 핵심 코드 블록 스니펫 추출
-            snippet, snippet_strategy = _extract_relevant_snippet(content)
+            # 핵심 코드 블록 스니펫 추출 (토픽 토큰 스코어링 포함)
+            snippet, snippet_strategy = _extract_relevant_snippet(
+                content, topic_tokens=snippet_topic_tokens
+            )
             candidate_files.append({
                 "repo":             fname,
                 "file":             fpath,
