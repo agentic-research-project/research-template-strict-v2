@@ -31,9 +31,14 @@
        NLP/captioning        → BLEU, ROUGE, BERTScore
 -->
 
+## 데이터 경로
+<!-- 실제 훈련에 사용할 데이터 경로 알려주세요. -->
+
 
 ## 참조 이미지 (선택)
 <!-- 참고할 이미지 파일 경로를 적어주세요. 없으면 비워두세요.
 - path/to/input_example.png   # 입력 예시
 - path/to/target_example.png  # 목표 예시
 -->
+
+
