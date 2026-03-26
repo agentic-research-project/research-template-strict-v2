@@ -24,9 +24,9 @@ on:
         default: "local"
         type: string
       project_dir:
-        description: "컨테이너 내부 프로젝트 경로 (바인드 마운트된 실제 경로)"
+        description: "컨테이너 내부 프로젝트 경로 (비워두면 git remote 매칭으로 자동 감지)"
         required: false
-        default: "/data/2_workspace/2_darkstar0983/claude"
+        default: ""
         type: string
 
 env:
@@ -62,12 +62,38 @@ jobs:
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
           echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
+      - name: Detect project directory in container
+        run: |
+          if [ -n "${{ inputs.project_dir }}" ]; then
+            echo "PROJECT_DIR=${{ inputs.project_dir }}" >> "$GITHUB_ENV"
+            echo "=== project_dir (manual): ${{ inputs.project_dir }} ==="
+          else
+            DETECTED=$(docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+              find / -maxdepth 6 -name '.git' -type d \
+                -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' \
+                -not -path '/run/*' -not -path '/tmp/*' 2>/dev/null | \
+              while read gitdir; do
+                repo_dir=\$(dirname \$gitdir)
+                if git -C \$repo_dir remote -v 2>/dev/null | grep -q '${{ github.repository }}'; then
+                  echo \$repo_dir
+                  break
+                fi
+              done
+            ")
+            if [ -z "$DETECTED" ]; then
+              echo "ERROR: '${{ github.repository }}' 매칭 git repo를 컨테이너에서 찾지 못했습니다"
+              exit 1
+            fi
+            echo "PROJECT_DIR=$DETECTED" >> "$GITHUB_ENV"
+            echo "=== project_dir (auto): $DETECTED ==="
+          fi
+
       - name: Sync checkout to container-accessible path
         run: |
-          echo "=== Syncing ${{ github.workspace }} → ${{ inputs.project_dir }} ==="
+          echo "=== Syncing ${{ github.workspace }} → ${{ env.PROJECT_DIR }} ==="
           rsync -a --delete \
             --exclude '.git' \
-            "${{ github.workspace }}/" "${{ inputs.project_dir }}/"
+            "${{ github.workspace }}/" "${{ env.PROJECT_DIR }}/"
 
       - name: Verify container and conda env
         run: |
@@ -83,11 +109,11 @@ jobs:
       - name: Verify shared repo path
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc "
-            test -f '${{ inputs.project_dir }}/main.py' \
-              || (echo 'ERROR: main.py not found at ${{ inputs.project_dir }}' && exit 1)
-            test -f '${{ inputs.project_dir }}/${{ inputs.todo_file }}' \
+            test -f '${{ env.PROJECT_DIR }}/main.py' \
+              || (echo 'ERROR: main.py not found at ${{ env.PROJECT_DIR }}' && exit 1)
+            test -f '${{ env.PROJECT_DIR }}/${{ inputs.todo_file }}' \
               || (echo 'ERROR: ${{ inputs.todo_file }} not found' && exit 1)
-            echo '=== Repo path OK: ${{ inputs.project_dir }} ==='
+            echo '=== Repo path OK: ${{ env.PROJECT_DIR }} ==='
           "
 
       - name: Verify Claude Code CLI
@@ -100,7 +126,7 @@ jobs:
       - name: Run research pipeline
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            cd "${{ inputs.project_dir }}"
+            cd "${{ env.PROJECT_DIR }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             conda run -n ${{ env.CONDA_ENV_NAME }} \
               python main.py --todo "${{ inputs.todo_file }}" --auto-approve
@@ -113,5 +139,5 @@ jobs:
           name: pipeline-results
           retention-days: 90
           path: |
-            ${{ inputs.project_dir }}/experiments/*/results/
-            ${{ inputs.project_dir }}/experiments/*/reports/
+            ${{ env.PROJECT_DIR }}/experiments/*/results/
+            ${{ env.PROJECT_DIR }}/experiments/*/reports/
