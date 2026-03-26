@@ -943,10 +943,11 @@ def run_research_loop(
     _check_runner_ready(runner)
     print(f"  [Runner] {runner.__class__.__name__} 사용")
 
-    run_history:   list[dict] = []
-    prev_run_id:   str | None = None
-    prev_metrics:  dict       = {}
-    final_summary: dict       = {}
+    run_history:     list[dict] = []
+    prev_run_id:     str | None = None
+    prev_metrics:    dict       = {}
+    final_summary:   dict       = {}
+    final_decision:  dict | None = None
 
     for round_idx in range(1, max_rounds + 1):
         print(f"\n{'─'*60}")
@@ -1088,6 +1089,7 @@ def run_research_loop(
             "postcheck_note":        decision.get("postcheck_note"),
         })
 
+        final_decision = decision
         print(f"  [결정] Path {decision['path']} — {decision['justification'][:80]}")
 
         if decision["path"] == "done":
@@ -1144,6 +1146,18 @@ def run_research_loop(
         )
         print(f"\n  [종료] Path {decision['path']} — 상위 파이프라인에서 처리 필요")
         break
+
+    # ── 결과 보고서 PDF 생성 ─────────────────────────────
+    if final_summary:
+        from lab.result_report import generate_result_report
+        generate_result_report(
+            pkg_dir=pkg,
+            final_summary=final_summary,
+            run_history=run_history,
+            topic_file=topic_file,
+            hypothesis_file=hypothesis_file,
+            decision=final_decision,
+        )
 
     return final_summary
 

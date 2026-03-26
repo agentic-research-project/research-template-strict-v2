@@ -1,9 +1,13 @@
 # .github/workflows/experiment.yml — AI Research Experiment Runner
 # stdout contract: METRICS:{...valid json...}  (train.py 마지막 줄)
-# schema_version: 1.0
+# schema_version: 2.0
+#
+# 실행 환경:
+#   organization-level self-hosted runner (gpu-runner-0 ~ gpu-runner-7)
+#   → docker exec nextmi-dev-loki + conda run -n yhn
+#   → GPU pinning: gpu-runner-N → CUDA_VISIBLE_DEVICES=N
 #
 # 트리거: workflow_dispatch (experiment_pkg, dispatch_id 입력 필수)
-# 실행 환경: self-hosted GPU runner (runs-on: [self-hosted, gpu])
 # 환경 변수: GitHub Secrets에 등록 필요
 #   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
 #
@@ -43,9 +47,10 @@ on:
         type: string
 
 env:
-  EXPERIMENT_PKG:    ${{ inputs.experiment_pkg }}
-  CONFIG_FILE:       ${{ inputs.config_file }}
-  PYTHON:            python
+  EXPERIMENT_PKG:  ${{ inputs.experiment_pkg }}
+  CONFIG_FILE:     ${{ inputs.config_file }}
+  CONTAINER_NAME:  nextmi-dev-loki
+  CONDA_ENV_NAME:  yhn
 
 # ──────────────────────────────────────────────────────────
 # 1. SETUP — 환경 구성 및 패키지 구조 검증
@@ -62,6 +67,46 @@ jobs:
           echo "=== Run: ${{ github.run_id }} | SHA: ${{ github.sha }} ==="
           echo "=== Experiment: ${{ env.EXPERIMENT_PKG }} ==="
           echo "=== dispatch_id: ${{ inputs.dispatch_id }} ==="
+          echo "=== runner.name: ${{ runner.name }} ==="
+
+      # ── 작업 5: runner 이름 기반 GPU pinning (일반화) ──
+      - name: Resolve GPU from runner name
+        run: |
+          RUNNER_NAME="${{ runner.name }}"
+          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
+            echo "ERROR: runner name '$RUNNER_NAME' does not match 'gpu-runner-N' pattern"
+            exit 1
+          fi
+          GPU_ID="${BASH_REMATCH[1]}"
+          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
+            echo "ERROR: GPU index $GPU_ID out of range (0-7)"
+            exit 1
+          fi
+          echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+          echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
+
+      # ── 작업 3: 컨테이너/conda 환경 검증 ──
+      - name: Verify container and conda env
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            echo "=== container hostname: $(hostname) ==="
+            conda run -n ${{ env.CONDA_ENV_NAME }} python -c "
+          import sys
+          print(f\"Python: {sys.version}\")
+          print(f\"Executable: {sys.executable}\")
+          "
+          '
+
+      # ── 작업 4: 공유 경로 확인 ──
+      - name: Verify shared repo path in container
+        run: |
+          PKG_PATH="${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+            test -d '$PKG_PATH' \
+              || (echo 'ERROR: $PKG_PATH not found inside container' && exit 1)
+            echo '=== Shared path OK: $PKG_PATH ==='
+            ls '$PKG_PATH'/train.py '$PKG_PATH'/model.py > /dev/null
+          "
 
       - name: Validate experiment package path
         run: |
@@ -69,9 +114,6 @@ jobs:
             || (echo "ERROR: experiment_pkg is not set" && exit 1)
           test -d "${{ env.EXPERIMENT_PKG }}" \
             || (echo "ERROR: ${{ env.EXPERIMENT_PKG }} not found" && exit 1)
-
-      - name: Install dependencies
-        run: pip install -q -r requirements.txt
 
       - name: Validate package structure
         working-directory: ${{ env.EXPERIMENT_PKG }}
@@ -96,6 +138,7 @@ jobs:
             'job_id':        '${{ github.run_id }}',
             'pipeline_id':   '${{ github.run_number }}',
             'runner_name':   '${{ runner.name }}',
+            'gpu_device':    '${{ env.CUDA_DEVICE }}',
             'git_sha':       '${{ github.sha }}',
             'git_branch':    '${{ github.ref_name }}',
             'dispatch_id':   '${{ inputs.dispatch_id }}',
@@ -107,7 +150,7 @@ jobs:
             'artifact_uri':  'https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts',
           }
           open('runner_metadata.json', 'w').write(json.dumps(meta, indent=2))
-          print('runner metadata saved. dispatch_id=' + meta['dispatch_id'])
+          print('runner metadata saved. dispatch_id=' + meta['dispatch_id'] + ' gpu=' + meta['gpu_device'])
           "
 
       - name: Upload setup artifacts
@@ -128,6 +171,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve GPU from runner name
+        run: |
+          RUNNER_NAME="${{ runner.name }}"
+          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
+            echo "ERROR: runner name '$RUNNER_NAME' does not match pattern" && exit 1
+          fi
+          GPU_ID="${BASH_REMATCH[1]}"
+          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
+            echo "ERROR: GPU index $GPU_ID out of range (0-7)" && exit 1
+          fi
+          echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+
       - name: Download setup artifacts
         uses: actions/download-artifact@v4
         with:
@@ -135,8 +190,13 @@ jobs:
           path: ${{ env.EXPERIMENT_PKG }}
 
       - name: Run smoke test
-        working-directory: ${{ env.EXPERIMENT_PKG }}
-        run: ${{ env.PYTHON }} scripts/smoke_test.py --config configs/fast.yaml
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            cd "${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+            export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
+            conda run -n ${{ env.CONDA_ENV_NAME }} \
+              python scripts/smoke_test.py --config configs/fast.yaml
+          '
 
       - name: Write smoke_failed status
         if: failure()
@@ -169,6 +229,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve GPU from runner name
+        run: |
+          RUNNER_NAME="${{ runner.name }}"
+          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
+            echo "ERROR: runner name '$RUNNER_NAME' does not match pattern" && exit 1
+          fi
+          GPU_ID="${BASH_REMATCH[1]}"
+          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
+            echo "ERROR: GPU index $GPU_ID out of range (0-7)" && exit 1
+          fi
+          echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+
       - name: Download setup artifacts
         uses: actions/download-artifact@v4
         with:
@@ -180,11 +252,16 @@ jobs:
         run: mkdir -p artifacts/checkpoints artifacts/logs artifacts/metrics
 
       - name: Run training
-        working-directory: ${{ env.EXPERIMENT_PKG }}
         run: |
-          set -o pipefail
-          ${{ env.PYTHON }} train.py --config ${{ env.CONFIG_FILE }} \
-            2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            set -o pipefail
+            cd "${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+            export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
+            mkdir -p artifacts/logs
+            conda run -n ${{ env.CONDA_ENV_NAME }} \
+              python train.py --config ${{ env.CONFIG_FILE }} \
+              2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
+          '
 
       - name: Validate and extract METRICS output
         working-directory: ${{ env.EXPERIMENT_PKG }}
@@ -245,7 +322,7 @@ jobs:
         working-directory: ${{ env.EXPERIMENT_PKG }}
         run: |
           python -c "
-          import json, datetime, os
+          import json, datetime
           meta = json.load(open('runner_metadata.json'))
           started = datetime.datetime.fromisoformat(meta['started_at'])
           now = datetime.datetime.utcnow()

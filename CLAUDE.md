@@ -130,8 +130,13 @@ export GITHUB_TOKEN="..."   # GitHub API 검색 속도 향상
 
 **인프라**
 
-- self-hosted GPU runner (`runs-on: [self-hosted, gpu]`) 필요
-  - self-hosted runner 없으면 `train` 단계에서 `runner not found` 오류 발생
+- organization-level self-hosted runner (최대 8개: `gpu-runner-0` ~ `gpu-runner-7`)
+  - `runs-on: [self-hosted, gpu]` 라벨 필요
+  - runner 없으면 `train` 단계에서 `runner not found` 오류 발생
+- GPU pinning: `gpu-runner-N` → `CUDA_VISIBLE_DEVICES=N` (workflow가 runner.name에서 자동 파싱)
+- 실행 환경: 장수 Docker 컨테이너 `nextmi-dev-loki` 내부 conda env `yhn`
+  - workflow는 `docker exec` + `conda run -n yhn`으로 실행
+  - host와 container의 프로젝트 경로는 동일 (바인드 마운트)
 - PAT scope 부족 시 dispatch는 성공하나 run 조회에서 403/404 발생
 
 **workflow 입력 계약**
