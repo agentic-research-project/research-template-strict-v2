@@ -255,6 +255,7 @@ async def run_research(
     target_metric: str = "",
     image_paths: list[str] | None = None,
     image_labels: list[str] | None = None,
+    auto_approve: bool = False,
 ) -> None:
     """협업 모드 연구 파이프라인을 실행한다."""
 
@@ -305,21 +306,32 @@ workspace  = "experiments/{topic_slug}"
 4단계는 반드시 --refine --target-score 8.5 옵션으로 실행하세요.
 5단계 PDF는 점수 무관 항상 생성됩니다."""
 
+    # auto_approve 모드: 5단계 자동 승인, AskUserQuestion 불필요
+    if auto_approve:
+        user_prompt += """
+
+⚠️ 자동 승인 모드 (CI/CD):
+  5단계에서 AskUserQuestion을 사용하지 말고, PDF 생성 후 자동으로 approve 처리하세요.
+  approval.json에 {"decision": "approve", "mode": "auto"} 를 Write로 저장하고 6단계로 진행하세요."""
+
     _print_header(topic, image_paths)
+
+    allowed_tools = [
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ]
+    if not auto_approve:
+        allowed_tools.append("AskUserQuestion")
 
     async for message in query(
         prompt=user_prompt,
         options=ClaudeAgentOptions(
             system_prompt=SYSTEM_PROMPT,
-            allowed_tools=[
-                "WebSearch",
-                "WebFetch",
-                "Bash",
-                "Read",
-                "Write",
-                "Edit",
-                "AskUserQuestion",
-            ],
+            allowed_tools=allowed_tools,
             cwd=str(Path(__file__).parent),
             max_turns=120,
         ),
@@ -401,6 +413,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--target-metric", default="")
     parser.add_argument("--image", nargs="*", dest="image_paths", default=[], metavar="PATH")
     parser.add_argument("--image-labels",  nargs="*", default=[], metavar="LABEL")
+    parser.add_argument("--auto-approve",  action="store_true",
+                        help="5단계 사용자 승인을 자동 처리 (CI/CD용)")
     return parser.parse_args()
 
 
@@ -446,6 +460,7 @@ if __name__ == "__main__":
             target_metric=target_metric,
             image_paths=image_paths,
             image_labels=image_labels,
+            auto_approve=args.auto_approve,
         )
 
     anyio.run(main)

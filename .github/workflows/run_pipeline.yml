@@ -1,0 +1,105 @@
+# .github/workflows/run_pipeline.yml — 전체 연구 파이프라인 실행
+#
+# main.py (Claude Agent SDK 오케스트레이터)를 컨테이너 내부에서 실행한다.
+# 8단계 전체 파이프라인: 주제 분석 → 논문 검색 → 가설 생성 → 검증 → 승인 →
+#                        코드 분석 → 모델 생성 → 실험 실행
+#
+# 주의: 5단계(사용자 승인)에서 AskUserQuestion을 사용하므로,
+#       Claude Agent SDK가 자동 승인 모드로 실행되거나
+#       사용자가 별도로 응답해야 한다.
+
+name: Research Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      todo_file:
+        description: "연구 계획 파일 (기본: todo.md)"
+        required: false
+        default: "todo.md"
+        type: string
+      runner_type:
+        description: "실험 실행 방식 (local: GPU 직접 사용)"
+        required: false
+        default: "local"
+        type: string
+
+env:
+  CONTAINER_NAME: nextmi-dev-loki
+  CONDA_ENV_NAME: yhn
+
+jobs:
+  pipeline:
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print run info
+        run: |
+          echo "=== Pipeline Run: ${{ github.run_id }} ==="
+          echo "=== todo_file: ${{ inputs.todo_file }} ==="
+          echo "=== runner.name: ${{ runner.name }} ==="
+
+      - name: Resolve GPU from runner name
+        run: |
+          RUNNER_NAME="${{ runner.name }}"
+          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
+            echo "ERROR: runner name '$RUNNER_NAME' does not match 'gpu-runner-N' pattern"
+            exit 1
+          fi
+          GPU_ID="${BASH_REMATCH[1]}"
+          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
+            echo "ERROR: GPU index $GPU_ID out of range (0-7)"
+            exit 1
+          fi
+          echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+          echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
+
+      - name: Verify container and conda env
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            echo "=== container: $(hostname) ==="
+            conda run -n ${{ env.CONDA_ENV_NAME }} python -c "
+          import sys
+          print(f\"Python: {sys.version}\")
+          print(f\"Executable: {sys.executable}\")
+          "
+          '
+
+      - name: Verify shared repo path
+        run: |
+          PKG_PATH="${{ github.workspace }}"
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+            test -f '$PKG_PATH/main.py' \
+              || (echo 'ERROR: main.py not found at $PKG_PATH' && exit 1)
+            test -f '$PKG_PATH/${{ inputs.todo_file }}' \
+              || (echo 'ERROR: ${{ inputs.todo_file }} not found' && exit 1)
+            echo '=== Repo path OK: $PKG_PATH ==='
+          "
+
+      - name: Verify Claude Code CLI
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            conda run -n ${{ env.CONDA_ENV_NAME }} claude --version \
+              || (echo "ERROR: claude CLI not available" && exit 1)
+          '
+
+      - name: Run research pipeline
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            cd "${{ github.workspace }}"
+            export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
+            conda run -n ${{ env.CONDA_ENV_NAME }} \
+              python main.py --todo "${{ inputs.todo_file }}" --auto-approve
+          '
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-results
+          retention-days: 90
+          path: |
+            ${{ github.workspace }}/experiments/*/results/
+            ${{ github.workspace }}/experiments/*/reports/
