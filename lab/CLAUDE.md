@@ -23,12 +23,12 @@ flowchart LR
         RL -->|목표 미달| MG
     end
 
-    T -->|topic_analysis.json| R[(reports/)]
+    T -->|topic_analysis.json| R[("experiments/{slug}/reports/")]
     P -->|papers.json| R
     H -->|hypothesis.json| R
     CA -->|code_analysis.json| R
-    MG -->|experiments/{slug}/runs/v{N}/| EX[(experiments/)]
-    RL -->|result_summary.json\nprevious_results.jsonl| RE[(results/)]
+    MG -->|experiments/{slug}/runs/v{N}/| EX[("experiments/{slug}/runs/")]
+    RL -->|result_summary.json\nprevious_results.jsonl| RE[("experiments/{slug}/results/")]
     RL -->|목표 달성| Done([완료])
 ```
 
@@ -36,14 +36,16 @@ flowchart LR
 
 | 모듈 | 역할 | 입력 | 출력 |
 |---|---|---|---|
-| topic_analyzer.py | 연구 주제 구조화 | 사용자 입력 4종 | topic_analysis.json |
-| paper_researcher.py | arXiv/Semantic Scholar 논문 검색 | topic_analysis.json | papers_{topic}.json |
-| hypothesis_generator.py | Claude로 가설 생성 | topic + papers | hypothesis_{topic}.json |
-| hypothesis_validator.py | GPT-4o + Gemini 검증 | hypothesis | 검증 결과 포함된 hypothesis |
-| user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | approval_{topic}.json |
-| code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | code_analysis.json |
-| model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | experiments/{slug}/runs/vN/ (패키지 디렉토리) |
-| research_loop.py | 실험 실행 + Path A/B/C revision 루프 | pkg_dir + topic + hypothesis + code_analysis | results/vN/result_summary.json, results/previous_results.jsonl, reports/revision_request_vN.json |
+| topic_analyzer.py | 연구 주제 구조화 | 사용자 입력 4종 | `{slug}/reports/topic_analysis.json` |
+| paper_researcher.py | arXiv/Semantic Scholar 논문 검색 | topic_analysis.json | `{slug}/reports/papers.json` |
+| hypothesis_generator.py | Claude로 가설 생성 | topic + papers | `{slug}/reports/hypothesis.json` |
+| hypothesis_validator.py | GPT-4o + Gemini 검증 | hypothesis | `{slug}/reports/validation.json` |
+| user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | `{slug}/reports/approval.json`, `report.pdf` |
+| code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | `{slug}/reports/code_analysis.json` |
+| model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | `{slug}/runs/vN/` (Fabric 패키지) |
+| research_loop.py | 실험 실행 + Path A/B/C revision 루프 | pkg_dir + topic + hypothesis + code_analysis | `{slug}/results/vN/result_summary.json`, `{slug}/results/previous_results.jsonl`, `{slug}/reports/revision_request_vN.json` |
+
+> `{slug}` = `experiments/{topic_slug}`
 
 ## 실행 명령
 
@@ -90,11 +92,71 @@ python -m lab.research_loop \
     --topic-file      experiments/{slug}/reports/topic_analysis.json \
     --hypothesis-file experiments/{slug}/reports/hypothesis.json \
     --code-file       experiments/{slug}/reports/code_analysis.json \
-    --max-rounds 3
+    --max-rounds 3 \
+    --runner-type local   # 또는 github
+
 # Path A: 자동으로 runs/v2, v3 재생성 후 재실행
-# Path B/C: reports/revision_request_v{N}.json 생성 후 종료
-# 결과: experiments/{slug}/results/vN/result_summary.json
-#       experiments/{slug}/results/previous_results.jsonl
+# Path B/C: experiments/{slug}/reports/revision_request_v{N}.json 생성 후 종료
+# 결과 (canonical, research_loop.py만 생성):
+#   experiments/{slug}/results/vN/result_summary.json
+#   experiments/{slug}/results/vN/runner_metadata.json
+#   experiments/{slug}/results/previous_results.jsonl
+```
+
+## Runner 추상화
+
+### RunResult 계약
+
+모든 runner는 동일한 `RunResult` dict를 반환한다:
+
+```python
+{
+  "status":       "success | failed | smoke_failed | timeout | metrics_parse_error",
+  "metrics":      {"psnr": 28.5, ...},   # METRICS:{} stdout 파싱 결과
+  "stdout_lines": [...],                  # 전체 stdout
+  "stderr_tail":  [...],                  # stderr 마지막 200줄
+  "returncode":   int,                    # 0=success, 1=failure, -1=runner 오류
+  "metadata": {
+    "runner":         "local | github",
+    "job_id":         str,        # GitHub: run_id,    local: ""
+    "pipeline_id":    str,        # GitHub: run_number, local: ""
+    "dispatch_id":    str,        # GitHubActionsRunner UUID, local: ""
+    "duration_s":     float,
+    "artifact_uri":   str,        # GitHub artifact API URL
+    "job_url":        str,        # GitHub: html_url (브라우저 링크)
+    "git_sha":        str,
+    "git_branch":     str,
+    "experiment_pkg": str,        # pkg_dir 절대 경로
+    "started_at":     str,        # ISO8601
+    "finished_at":    str,        # ISO8601
+  }
+}
+```
+
+### 실패 semantics
+
+| status | 원인 |
+|---|---|
+| `smoke_failed` | smoke_test.py exit 1 |
+| `failed` | train 실패 (workflow failure, dispatch 실패, artifact 실패 등) |
+| `timeout` | poll deadline 초과 |
+| `metrics_parse_error` | METRICS:{} 라인 없음 또는 파싱 오류 |
+| `success` | 정상 완료 + metrics 파싱 성공 |
+
+### canonical result_summary 생성 책임
+
+- `result_summary.json`은 **`research_loop.py`만** 생성한다
+- workflow는 `final_metrics.json` + `runner_metadata.json`만 artifact로 업로드한다
+- runner는 두 파일을 다운로드하여 `RunResult`를 구성하고 research_loop에 반환한다
+- research_loop은 `experiment_spec.json` + `RunResult`를 결합하여 canonical summary를 생성한다
+
+### artifact 계약 (GitHubActionsRunner)
+
+workflow `experiment-results` artifact에 포함되는 파일:
+
+```
+artifacts/metrics/final_metrics.json   # raw metric dict (METRICS:{} 파싱 결과)
+runner_metadata.json                   # 실행 메타데이터 (dispatch_id 포함)
 ```
 
 ## LLM 설정 (config.py)

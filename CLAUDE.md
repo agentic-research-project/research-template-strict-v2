@@ -25,13 +25,13 @@ flowchart TD
         I -->|done| Done([완료])
     end
 
-    subgraph Storage["저장소"]
-        R[(reports/)]
-        EX[(experiments/)]
-        RE[(results/)]
+    subgraph Storage["experiments/{slug}/ (topic-local workspace)"]
+        R[(reports/\ntopic_analysis.json\npapers.json\nhypothesis.json\nvalidation.json\ncode_analysis.json\nrevision_request_vN.json)]
+        EX[(runs/vN/\ntrain.py model.py\nmodule.py data.py\nconfigs/ scripts/)]
+        RE[(results/vN/\nresult_summary.json\nrunner_metadata.json\nprevious_results.jsonl)]
     end
 
-    A & B & C & D & E --> R
+    A & B & C & D & E & F --> R
     G --> EX
     H --> RE
 ```
@@ -72,7 +72,7 @@ project/
 
 ## 코딩 규칙
 - 각 모듈은 독립적으로 실행 및 테스트 가능하게 설계
-- 모든 LLM 호출은 결과를 `reports/`에 캐시하여 중복 API 호출 방지
+- 모든 LLM 호출은 결과를 `experiments/{slug}/reports/`에 캐시하여 중복 API 호출 방지
 - 에러 발생 시 해당 단계 결과에 `error` 필드 기록 후 계속 진행
 - Claude API 호출 시 `thinking: {"type": "adaptive"}` 사용 (복잡한 분석)
 - **하드코딩 금지 — 모든 값은 일반화(generalization) 또는 모듈화(modularization)로 작성**
@@ -81,6 +81,8 @@ project/
   - 설정값: 상단 상수 또는 config로 분리, 코드 중간에 매직 넘버 삽입 금지
 
 ## 환경 설정
+
+### 로컬 실행
 ```bash
 pip install anthropic openai google-generativeai torch torchvision requests
 
@@ -88,4 +90,83 @@ export ANTHROPIC_API_KEY="..."
 export OPENAI_API_KEY="..."
 export GOOGLE_API_KEY="..."
 export GITHUB_TOKEN="..."   # GitHub API 검색 속도 향상
+```
+
+### GitHub Actions 실행 전제조건
+
+`--runner-type github` 사용 시 아래 환경이 추가로 필요하다.
+
+**환경변수 (로컬 → runners.py에서 읽음)**
+
+| 변수 | 설명 |
+|---|---|
+| `GITHUB_TOKEN` | Personal Access Token (workflow + contents scope 필수) |
+| `GITHUB_OWNER` | 레포지토리 소유자 (예: `myorg`) |
+| `GITHUB_REPO` | 레포지토리 이름 (예: `my-research`) |
+| `GITHUB_REF` | 트리거 브랜치 (기본값: `main`) |
+| `GITHUB_WORKFLOW` | 워크플로우 파일명 (기본값: `experiment.yml`) |
+
+**GitHub Secrets (workflow 내부에서 필요)**
+
+- `ANTHROPIC_API_KEY` — Claude API 키
+- `OPENAI_API_KEY` — OpenAI API 키
+- `GOOGLE_API_KEY` — Gemini API 키
+
+**인프라**
+
+- self-hosted GPU runner (`runs-on: [self-hosted, gpu]`) 필요
+  - self-hosted runner 없으면 `train` 단계에서 `runner not found` 오류 발생
+- PAT scope 부족 시 dispatch는 성공하나 run 조회에서 403/404 발생
+
+**workflow 입력 계약**
+
+```yaml
+inputs:
+  experiment_pkg: "experiments/{slug}/runs/v1"
+  config_file:    "configs/default.yaml"
+  mode:           "smoke | train"
+  dispatch_id:    "<UUID — runners.py가 생성>"
+```
+
+**artifact 계약 (experiment-results)**
+
+runner가 수집하는 최종 artifact:
+- `artifacts/metrics/final_metrics.json` — raw metric dict
+- `runner_metadata.json` — 실행 메타데이터
+
+canonical `result_summary.json`은 `research_loop.py`만 생성한다 (workflow 생성 금지).
+
+## 하위 호환성 정책
+
+과거 구조는 더 이상 지원하지 않는다. 아래 구조가 발견되면 명시적 오류로 처리한다.
+
+| 과거 구조 | 현재 구조 | 처리 방침 |
+|---|---|---|
+| `experiments/{slug}_vN/` | `experiments/{slug}/runs/vN/` | 오류: 경로를 직접 변경하거나 새로 생성 |
+| 전역 `results/` | `experiments/{slug}/results/` | 오류: topic slug를 명시해 재실행 |
+| 전역 `reports/` | `experiments/{slug}/reports/` | 오류: topic slug를 명시해 재실행 |
+
+자동 마이그레이션은 제공하지 않는다. 구 구조 발견 시 새 구조로 직접 재생성한다.
+
+## 전체 Lifecycle 예시 (topic 하나)
+
+```text
+1. topic 입력 → experiments/industrial_image_denoising/reports/topic_analysis.json 생성
+2. 논문 검색  → experiments/industrial_image_denoising/reports/papers.json
+3. 가설 생성  → experiments/industrial_image_denoising/reports/hypothesis.json
+4. 가설 검증  → experiments/industrial_image_denoising/reports/validation.json
+5. 사용자 승인 → experiments/industrial_image_denoising/reports/approval.json
+6. 코드 분석  → experiments/industrial_image_denoising/reports/code_analysis.json
+7. 모델 생성  → experiments/industrial_image_denoising/runs/v1/ (Fabric 패키지)
+8. 실험 실행:
+   - smoke → pass
+   - train → METRICS:{"psnr": 28.5, "ssim": 0.82}
+9. 결과 저장:
+   - experiments/industrial_image_denoising/results/v1/result_summary.json  (research_loop 생성)
+   - experiments/industrial_image_denoising/results/v1/runner_metadata.json
+   - experiments/industrial_image_denoising/results/previous_results.jsonl  (누적)
+10. 목표 미달(psnr < 30) → Path A:
+    - experiments/industrial_image_denoising/runs/v2/ 재생성 후 재실행
+11. v2도 미달, n_runs≥2, GPT/Gemini 합의 Path B →
+    - experiments/industrial_image_denoising/reports/revision_request_v2.json 생성 후 종료
 ```

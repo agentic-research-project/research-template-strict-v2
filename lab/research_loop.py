@@ -70,8 +70,11 @@ def _check_runner_ready(runner: BaseRunner) -> None:
             "runner_type":  runner.__class__.__name__,
             "reason":       reason,
             "suggestion":   (
-                "--runner-type local 로 변경하거나 "
-                "runner를 완전히 구현한 후 재시도하세요."
+                "GitHubActionsRunner 사용 시 필요한 환경변수: "
+                "GITHUB_TOKEN (workflow+contents scope), GITHUB_OWNER, GITHUB_REPO. "
+                "GitHub Secrets 필요: ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY. "
+                "self-hosted GPU runner (runs-on: [self-hosted, gpu]) 필요. "
+                "또는 --runner-type local 로 변경하세요."
             ),
         }
         print("\n[FATAL] Runner 준비 안 됨 — 실험 루프 진입 중단")

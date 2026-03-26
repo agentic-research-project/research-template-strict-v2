@@ -12,18 +12,42 @@ Runner abstractions for experiment execution.
     "stderr_tail":  [...],
     "returncode":   int,
     "metadata": {
-      "runner":       "local | github",
-      "job_id":       "...",
-      "duration_s":   float,
-      "artifact_uri": "...",
-      "job_url":      "...",
-      "git_sha":      "..."
+      "runner":         "local | github",
+      "job_id":         str,        # GitHub: run_id, local: ""
+      "pipeline_id":    str,        # GitHub: run_number, local: ""
+      "dispatch_id":    str,        # GitHubActionsRunner가 생성한 UUID (local: "")
+      "duration_s":     float,
+      "artifact_uri":   str,        # GitHub: artifacts API URL
+      "job_url":        str,        # GitHub: html_url (브라우저로 바로 열 수 있는 URL)
+      "git_sha":        str,
+      "git_branch":     str,
+      "experiment_pkg": str,
+      "started_at":     str,        # ISO8601
+      "finished_at":    str,        # ISO8601
     }
   }
 
 METRICS stdout 계약 (불변):
   train.py가 반드시 아래 형식으로 stdout에 출력해야 한다:
     METRICS:{...valid json...}
+
+artifact 계약 (GitHubActionsRunner):
+  runner는 experiment-results artifact에서 아래 두 파일을 수집한다:
+    artifacts/metrics/final_metrics.json  — raw metric dict
+    runner_metadata.json                  — 실행 메타데이터
+  canonical result_summary.json는 research_loop.py가 생성한다.
+
+GitHub 실행 전제조건:
+  환경변수 (또는 CLI 인자):
+    GITHUB_TOKEN    — personal access token (workflow + contents scope 필요)
+    GITHUB_OWNER    — 레포지토리 소유자 (예: myorg)
+    GITHUB_REPO     — 레포지토리 이름 (예: my-research)
+    GITHUB_REF      — 트리거 브랜치 (기본값: main)
+    GITHUB_WORKFLOW — 워크플로우 파일명 (기본값: experiment.yml)
+  GitHub Secrets (workflow 내에서 필요):
+    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
+  인프라:
+    self-hosted GPU runner (runs-on: [self-hosted, gpu]) 필요
 """
 
 import json
@@ -31,6 +55,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -40,16 +65,20 @@ from pathlib import Path
 # ──────────────────────────────────────────────────────────
 
 class BaseRunner(ABC):
-    """실험 실행 추상 인터페이스."""
+    """실험 실행 추상 인터페이스.
+
+    RunResult 계약:
+      status        : "success" | "failed" | "smoke_failed" | "timeout" | "metrics_parse_error"
+      metrics       : {"metric_name": float, ...}  — METRICS:{} stdout에서 파싱
+      stdout_lines  : 전체 stdout 줄 목록 (최대 수천 줄)
+      stderr_tail   : stderr 마지막 200줄 (디버깅용)
+      returncode    : 프로세스 exit code (GitHub: 0=success, 1=failure, -1=runner 오류)
+      metadata      : runner_metadata dict (공통 스키마)
+    """
 
     def is_ready(self) -> tuple[bool, str]:
-        """runner가 실제 실험을 실행할 준비가 됐는지 반환한다.
-
-        Returns:
-            (True, "ok")                         — 실행 가능
-            (False, "reason why not ready")      — 실행 불가
-
-        side-effect 없이 호출해야 하며, 네트워크/파일 접근 없이 즉시 반환해야 한다.
+        """runner가 실험을 실행할 준비가 됐는지 반환.
+        side-effect 없이 즉시 반환해야 한다.
         """
         return True, "ok"
 
@@ -101,24 +130,33 @@ class BaseRunner(ABC):
         }
 
     @staticmethod
-    def _make_failed_result(runner: str, reason: str) -> dict:
+    def _make_failed_result(runner: str, reason: str, extra_meta: dict | None = None) -> dict:
+        """실패 RunResult를 생성한다. reason은 사람이 읽고 바로 원인 파악 가능해야 한다."""
+        meta = BaseRunner._empty_metadata(runner)
+        if extra_meta:
+            meta.update(extra_meta)
         return BaseRunner._make_result(
             status="failed", metrics={},
             stdout_lines=[], stderr_tail=[reason],
             returncode=-1,
-            metadata=BaseRunner._empty_metadata(runner),
+            metadata=meta,
         )
 
     @staticmethod
     def _empty_metadata(runner: str) -> dict:
         return {
-            "runner":       runner,
-            "job_id":       "",
-            "duration_s":   0.0,
-            "artifact_uri": "",
-            "job_url":      "",
-            "git_sha":      "",
-            "git_branch":   "",
+            "runner":         runner,
+            "job_id":         "",
+            "pipeline_id":    "",
+            "dispatch_id":    "",
+            "duration_s":     0.0,
+            "artifact_uri":   "",
+            "job_url":        "",
+            "git_sha":        "",
+            "git_branch":     "",
+            "experiment_pkg": "",
+            "started_at":     "",
+            "finished_at":    "",
         }
 
 
@@ -127,7 +165,11 @@ class BaseRunner(ABC):
 # ──────────────────────────────────────────────────────────
 
 class LocalRunner(BaseRunner):
-    """로컬 subprocess 기반 실험 실행."""
+    """로컬 subprocess 기반 실험 실행.
+
+    smoke: scripts/smoke_test.py --config configs/fast.yaml
+    train: train.py --config <config_file>
+    """
 
     def run_smoke(self, pkg_dir: Path) -> dict:
         cmd = [sys.executable, "scripts/smoke_test.py", "--config", "configs/fast.yaml"]
@@ -148,22 +190,26 @@ class LocalRunner(BaseRunner):
                 stdout_lines=proc.stdout.splitlines(),
                 stderr_tail=proc.stderr.splitlines()[-100:],
                 returncode=proc.returncode,
-                metadata={**self._empty_metadata("local"), "duration_s": duration},
+                metadata={
+                    **self._empty_metadata("local"),
+                    "experiment_pkg": str(pkg_dir),
+                    "duration_s":     duration,
+                },
             )
         except subprocess.TimeoutExpired:
             return self._make_result(
                 status="smoke_failed", metrics={},
-                stdout_lines=[], stderr_tail=["smoke_test timeout"],
+                stdout_lines=[], stderr_tail=["smoke_test timeout (180s)"],
                 returncode=-1,
-                metadata=self._empty_metadata("local"),
+                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
             )
         except Exception as e:
             print(f"    [smoke] 예외: {e}")
             return self._make_result(
                 status="smoke_failed", metrics={},
-                stdout_lines=[], stderr_tail=[str(e)],
+                stdout_lines=[], stderr_tail=[f"smoke 실행 예외: {e}"],
                 returncode=-1,
-                metadata=self._empty_metadata("local"),
+                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
             )
 
     def run_train(
@@ -172,16 +218,19 @@ class LocalRunner(BaseRunner):
         config_file: str = "configs/default.yaml",
         timeout: int = 7200,
     ) -> dict:
+        import datetime as _dt
         cmd = [sys.executable, "train.py", "--config", config_file]
         print(f"\n    [실험 실행] cd {pkg_dir} && {' '.join(cmd)}")
-        start = time.monotonic()
+        start     = time.monotonic()
+        started_at = _dt.datetime.utcnow().isoformat()
         try:
             proc = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=timeout, cwd=str(pkg_dir)
             )
-            duration     = round(time.monotonic() - start, 2)
-            stdout_lines = proc.stdout.splitlines()
-            stderr_lines = proc.stderr.splitlines()
+            duration      = round(time.monotonic() - start, 2)
+            finished_at   = _dt.datetime.utcnow().isoformat()
+            stdout_lines  = proc.stdout.splitlines()
+            stderr_lines  = proc.stderr.splitlines()
 
             metrics, parse_ok = self._parse_metrics(stdout_lines)
             if proc.returncode != 0:
@@ -195,26 +244,37 @@ class LocalRunner(BaseRunner):
                 status=status, metrics=metrics,
                 stdout_lines=stdout_lines, stderr_tail=stderr_lines[-200:],
                 returncode=proc.returncode,
-                metadata={**self._empty_metadata("local"), "duration_s": duration},
+                metadata={
+                    **self._empty_metadata("local"),
+                    "experiment_pkg": str(pkg_dir),
+                    "duration_s":     duration,
+                    "started_at":     started_at,
+                    "finished_at":    finished_at,
+                },
             )
         except subprocess.TimeoutExpired:
             return self._make_result(
                 status="timeout", metrics={},
-                stdout_lines=[], stderr_tail=[],
+                stdout_lines=[], stderr_tail=[f"train timeout ({timeout}s)"],
                 returncode=-1,
-                metadata={**self._empty_metadata("local"), "duration_s": float(timeout)},
+                metadata={
+                    **self._empty_metadata("local"),
+                    "experiment_pkg": str(pkg_dir),
+                    "duration_s":     float(timeout),
+                    "started_at":     started_at,
+                },
             )
         except Exception as e:
             return self._make_result(
                 status="failed", metrics={},
-                stdout_lines=[], stderr_tail=[str(e)],
+                stdout_lines=[], stderr_tail=[f"train 실행 예외: {e}"],
                 returncode=-1,
-                metadata=self._empty_metadata("local"),
+                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
             )
 
 
 # ──────────────────────────────────────────────────────────
-# GitHubActionsRunner — GitHub Actions 기반 실행 (skeleton)
+# GitHubActionsRunner — GitHub Actions 기반 실행
 # ──────────────────────────────────────────────────────────
 
 class GitHubActionsRunner(BaseRunner):
@@ -229,12 +289,20 @@ class GitHubActionsRunner(BaseRunner):
       GITHUB_WORKFLOW 워크플로우 파일명 (기본값: experiment.yml)
 
     동작 흐름:
-      1. 실험 패키지 코드를 git commit/push (CI가 checkout할 수 있도록)
-      2. workflow_dispatch 트리거
-      3. run이 나타날 때까지 polling
-      4. run 완료 대기 (timeout)
-      5. artifact 다운로드 → results/vN/ 에 저장
-      6. RunResult 반환
+      1. dispatch_id 생성 (uuid, 이 run의 고유 식별자)
+      2. 실험 패키지 코드를 git commit/push (CI checkout용)
+      3. workflow_dispatch 트리거 (dispatch_id 포함)
+      4. run이 나타날 때까지 polling (SHA + after_ts 기반 식별)
+         복수 후보 발견 시 명시적 실패 (조용한 첫 번째 선택 금지)
+      5. run 완료 대기 (timeout)
+      6. experiment-results artifact 다운로드
+         → artifacts/metrics/final_metrics.json
+         → runner_metadata.json
+      7. RunResult 반환 (canonical summary는 research_loop.py가 생성)
+
+    주의:
+      - canonical result_summary.json은 이 runner가 생성하지 않는다.
+      - research_loop.py의 _build_result_summary()가 RunResult + experiment_spec.json 기반으로 생성한다.
     """
 
     _API = "https://api.github.com"
@@ -261,10 +329,15 @@ class GitHubActionsRunner(BaseRunner):
     # is_ready
     # ─────────────────────────────────────────────────────
     def is_ready(self) -> tuple[bool, str]:
+        missing = []
         if not self.token:
-            return False, "GITHUB_TOKEN 미설정"
-        if not self.owner or not self.repo:
-            return False, "GITHUB_OWNER / GITHUB_REPO 미설정"
+            missing.append("GITHUB_TOKEN")
+        if not self.owner:
+            missing.append("GITHUB_OWNER")
+        if not self.repo:
+            missing.append("GITHUB_REPO")
+        if missing:
+            return False, f"미설정 환경변수: {', '.join(missing)}"
         return True, "ok"
 
     # ─────────────────────────────────────────────────────
@@ -280,6 +353,10 @@ class GitHubActionsRunner(BaseRunner):
     def _base(self) -> str:
         return f"{self._API}/repos/{self.owner}/{self.repo}"
 
+    def _run_url(self, run_id: int | str) -> str:
+        """브라우저로 열 수 있는 GitHub Actions run URL."""
+        return f"https://github.com/{self.owner}/{self.repo}/actions/runs/{run_id}"
+
     def _push_pkg(self, pkg_dir: Path) -> str:
         """실험 패키지를 git commit/push하고 HEAD SHA를 반환한다."""
         result = subprocess.run(
@@ -287,25 +364,28 @@ class GitHubActionsRunner(BaseRunner):
             capture_output=True, text=True,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"git add 실패: {result.stderr}")
+            raise RuntimeError(f"git add 실패: {result.stderr.strip()}")
 
-        # 변경사항이 있을 때만 commit
-        status = subprocess.run(
+        changed = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             capture_output=True, text=True,
         ).stdout.strip()
 
-        if status:
-            subprocess.run(
+        if changed:
+            commit = subprocess.run(
                 ["git", "commit", "-m",
                  f"chore: push experiment package {pkg_dir.name} for CI"],
                 capture_output=True, text=True, check=True,
             )
-            subprocess.run(
+            push = subprocess.run(
                 ["git", "push", "origin", self.ref],
-                capture_output=True, text=True, check=True,
+                capture_output=True, text=True,
             )
+            if push.returncode != 0:
+                raise RuntimeError(f"git push 실패: {push.stderr.strip()}")
             print(f"  [GitHubRunner] 패키지 push 완료: {pkg_dir}")
+        else:
+            print(f"  [GitHubRunner] 변경사항 없음 — 기존 commit 사용")
 
         sha = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -313,7 +393,14 @@ class GitHubActionsRunner(BaseRunner):
         ).stdout.strip()
         return sha
 
-    def _dispatch(self, pkg_dir: Path, config_file: str, smoke_only: bool = False) -> None:
+    def _dispatch(
+        self,
+        pkg_dir: Path,
+        config_file: str,
+        smoke_only: bool = False,
+        dispatch_id: str = "",
+    ) -> None:
+        """workflow_dispatch를 트리거한다. dispatch_id를 workflow input으로 전달."""
         import urllib.request
         payload = json.dumps({
             "ref": self.ref,
@@ -321,6 +408,7 @@ class GitHubActionsRunner(BaseRunner):
                 "experiment_pkg": str(pkg_dir),
                 "config_file":    config_file,
                 "smoke_only":     "true" if smoke_only else "false",
+                "dispatch_id":    dispatch_id,
             },
         }).encode()
         req = urllib.request.Request(
@@ -331,23 +419,58 @@ class GitHubActionsRunner(BaseRunner):
         )
         with urllib.request.urlopen(req) as resp:
             if resp.status != 204:
-                raise RuntimeError(f"workflow_dispatch 실패: {resp.status}")
+                raise RuntimeError(f"workflow_dispatch 실패: HTTP {resp.status}")
 
-    def _find_run(self, after_ts: str) -> int | None:
-        """after_ts 이후에 생성된 workflow run ID를 반환한다."""
+    def _find_run(self, after_ts: str, expected_sha: str, dispatch_id: str) -> int:
+        """dispatch_id/SHA/after_ts 기반으로 run을 식별한다.
+
+        - after_ts 이후 생성된 run 중 expected_sha와 일치하는 것을 찾는다.
+        - 후보가 복수이면 명시적 예외 (조용한 첫 번째 선택 금지).
+        - 120초 내에 식별 못하면 RuntimeError.
+        """
         import urllib.request
-        url = (f"{self._base()}/actions/runs"
-               f"?event=workflow_dispatch&branch={self.ref}&per_page=5")
-        req = urllib.request.Request(url, headers=self._headers())
-        with urllib.request.urlopen(req) as resp:
-            runs = json.loads(resp.read()).get("workflow_runs", [])
-        for run in runs:
-            if run.get("created_at", "") >= after_ts:
-                return run["id"]
-        return None
+        deadline = time.time() + 120  # 2분 대기
+        print(f"  [GitHubRunner] run 탐색 중 dispatch_id={dispatch_id} sha={expected_sha[:8]}")
+        while time.time() < deadline:
+            time.sleep(10)
+            url = (f"{self._base()}/actions/runs"
+                   f"?event=workflow_dispatch&branch={self.ref}&per_page=10")
+            req = urllib.request.Request(url, headers=self._headers())
+            with urllib.request.urlopen(req) as resp:
+                runs = json.loads(resp.read()).get("workflow_runs", [])
+
+            # after_ts 기반 1차 필터
+            candidates = [r for r in runs if r.get("created_at", "") >= after_ts]
+
+            # sha 기반 2차 필터 (sha가 바뀐 경우)
+            sha_matched = [r for r in candidates if r.get("head_sha") == expected_sha]
+            if sha_matched:
+                candidates = sha_matched
+
+            if len(candidates) == 0:
+                continue  # 아직 run이 생성되지 않음
+
+            if len(candidates) == 1:
+                run_id = candidates[0]["id"]
+                print(f"  [GitHubRunner] run 식별 성공: run_id={run_id} "
+                      f"dispatch_id={dispatch_id} "
+                      f"url={self._run_url(run_id)}")
+                return run_id
+
+            # 복수 후보 → 병렬 실행 충돌
+            ids = [r["id"] for r in candidates]
+            raise RuntimeError(
+                f"run 식별 실패: dispatch_id={dispatch_id}에 대해 "
+                f"{len(candidates)}개 후보 발견 {ids} — 병렬 실행 충돌로 명시적 실패"
+            )
+
+        raise RuntimeError(
+            f"run 식별 timeout: dispatch_id={dispatch_id} "
+            f"(120s 내 미발견, branch={self.ref})"
+        )
 
     def _poll_run(self, run_id: int, timeout: int) -> dict:
-        """run이 완료될 때까지 polling. 완료된 run dict 반환."""
+        """run이 completed 될 때까지 polling. 완료된 run dict 반환."""
         import urllib.request
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -363,16 +486,20 @@ class GitHubActionsRunner(BaseRunner):
             print(f"  [GitHubRunner] run {run_id}: {run.get('status')} ...")
         raise TimeoutError(f"run {run_id} timeout ({timeout}s)")
 
-    def _download_artifacts(self, run_id: int, pkg_dir: Path) -> dict:
-        """실험 결과 artifact를 다운로드하고 results/vN/ 에 저장한다."""
-        import io
-        import urllib.request
-        import zipfile
+    def _download_artifacts(self, run_id: int, pkg_dir: Path) -> tuple[dict, dict]:
+        """experiment-results artifact에서 final_metrics.json + runner_metadata.json을 복원.
 
-        # experiments/{slug}/results/vN/
+        반환: (final_metrics, runner_metadata)
+        파일 없으면 RuntimeError (조용한 fallback 없음).
+        복원 위치: experiments/{slug}/results/{vN}/
+        """
+        import io, urllib.request, zipfile
+
+        # topic-local results 저장 경로
         results_dir = pkg_dir.parent.parent / "results" / pkg_dir.name
         results_dir.mkdir(parents=True, exist_ok=True)
 
+        # artifact 목록 조회
         req = urllib.request.Request(
             f"{self._base()}/actions/runs/{run_id}/artifacts",
             headers=self._headers(),
@@ -380,64 +507,80 @@ class GitHubActionsRunner(BaseRunner):
         with urllib.request.urlopen(req) as resp:
             artifacts = json.loads(resp.read()).get("artifacts", [])
 
-        result_summary = {}
-        runner_metadata = {}
+        target = next((a for a in artifacts if a["name"] == "experiment-results"), None)
+        if not target:
+            raise RuntimeError(
+                f"experiment-results artifact 없음 (run_id={run_id}, "
+                f"url={self._run_url(run_id)})"
+            )
 
-        for art in artifacts:
-            if art["name"] not in ("experiment-results", "train-artifacts"):
-                continue
-            dl_url = f"{self._base()}/actions/artifacts/{art['id']}/zip"
-            req = urllib.request.Request(dl_url, headers=self._headers())
-            with urllib.request.urlopen(req) as resp:
-                zdata = resp.read()
+        # zip 다운로드
+        dl_url = f"{self._base()}/actions/artifacts/{target['id']}/zip"
+        req = urllib.request.Request(dl_url, headers=self._headers())
+        with urllib.request.urlopen(req) as resp:
+            zdata = resp.read()
 
-            with zipfile.ZipFile(io.BytesIO(zdata)) as zf:
-                for name in zf.namelist():
-                    data = zf.read(name)
-                    fname = Path(name).name
-                    if fname == "result_summary.json":
-                        result_summary = json.loads(data)
-                        (results_dir / "result_summary.json").write_bytes(data)
-                    elif fname == "runner_metadata.json":
-                        runner_metadata = json.loads(data)
-                        (results_dir / "runner_metadata.json").write_bytes(data)
-                    elif name.startswith("artifacts/"):
-                        target = pkg_dir / name
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(data)
+        final_metrics: dict   = {}
+        runner_metadata: dict = {}
 
-        return result_summary, runner_metadata
+        with zipfile.ZipFile(io.BytesIO(zdata)) as zf:
+            for name in zf.namelist():
+                data  = zf.read(name)
+                fname = Path(name).name
+                if fname == "final_metrics.json":
+                    final_metrics = json.loads(data)
+                    (results_dir / "final_metrics.json").write_bytes(data)
+                elif fname == "runner_metadata.json":
+                    runner_metadata = json.loads(data)
+                    (results_dir / "runner_metadata.json").write_bytes(data)
+
+        # 필수 파일 누락 시 명시적 실패
+        if not final_metrics:
+            raise RuntimeError(
+                f"final_metrics.json artifact에 없음 (run_id={run_id}) — "
+                f"train 단계에서 METRICS 파싱 실패했을 가능성 있음"
+            )
+        if not runner_metadata:
+            raise RuntimeError(
+                f"runner_metadata.json artifact에 없음 (run_id={run_id})"
+            )
+
+        print(f"  [GitHubRunner] artifact 복원 완료 → {results_dir}")
+        return final_metrics, runner_metadata
 
     def _build_result_from_run(
         self,
         run: dict,
-        result_summary: dict,
+        final_metrics: dict,
         runner_metadata: dict,
+        dispatch_id: str = "",
     ) -> dict:
+        """RunResult를 구성한다. canonical result_summary는 research_loop.py가 생성."""
         conclusion = run.get("conclusion", "failure")
-        status = "success" if conclusion == "success" else "failed"
-
-        metrics: dict = {}
-        pm = result_summary.get("primary_metric", {})
-        if pm.get("name"):
-            metrics[pm["name"]] = pm.get("value", 0.0)
-        for sm in result_summary.get("secondary_metrics", []):
-            metrics[sm["name"]] = sm.get("value", 0.0)
+        status     = "success" if conclusion == "success" else "failed"
+        run_id_str = str(run.get("id", ""))
+        run_url    = run.get("html_url", self._run_url(run_id_str))
 
         meta = {
             **self._empty_metadata("github"),
-            "job_id":       str(run.get("id", "")),
-            "duration_s":   runner_metadata.get("duration_s", 0.0),
-            "artifact_uri": run.get("artifacts_url", ""),
-            "job_url":      run.get("html_url", ""),
-            "git_sha":      run.get("head_sha", ""),
-            "git_branch":   self.ref,
+            "job_id":         run_id_str,
+            "pipeline_id":    str(run.get("run_number", "")),
+            "dispatch_id":    dispatch_id or runner_metadata.get("dispatch_id", ""),
+            "duration_s":     runner_metadata.get("duration_s", 0.0),
+            "artifact_uri":   run.get("artifacts_url", f"{self._base()}/actions/runs/{run_id_str}/artifacts"),
+            "job_url":        run_url,
+            "git_sha":        run.get("head_sha", ""),
+            "git_branch":     self.ref,
+            "experiment_pkg": runner_metadata.get("experiment_pkg", ""),
+            "started_at":     runner_metadata.get("started_at", ""),
+            "finished_at":    runner_metadata.get("finished_at", run.get("updated_at", "")),
         }
-        stdout_lines = [f"METRICS:{json.dumps(metrics)}"] if metrics else []
+        # METRICS 계약 유지: stdout_lines에 METRICS 라인 포함 (research_loop._build_result_summary 파싱용)
+        stdout_lines = [f"METRICS:{json.dumps(final_metrics)}"] if final_metrics else []
 
         return self._make_result(
             status=status,
-            metrics=metrics,
+            metrics=final_metrics,
             stdout_lines=stdout_lines,
             stderr_tail=[],
             returncode=0 if conclusion == "success" else 1,
@@ -447,43 +590,89 @@ class GitHubActionsRunner(BaseRunner):
     # ─────────────────────────────────────────────────────
     # 공개 인터페이스
     # ─────────────────────────────────────────────────────
+
     def run_smoke(self, pkg_dir: Path) -> dict:
-        """실험 패키지를 push → smoke-only 워크플로우 트리거 → 결과 반환."""
-        import datetime
+        """push → smoke-only 워크플로우 트리거 → 결과 반환.
+
+        실패 원인 구분:
+          dispatch 실패     : git push 오류 또는 workflow_dispatch 오류
+          run 식별 실패     : 120s 내 미발견 또는 복수 후보
+          poll timeout      : smoke 5분 초과
+          workflow failure  : conclusion != success
+        """
+        import datetime as _dt
+        dispatch_id = f"smoke_{uuid.uuid4().hex[:12]}"
+        print(f"  [GitHubRunner] smoke 시작 dispatch_id={dispatch_id} pkg={pkg_dir}")
+
+        # 1. git push
         try:
-            self._push_pkg(pkg_dir)
-            after_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-            self._dispatch(pkg_dir, "configs/fast.yaml", smoke_only=True)
-            print(f"  [GitHubRunner] smoke workflow 트리거 완료")
-
-            # run 찾기 (최대 60초)
-            run_id = None
-            deadline = time.time() + 60
-            while time.time() < deadline:
-                time.sleep(5)
-                run_id = self._find_run(after_ts)
-                if run_id:
-                    break
-            if not run_id:
-                return self._make_failed_result("github", "smoke run을 찾을 수 없음")
-
-            run = self._poll_run(run_id, timeout=300)  # smoke: 5분
-            conclusion = run.get("conclusion", "failure")
-            status = "success" if conclusion == "success" else "smoke_failed"
-            meta = {
-                "runner":   "github",
-                "job_id":   str(run_id),
-                "job_url":  run.get("html_url", ""),
-                "git_sha":  run.get("head_sha", ""),
-            }
-            return self._make_result(
-                status=status, metrics={},
-                stdout_lines=[], stderr_tail=[],
-                returncode=0 if conclusion == "success" else 1,
-                metadata={**self._empty_metadata("github"), **meta},
-            )
+            sha = self._push_pkg(pkg_dir)
         except Exception as e:
-            return self._make_failed_result("github", str(e))
+            return self._make_failed_result(
+                "github", f"dispatch 실패 - git push 오류: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        after_ts = _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # 2. workflow_dispatch
+        try:
+            self._dispatch(pkg_dir, "configs/fast.yaml", smoke_only=True, dispatch_id=dispatch_id)
+            print(f"  [GitHubRunner] workflow dispatch 완료 (smoke)")
+        except Exception as e:
+            return self._make_failed_result(
+                "github", f"dispatch 실패 - workflow_dispatch 오류: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        # 3. run 식별
+        try:
+            run_id = self._find_run(after_ts, sha, dispatch_id)
+        except RuntimeError as e:
+            return self._make_failed_result(
+                "github", f"run 식별 실패: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        # 4. poll (smoke: 5분)
+        try:
+            run = self._poll_run(run_id, timeout=300)
+        except TimeoutError:
+            return self._make_result(
+                status="timeout", metrics={},
+                stdout_lines=[],
+                stderr_tail=[f"smoke timeout 300s (dispatch_id={dispatch_id} run_id={run_id})"],
+                returncode=-1,
+                metadata={
+                    **self._empty_metadata("github"),
+                    "job_id":      str(run_id),
+                    "dispatch_id": dispatch_id,
+                    "job_url":     self._run_url(run_id),
+                    "experiment_pkg": str(pkg_dir),
+                },
+            )
+
+        conclusion = run.get("conclusion", "failure")
+        status     = "success" if conclusion == "success" else "smoke_failed"
+        run_url    = run.get("html_url", self._run_url(run_id))
+        return self._make_result(
+            status=status, metrics={},
+            stdout_lines=[], stderr_tail=[],
+            returncode=0 if conclusion == "success" else 1,
+            metadata={
+                **self._empty_metadata("github"),
+                "job_id":         str(run_id),
+                "pipeline_id":    str(run.get("run_number", "")),
+                "dispatch_id":    dispatch_id,
+                "job_url":        run_url,
+                "artifact_uri":   run.get("artifacts_url", ""),
+                "git_sha":        run.get("head_sha", sha),
+                "git_branch":     self.ref,
+                "experiment_pkg": str(pkg_dir),
+                "started_at":     run.get("created_at", ""),
+                "finished_at":    run.get("updated_at", ""),
+            },
+        )
 
     def run_train(
         self,
@@ -491,33 +680,109 @@ class GitHubActionsRunner(BaseRunner):
         config_file: str = "configs/default.yaml",
         timeout: int = 7200,
     ) -> dict:
-        """실험 패키지를 push → 전체 학습 워크플로우 트리거 → 결과 수집."""
-        import datetime
+        """push → 전체 학습 워크플로우 트리거 → artifact 수집 → RunResult 반환.
+
+        실패 원인 구분:
+          dispatch 실패          : git push 오류 또는 workflow_dispatch 오류
+          run 식별 실패          : 120s 내 미발견 또는 복수 후보
+          poll timeout           : train timeout 초과
+          workflow failure       : conclusion != success
+          artifact 다운로드 실패 : experiment-results artifact 없음
+          metrics parse 실패     : final_metrics.json 없음
+        """
+        import datetime as _dt
+        dispatch_id = f"train_{uuid.uuid4().hex[:12]}"
+        print(f"  [GitHubRunner] train 시작 dispatch_id={dispatch_id} pkg={pkg_dir}")
+
+        # 1. git push
         try:
-            self._push_pkg(pkg_dir)
-            after_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-            self._dispatch(pkg_dir, config_file, smoke_only=False)
-            print(f"  [GitHubRunner] train workflow 트리거 완료")
-
-            run_id = None
-            deadline = time.time() + 90
-            while time.time() < deadline:
-                time.sleep(10)
-                run_id = self._find_run(after_ts)
-                if run_id:
-                    break
-            if not run_id:
-                return self._make_failed_result("github", "train run을 찾을 수 없음")
-
-            print(f"  [GitHubRunner] run_id={run_id} 폴링 중 (timeout={timeout}s)...")
-            run = self._poll_run(run_id, timeout=timeout)
-            result_summary, runner_metadata = self._download_artifacts(run_id, pkg_dir)
-            return self._build_result_from_run(run, result_summary, runner_metadata)
-
-        except TimeoutError:
-            return self._make_failed_result("github", "timeout")
+            sha = self._push_pkg(pkg_dir)
         except Exception as e:
-            return self._make_failed_result("github", str(e))
+            return self._make_failed_result(
+                "github", f"dispatch 실패 - git push 오류: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        after_ts = _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # 2. workflow_dispatch
+        try:
+            self._dispatch(pkg_dir, config_file, smoke_only=False, dispatch_id=dispatch_id)
+            print(f"  [GitHubRunner] workflow dispatch 완료 (train)")
+        except Exception as e:
+            return self._make_failed_result(
+                "github", f"dispatch 실패 - workflow_dispatch 오류: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        # 3. run 식별
+        try:
+            run_id = self._find_run(after_ts, sha, dispatch_id)
+        except RuntimeError as e:
+            return self._make_failed_result(
+                "github", f"run 식별 실패: {e}",
+                {"dispatch_id": dispatch_id, "experiment_pkg": str(pkg_dir)},
+            )
+
+        print(f"  [GitHubRunner] run_id={run_id} 폴링 중 (timeout={timeout}s) dispatch_id={dispatch_id}")
+
+        # 4. poll
+        try:
+            run = self._poll_run(run_id, timeout=timeout)
+        except TimeoutError:
+            return self._make_result(
+                status="timeout", metrics={},
+                stdout_lines=[],
+                stderr_tail=[f"train timeout {timeout}s (dispatch_id={dispatch_id} run_id={run_id} url={self._run_url(run_id)})"],
+                returncode=-1,
+                metadata={
+                    **self._empty_metadata("github"),
+                    "job_id":      str(run_id),
+                    "dispatch_id": dispatch_id,
+                    "job_url":     self._run_url(run_id),
+                    "experiment_pkg": str(pkg_dir),
+                },
+            )
+
+        # 5. workflow 실패 처리
+        if run.get("conclusion") != "success":
+            run_url = run.get("html_url", self._run_url(run_id))
+            return self._make_result(
+                status="failed", metrics={},
+                stdout_lines=[],
+                stderr_tail=[
+                    f"workflow 실패: conclusion={run.get('conclusion')} "
+                    f"dispatch_id={dispatch_id} url={run_url}"
+                ],
+                returncode=1,
+                metadata={
+                    **self._empty_metadata("github"),
+                    "job_id":      str(run_id),
+                    "dispatch_id": dispatch_id,
+                    "job_url":     run_url,
+                    "git_sha":     run.get("head_sha", sha),
+                    "experiment_pkg": str(pkg_dir),
+                },
+            )
+
+        # 6. artifact 다운로드
+        try:
+            final_metrics, runner_metadata = self._download_artifacts(run_id, pkg_dir)
+        except RuntimeError as e:
+            return self._make_failed_result(
+                "github", f"artifact 다운로드 실패: {e}",
+                {"dispatch_id": dispatch_id, "job_id": str(run_id),
+                 "job_url": run.get("html_url", self._run_url(run_id)),
+                 "experiment_pkg": str(pkg_dir)},
+            )
+        except Exception as e:
+            return self._make_failed_result(
+                "github", f"artifact 처리 중 예외: {e}",
+                {"dispatch_id": dispatch_id, "job_id": str(run_id),
+                 "experiment_pkg": str(pkg_dir)},
+            )
+
+        return self._build_result_from_run(run, final_metrics, runner_metadata, dispatch_id)
 
     @classmethod
     def from_config(cls, cfg: dict) -> "GitHubActionsRunner":
@@ -542,7 +807,13 @@ def create_runner(runner_type: str = "local", runner_config: dict | None = None)
     Args:
         runner_type:   "local" | "github"
         runner_config: GitHubActionsRunner에 필요한 설정 dict
-                       {"github_token": ..., "github_owner": ..., "github_repo": ...}
+                       {
+                         "github_token":    str,  # 또는 GITHUB_TOKEN env
+                         "github_owner":    str,  # 또는 GITHUB_OWNER env
+                         "github_repo":     str,  # 또는 GITHUB_REPO env
+                         "github_ref":      str,  # 기본값: "main"
+                         "github_workflow": str,  # 기본값: "experiment.yml"
+                       }
     """
     runner_config = runner_config or {}
     if runner_type == "local":
