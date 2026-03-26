@@ -45,12 +45,17 @@ on:
         description: "runner가 이 run을 식별하기 위한 고유 ID (GitHubActionsRunner가 자동 생성)"
         required: true
         type: string
+      project_dir:
+        description: "컨테이너 내부 프로젝트 경로 (바인드 마운트된 실제 경로)"
+        required: true
+        type: string
 
 env:
   EXPERIMENT_PKG:  ${{ inputs.experiment_pkg }}
   CONFIG_FILE:     ${{ inputs.config_file }}
   CONTAINER_NAME:  nextmi-dev-loki
   CONDA_ENV_NAME:  yhn
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ──────────────────────────────────────────────────────────
 # 1. SETUP — 환경 구성 및 패키지 구조 검증
@@ -85,6 +90,13 @@ jobs:
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
           echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
+      - name: Sync checkout to container-accessible path
+        run: |
+          echo "=== Syncing ${{ github.workspace }} → ${{ inputs.project_dir }} ==="
+          rsync -a --delete \
+            --exclude '.git' \
+            "${{ github.workspace }}/" "${{ inputs.project_dir }}/"
+
       # ── 작업 3: 컨테이너/conda 환경 검증 ──
       - name: Verify container and conda env
         run: |
@@ -100,7 +112,7 @@ jobs:
       # ── 작업 4: 공유 경로 확인 ──
       - name: Verify shared repo path in container
         run: |
-          PKG_PATH="${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+          PKG_PATH="${{ inputs.project_dir }}/${{ env.EXPERIMENT_PKG }}"
           docker exec ${{ env.CONTAINER_NAME }} bash -lc "
             test -d '$PKG_PATH' \
               || (echo 'ERROR: $PKG_PATH not found inside container' && exit 1)
@@ -192,7 +204,7 @@ jobs:
       - name: Run smoke test
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            cd "${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+            cd "${{ inputs.project_dir }}/${{ env.EXPERIMENT_PKG }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             conda run -n ${{ env.CONDA_ENV_NAME }} \
               python scripts/smoke_test.py --config configs/fast.yaml
@@ -255,7 +267,7 @@ jobs:
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
             set -o pipefail
-            cd "${{ github.workspace }}/${{ env.EXPERIMENT_PKG }}"
+            cd "${{ inputs.project_dir }}/${{ env.EXPERIMENT_PKG }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             mkdir -p artifacts/logs
             conda run -n ${{ env.CONDA_ENV_NAME }} \

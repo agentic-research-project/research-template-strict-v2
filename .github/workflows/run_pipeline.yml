@@ -23,10 +23,15 @@ on:
         required: false
         default: "local"
         type: string
+      project_dir:
+        description: "컨테이너 내부 프로젝트 경로 (바인드 마운트된 실제 경로)"
+        required: true
+        type: string
 
 env:
   CONTAINER_NAME: nextmi-dev-loki
   CONDA_ENV_NAME: yhn
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   pipeline:
@@ -56,6 +61,13 @@ jobs:
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
           echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
+      - name: Sync checkout to container-accessible path
+        run: |
+          echo "=== Syncing ${{ github.workspace }} → ${{ inputs.project_dir }} ==="
+          rsync -a --delete \
+            --exclude '.git' \
+            "${{ github.workspace }}/" "${{ inputs.project_dir }}/"
+
       - name: Verify container and conda env
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
@@ -69,13 +81,12 @@ jobs:
 
       - name: Verify shared repo path
         run: |
-          PKG_PATH="${{ github.workspace }}"
           docker exec ${{ env.CONTAINER_NAME }} bash -lc "
-            test -f '$PKG_PATH/main.py' \
-              || (echo 'ERROR: main.py not found at $PKG_PATH' && exit 1)
-            test -f '$PKG_PATH/${{ inputs.todo_file }}' \
+            test -f '${{ inputs.project_dir }}/main.py' \
+              || (echo 'ERROR: main.py not found at ${{ inputs.project_dir }}' && exit 1)
+            test -f '${{ inputs.project_dir }}/${{ inputs.todo_file }}' \
               || (echo 'ERROR: ${{ inputs.todo_file }} not found' && exit 1)
-            echo '=== Repo path OK: $PKG_PATH ==='
+            echo '=== Repo path OK: ${{ inputs.project_dir }} ==='
           "
 
       - name: Verify Claude Code CLI
@@ -88,7 +99,7 @@ jobs:
       - name: Run research pipeline
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            cd "${{ github.workspace }}"
+            cd "${{ inputs.project_dir }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             conda run -n ${{ env.CONDA_ENV_NAME }} \
               python main.py --todo "${{ inputs.todo_file }}" --auto-approve
@@ -101,5 +112,5 @@ jobs:
           name: pipeline-results
           retention-days: 90
           path: |
-            ${{ github.workspace }}/experiments/*/results/
-            ${{ github.workspace }}/experiments/*/reports/
+            ${{ inputs.project_dir }}/experiments/*/results/
+            ${{ inputs.project_dir }}/experiments/*/reports/

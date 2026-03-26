@@ -319,6 +319,7 @@ class GitHubActionsRunner(BaseRunner):
         workflow: str = "experiment.yml",
         poll_interval: int = 30,
         max_poll_secs: int = 10800,
+        project_dir: str = "",
     ):
         self.token         = token
         self.owner         = owner
@@ -327,6 +328,7 @@ class GitHubActionsRunner(BaseRunner):
         self.workflow      = workflow
         self.poll_interval = poll_interval
         self.max_poll_secs = max_poll_secs
+        self.project_dir   = project_dir or str(Path(__file__).resolve().parent.parent)
 
     # ─────────────────────────────────────────────────────
     # is_ready
@@ -412,6 +414,7 @@ class GitHubActionsRunner(BaseRunner):
                 "config_file":    config_file,
                 "smoke_only":     "true" if smoke_only else "false",
                 "dispatch_id":    dispatch_id,
+                "project_dir":    self.project_dir,
             },
         }).encode()
         req = urllib.request.Request(
@@ -870,6 +873,7 @@ class GitHubActionsRunner(BaseRunner):
             workflow      = cfg.get("github_workflow", "experiment.yml"),
             poll_interval = cfg.get("github_poll_interval", 30),
             max_poll_secs = cfg.get("github_max_poll_secs", 10800),
+            project_dir   = cfg.get("project_dir", ""),
         )
 
 

@@ -147,6 +147,7 @@ inputs:
   config_file:    "configs/default.yaml"
   smoke_only:     "false"       # "true"이면 smoke test만 실행
   dispatch_id:    "<UUID — runners.py가 생성>"
+  project_dir:    "<컨테이너 바인드 마운트 경로 — runners.py가 자동 감지>"
 ```
 
 **artifact 계약 (experiment-results)**
