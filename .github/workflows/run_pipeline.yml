@@ -25,7 +25,8 @@ on:
         type: string
       project_dir:
         description: "컨테이너 내부 프로젝트 경로 (바인드 마운트된 실제 경로)"
-        required: true
+        required: false
+        default: "/data/2_workspace/2_darkstar0983/claude"
         type: string
 
 env:
