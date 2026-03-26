@@ -471,8 +471,9 @@ if __name__ == "__main__":
     )
     print_analysis(result)
 
-    topic_slug = re.sub(r"\W+", "_", args.topic.lower())[:30]
-    out = Path("reports") / topic_slug / "topic_analysis.json"
+    from lab.config import reports_dir, topic_slug as make_slug
+    slug = make_slug(args.topic)
+    out = reports_dir(slug) / "topic_analysis.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  저장: {out}")

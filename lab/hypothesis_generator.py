@@ -654,7 +654,7 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
             "generation_mode": "collaborative",
             "debate_log":      debate_log,
         }
-        output_path = Path("reports") / topic_slug / "hypothesis.json"
+        from lab.config import reports_dir as _rdir; output_path = _rdir(topic_slug) / "hypothesis.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         return result
@@ -711,7 +711,7 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
             "pairwise_ranking":         pairwise,
             "debate_log":               debate_log,
         }
-        output_path = Path("reports") / topic_slug / "hypothesis.json"
+        from lab.config import reports_dir as _rdir; output_path = _rdir(topic_slug) / "hypothesis.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         return result
@@ -763,7 +763,7 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
         },
     }
 
-    output_path = Path("reports") / topic_slug / "hypothesis.json"
+    from lab.config import reports_dir as _rdir; output_path = _rdir(topic_slug) / "hypothesis.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  협업 가설 저장: {output_path}")
@@ -804,7 +804,7 @@ def generate_hypothesis(topic_file: str, papers_file: str) -> dict:
                    "topic": topic_name, "papers_analyzed": len(papers),
                    "generation_mode": "single"})
 
-    output_path = Path("reports") / topic_slug / "hypothesis.json"
+    from lab.config import reports_dir as _rdir; output_path = _rdir(topic_slug) / "hypothesis.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"  가설 저장: {output_path}")

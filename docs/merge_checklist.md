@@ -69,7 +69,7 @@ Gemini는 **두 가지 역할**로 분리된다.
 
 - [ ] metric 키 이름이 변경됐는가? → ❌ 불허 (§8 §9 고정 규칙)
 - [ ] 새 버전의 `configs/default.yaml`이 이전 버전의 필수 키를 모두 포함하는가?
-- [ ] ablation run이 같은 `_v{N}` 패키지 내에서 실행되는가?
+- [ ] ablation run이 같은 `runs/v{N}` 패키지 내에서 실행되는가?
 - [ ] `deltas_vs_baseline`의 `baseline_run_id`가 이전 run을 올바르게 가리키는가?
 
 ---
@@ -105,5 +105,5 @@ Gemini는 **두 가지 역할**로 분리된다.
 병합 후 아래를 수행한다:
 1. `proposals/` 내 처리된 파일에 `_accepted` 또는 `_rejected` suffix 추가
 2. `revision_request.json` 저장 (Path A/B/C 해당 시)
-3. `experiments/{slug}_v{N}/claude.md` 이 파일의 현재 버전으로 업데이트
+3. `experiments/{slug}/runs/v{N}/claude.md` 이 파일의 현재 버전으로 업데이트
 4. `previous_results.jsonl` 에 run 결과 append 확인

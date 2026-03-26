@@ -2,7 +2,7 @@
 scripts/smoke_test.py — forward pass + 2 step 검증
 
 성공 시 exit 0, 실패 시 exit 1
-GitLab CI smoke stage에서 실행된다.
+GitHub Actions smoke stage에서 실행된다.
 """
 import argparse
 import sys

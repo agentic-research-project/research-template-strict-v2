@@ -31,7 +31,7 @@ experiments/CLAUDE.md    ← 현재 파일 (코딩 규칙)
 ## §2 FILE LAYOUT RULES
 
 ```
-experiments/{topic_slug}_v{N}/
+experiments/{topic_slug}/runs/v{N}/
 ├── train.py           # Claude 소유 — GPT/Gemini 직접 수정 불가
 ├── module.py          # Claude 소유 — GPT/Gemini 직접 수정 불가
 ├── model.py           # Claude 소유, GPT patch 허용 (proposals/ 경유)
@@ -243,7 +243,7 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 병합 전 반드시 `docs/merge_checklist.md`의 항목을 모두 확인한다.
 
 ### 버전 업 조건
-새 `_v{N}` 패키지를 생성하는 경우:
+새 `runs/v{N}/` 패키지를 생성하는 경우:
 - Path A: config 또는 코드 변경이 실질적일 때 (minor tweak은 동일 버전 허용)
 - Path B/C: 항상 새 버전 생성
 
@@ -291,7 +291,7 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 
 새 패키지 생성 시 `experiments/template/` 을 복사하여 시작한다:
 ```bash
-cp -r experiments/template experiments/{topic_slug}_v{N}
+cp -r experiments/template experiments/{topic_slug}/runs/v{N}
 ```
 템플릿 구조는 `experiments/template/` 참조.
 생성 후 §11 Validation Gate 통과 필수.

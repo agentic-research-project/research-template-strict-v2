@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 import anyio
 import json
 import os
+import re
+from pathlib import Path
 from claude_agent_sdk import query as _sdk_query, ClaudeAgentOptions, AssistantMessage
 
 load_dotenv()
@@ -19,6 +21,35 @@ S2_API_KEY     = os.getenv("S2_API_KEY", "")
 # 검증 통과 기준 (validator + PDF 공용)
 SCORE_THRESHOLD = 8.5
 
+
+
+# ──────────────────────────────────────────────────────────
+# Topic workspace 경로 헬퍼
+# ──────────────────────────────────────────────────────────
+
+def topic_slug(topic: str) -> str:
+    """연구 주제 문자열 → 파일 경로에 사용 가능한 slug."""
+    return re.sub(r"\W+", "_", topic.lower())[:30]
+
+def workspace(slug: str) -> Path:
+    """experiments/{slug}/"""
+    return Path("experiments") / slug
+
+def reports_dir(slug: str) -> Path:
+    """experiments/{slug}/reports/"""
+    return workspace(slug) / "reports"
+
+def results_dir(slug: str) -> Path:
+    """experiments/{slug}/results/"""
+    return workspace(slug) / "results"
+
+def run_dir(slug: str, version: int) -> Path:
+    """experiments/{slug}/runs/v{N}/"""
+    return workspace(slug) / "runs" / f"v{version}"
+
+def result_version_dir(slug: str, version: int) -> Path:
+    """experiments/{slug}/results/v{N}/"""
+    return results_dir(slug) / f"v{version}"
 
 
 def get_openai_client():

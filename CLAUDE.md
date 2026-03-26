@@ -18,7 +18,7 @@ flowchart TD
         E{5. user_approval\nPDF 보고서} -->|승인| F
         E -->|거절/수정| C
         F[6. code_analyzer\nGitHub API] -->|code_analysis.json| G
-        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] -->|experiments/{slug}_vN/| H
+        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] -->|experiments/{slug}/runs/vN/| H
         H[8. research_loop\nRunner + Multi-model 분석\nGPT→Gemini→합의→Claude→postcheck] -->|result_summary.json\nprevious_results.jsonl| I{목표 달성?}
         I -->|Path A| G
         I -->|Path B/C| Rev([revision_request.json])
@@ -47,9 +47,7 @@ project/
 ├── lab/                         # 각 단계 모듈 → lab/CLAUDE.md 참조
 │   ├── runners.py               # Runner 추상화 (local / GitHub Actions)
 │   └── ...
-├── experiments/                 # 생성된 실험 패키지 ({slug}_vN/) + template
-├── results/                     # 실험 결과 JSON + previous_results.jsonl
-├── reports/                     # 각 단계 보고서 + proposals/
+├── experiments/                 # 주제별 workspace ({slug}/reports|runs|results/) + template
 ├── schemas/                     # JSON 스키마 (experiment_spec, result_summary, revision_request)
 ├── docs/                        # 시스템 설계 문서, merge checklist
 └── tools/                       # tool registry

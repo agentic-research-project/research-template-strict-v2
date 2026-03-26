@@ -1,7 +1,7 @@
 """
 Stage 8: Research Loop — 실험 실행 + Path A/B/C revision 루프
 
-experiments/{slug}_v{N}/ 패키지를 실행하고 결과를 분석한다.
+experiments/{slug}/runs/v{N}/ 패키지를 실행하고 결과를 분석한다.
 목표 미달이면 Path A (코드 수정) 로 최대 max_rounds회 재시도한다.
 Path B/C가 필요하면 revision_request.json을 생성하고 루프를 종료한다.
 
@@ -18,10 +18,10 @@ Runner 추상화:
 
 사용법:
   python -m lab.research_loop \\
-    --pkg-dir       experiments/{slug}_v1 \\
-    --topic-file    reports/{slug}/topic_analysis.json \\
-    --hypothesis-file reports/{slug}/hypothesis.json \\
-    --code-file     reports/{slug}/code_analysis.json \\
+    --pkg-dir         experiments/{slug}/runs/v1 \\
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \\
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \\
+    --code-file       experiments/{slug}/reports/code_analysis.json \\
     [--max-rounds 3] [--runner-type local]
 """
 
@@ -170,8 +170,16 @@ def _build_result_summary(
         "created_at": datetime.now().isoformat(),
     }
 
-    summary_path = pkg_dir / "result_summary.json"
+    # experiments/{slug}/results/vN/result_summary.json
+    ver_results_dir = pkg_dir.parent.parent / "results" / pkg_dir.name
+    ver_results_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = ver_results_dir / "result_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    # runner_metadata.json 별도 저장
+    (ver_results_dir / "runner_metadata.json").write_text(
+        json.dumps(summary.get("runner_metadata", {}), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     print(f"    [저장] {summary_path}")
     return summary
 
@@ -895,9 +903,10 @@ def _write_revision_request(
 # previous_results.jsonl append
 # ──────────────────────────────────────────────────────────
 
-def _append_results_log(summary: dict) -> None:
-    log_path = Path("results/previous_results.jsonl")
-    log_path.parent.mkdir(exist_ok=True)
+def _append_results_log(summary: dict, pkg_dir: Path) -> None:
+    # experiments/{slug}/results/previous_results.jsonl
+    log_path = pkg_dir.parent.parent / "results" / "previous_results.jsonl"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(summary, ensure_ascii=False) + "\n")
     print(f"    [append] {log_path}")
@@ -923,8 +932,10 @@ def run_research_loop(
     reports_dir = Path(topic_file).parent
 
     pkg     = Path(pkg_dir)
-    m       = re.search(r"_v(\d+)$", pkg.name)
-    version = int(m.group(1)) if m else 1
+    # pkg.name = "v1", "v2", ... (new structure) or legacy "_vN" suffix
+    m_new = re.match(r"^v(\d+)$", pkg.name)
+    m_old = re.search(r"_v(\d+)$", pkg.name)
+    version = int(m_new.group(1)) if m_new else (int(m_old.group(1)) if m_old else 1)
 
     # runner 초기화 + 준비 상태 확인 (미구현이면 즉시 종료)
     runner: BaseRunner = create_runner(runner_type, runner_config)
@@ -969,19 +980,22 @@ def run_research_loop(
         else:
             inp  = topic.get("input", {})
             slug = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
+            # target_metric → 첫 번째 지표를 primary로 사용 (없으면 빈 문자열)
+            raw_metric = inp.get("target_metric", "")
+            primary_metric = re.split(r"[,\s]+", raw_metric.strip())[0].lower() if raw_metric else ""
             spec = {
                 "schema_version": "1.0", "spec_id": f"{slug}_v{version}",
                 "hypothesis_id": str(uuid.uuid4())[:8],
                 "experiment_version": version, "topic_slug": slug,
                 "evaluation_config": {
-                    "primary_metric": "psnr", "target_value": 30.0,
+                    "primary_metric": primary_metric, "target_value": 0.0,
                     "secondary_metrics": [], "test_set": "val_split",
                 },
             }
 
         # result_summary 생성 + 기록
         summary = _build_result_summary(pkg, run_result, spec, prev_run_id, prev_metrics)
-        _append_results_log(summary)
+        _append_results_log(summary, pkg)
         final_summary = summary
 
         primary = summary["primary_metric"]
@@ -1140,7 +1154,7 @@ def run_research_loop(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Research Loop — 실험 실행 + revision")
     parser.add_argument("--pkg-dir",         required=True,
-                        help="experiments/{slug}_v{N} 패키지 디렉토리")
+                        help="experiments/{slug}/runs/v{N} 패키지 디렉토리")
     parser.add_argument("--topic-file",      required=True)
     parser.add_argument("--hypothesis-file", required=True)
     parser.add_argument("--code-file",       required=True)

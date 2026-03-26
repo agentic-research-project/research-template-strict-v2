@@ -13,7 +13,7 @@ Path A revision 모드 (revised_from + revision_path="A"):
   - 전체 재생성 대신 변경이 필요한 파일만 수정
 
 구조:
-  experiments/{slug}_v{N}/
+  experiments/{slug}/runs/v{N}/
   ├── train.py            (template 복사 — 수정 금지)
   ├── model.py            (Claude 생성 + merge)
   ├── module.py           (Claude 생성 + merge)
@@ -27,10 +27,10 @@ Path A revision 모드 (revised_from + revision_path="A"):
 
 사용법:
   python -m lab.model_generator \\
-    --topic-file      reports/{slug}/topic_analysis.json \\
-    --hypothesis-file reports/{slug}/hypothesis.json \\
-    --code-file       reports/{slug}/code_analysis.json \\
-    [--version 1] [--revised-from experiments/{slug}_v1]
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \\
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \\
+    --code-file       experiments/{slug}/reports/code_analysis.json \\
+    [--version 1] [--revised-from experiments/{slug}/runs/v1]
     [--revision-path A] [--improvement-hints "..."]
 """
 
@@ -1164,10 +1164,10 @@ def generate_experiment_package(
     hypothesis    = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
     code_analysis = json.loads(Path(code_analysis_file).read_text(encoding="utf-8"))
 
-    inp      = topic.get("input", {})
-    slug     = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
-    pkg_name = f"{slug}_v{version}"
-    pkg_dir  = Path("experiments") / pkg_name
+    from lab.config import topic_slug as make_slug, run_dir
+    inp     = topic.get("input", {})
+    slug    = make_slug(inp.get("topic", "research"))
+    pkg_dir = run_dir(slug, version)
 
     is_path_a_revision = bool(revised_from and revision_path == "A")
 

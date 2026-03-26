@@ -13,13 +13,18 @@ on:
   workflow_dispatch:
     inputs:
       experiment_pkg:
-        description: "실험 패키지 경로 (예: experiments/topic_slug_v1)"
+        description: "실험 패키지 경로 (예: experiments/{slug}/runs/v1)"
         required: true
         type: string
       config_file:
         description: "학습 config 파일 (패키지 내 상대 경로)"
         required: false
         default: "configs/default.yaml"
+        type: string
+      smoke_only:
+        description: "smoke test만 실행하고 종료 (true/false)"
+        required: false
+        default: "false"
         type: string
 
 env:
@@ -136,6 +141,7 @@ jobs:
 # ──────────────────────────────────────────────────────────
   train:
     needs: smoke
+    if: inputs.smoke_only != 'true'
     runs-on: [self-hosted, gpu]
     timeout-minutes: 360
     steps:
@@ -209,6 +215,7 @@ jobs:
 # ──────────────────────────────────────────────────────────
   package:
     needs: train
+    if: inputs.smoke_only != 'true'
     runs-on: [self-hosted, gpu]
     timeout-minutes: 10
     steps:
@@ -287,19 +294,29 @@ jobs:
               'runner_metadata': meta,
               'created_at':      datetime.datetime.utcnow().isoformat()
           }
-          open('result_summary.json','w').write(json.dumps(summary, indent=2))
-          print('result_summary.json saved.')
+          # experiments/{slug}/results/vN/
+          import pathlib
+          pkg     = pathlib.Path(os.environ['EXPERIMENT_PKG'])
+          ver_dir = pkg.parent.parent / 'results' / pkg.name
+          ver_dir.mkdir(parents=True, exist_ok=True)
+          (ver_dir / 'result_summary.json').write_text(json.dumps(summary, indent=2))
+          (ver_dir / 'runner_metadata.json').write_text(json.dumps(meta, indent=2))
+          print(f'result_summary saved to {ver_dir}')
           print(f'Primary metric: {primary_name} = {primary_value}')
           "
 
       - name: Append to previous_results.jsonl
         run: |
           python -c "
-          import json
-          summary = json.load(open('${{ env.EXPERIMENT_PKG }}/result_summary.json'))
-          with open('results/previous_results.jsonl','a') as f:
+          import json, pathlib
+          pkg     = pathlib.Path('${{ env.EXPERIMENT_PKG }}')
+          ver_dir = pkg.parent.parent / 'results' / pkg.name
+          log     = pkg.parent.parent / 'results' / 'previous_results.jsonl'
+          log.parent.mkdir(parents=True, exist_ok=True)
+          summary = json.load(open(ver_dir / 'result_summary.json'))
+          with open(log, 'a') as f:
               f.write(json.dumps(summary) + '\n')
-          print('Appended to previous_results.jsonl')
+          print(f'Appended to {log}')
           "
 
       - name: Upload final artifacts

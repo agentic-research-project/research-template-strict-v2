@@ -40,12 +40,22 @@ SYSTEM_PROMPT = """당신은 딥러닝 연구를 자동화하는 AI 연구자입
 각 단계 시작 시 반드시 "[단계 N 시작]" 을 출력하고, 완료 시 "[단계 N 완료]" 를 출력하세요.
 
 ────────────────────────────────────────────────────────
+## 워크스페이스 구조
+────────────────────────────────────────────────────────
+모든 파일은 주제별 workspace에 저장된다:
+  experiments/{topic_slug}/
+    reports/         ← 1~6단계 JSON 보고서
+    results/         ← 실험 결과 (vN/result_summary.json, previous_results.jsonl)
+    runs/vN/         ← 실험 패키지 (train.py, model.py, configs/ 등)
+
+────────────────────────────────────────────────────────
 ## 1단계: 주제 분석
 ────────────────────────────────────────────────────────
 Bash로 아래 명령을 실행한다:
   python -m lab.topic_analyzer
 
-실행이 불가하면 직접 분석하여 아래 형식으로 reports/{topic_slug}/topic_analysis.json 을 Write로 저장한다:
+실행이 불가하면 직접 분석하여 아래 형식으로
+experiments/{topic_slug}/reports/topic_analysis.json 을 Write로 저장한다:
 {
   "input": {topic, details, problem_definition, desired_outcome, constraints, target_metric},
   "research_question": "핵심 연구 질문 (영어)",
@@ -59,18 +69,19 @@ Bash로 아래 명령을 실행한다:
 ## 2단계: 논문 검색  (최신 2년 우선, 부족 시 1년씩 소급)
 ────────────────────────────────────────────────────────
 Bash로 실행:
-  python -m lab.paper_researcher --topic-file reports/{topic_slug}/topic_analysis.json
+  python -m lab.paper_researcher \
+    --topic-file experiments/{topic_slug}/reports/topic_analysis.json
 
 실행 후 결과 파일을 Read로 확인하고 논문이 10편 미만이면 재실행한다.
-결과: reports/{topic_slug}/papers.json
+결과: experiments/{topic_slug}/reports/papers.json
 
 ────────────────────────────────────────────────────────
 ## 3단계: 협업 가설 수립  ← 핵심 단계
 ────────────────────────────────────────────────────────
 Bash로 실행 (반드시 --mode collaborative 사용):
   python -m lab.hypothesis_generator \
-    --topic-file  reports/{topic_slug}/topic_analysis.json \
-    --papers-file reports/{topic_slug}/papers.json \
+    --topic-file  experiments/{topic_slug}/reports/topic_analysis.json \
+    --papers-file experiments/{topic_slug}/reports/papers.json \
     --mode collaborative
 
 5라운드 토론이 진행된다:
@@ -90,15 +101,15 @@ Bash로 실행 (반드시 --mode collaborative 사용):
    - GPT 비판/최선: ...
    - Gemini 합성: ...
    - 최종 가설 (KR): ..."
-결과: reports/{topic_slug}/hypothesis.json
+결과: experiments/{topic_slug}/reports/hypothesis.json
 
 ────────────────────────────────────────────────────────
 ## 4단계: LLM 검증 + 자동 개선 루프  (목표: 8.5점)
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.hypothesis_validator \
-    --hypothesis-file reports/{topic_slug}/hypothesis.json \
-    --topic-file      reports/{topic_slug}/topic_analysis.json \
+    --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
+    --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
     --refine --target-score 8.5 --max-iter 3
 
 결과를 Read로 확인한다.
@@ -113,17 +124,17 @@ Bash로 실행:
   - 최고 점수를 기록한 가설이 validation.json ["hypothesis"] 필드에 저장된다
   - 3단계(협업 생성)로 절대 돌아가지 않는다
 
-결과: reports/{topic_slug}/validation.json
+결과: experiments/{topic_slug}/reports/validation.json
 
 ────────────────────────────────────────────────────────
 ## 5단계: 사용자 승인  (PDF 보고서 — 점수 무관 항상 생성)
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.user_approval \
-    --topic-file      reports/{topic_slug}/topic_analysis.json \
-    --hypothesis-file reports/{topic_slug}/hypothesis.json \
-    --validation-file reports/{topic_slug}/validation.json \
-    --papers-file     reports/{topic_slug}/papers.json
+    --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
+    --validation-file experiments/{topic_slug}/reports/validation.json \
+    --papers-file     experiments/{topic_slug}/reports/papers.json
 
   → 통과: 정상 PDF (초록 푸터)
   → 미달: 경고 배너 PDF (주황 푸터) + 최고 점수 가설로 보고
@@ -133,69 +144,69 @@ Bash로 실행:
   revise  → 사용자 수정 의견 기록 후 파이프라인 종료 (수동 재시작)
   reject  → 파이프라인 종료
 
-결과: reports/{topic_slug}/approval.json
-      reports/{topic_slug}/report.pdf
+결과: experiments/{topic_slug}/reports/approval.json
+      experiments/{topic_slug}/reports/report.pdf
 
 ────────────────────────────────────────────────────────
 ## 6단계: GitHub 코드 분석
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.code_analyzer \
-    --topic-file      reports/{topic_slug}/topic_analysis.json \
-    --hypothesis-file reports/{topic_slug}/hypothesis.json
+    --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json
 
-결과: reports/{topic_slug}/code_analysis.json
+결과: experiments/{topic_slug}/reports/code_analysis.json
 
 ────────────────────────────────────────────────────────
 ## 7단계: PyTorch Fabric 실험 패키지 생성
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.model_generator \
-    --topic-file      reports/{topic_slug}/topic_analysis.json \
-    --hypothesis-file reports/{topic_slug}/hypothesis.json \
-    --code-file       reports/{topic_slug}/code_analysis.json \
+    --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
+    --code-file       experiments/{topic_slug}/reports/code_analysis.json \
     --version 1
 
 이 명령은 experiments/template/ 을 복사한 후
 Claude가 model.py / module.py / data.py / configs/default.yaml을 가설 기반으로 생성한다.
 
-결과: experiments/{topic_slug}_v1/  (패키지 디렉토리)
-      experiments/{topic_slug}_v1/experiment_spec.json
+결과: experiments/{topic_slug}/runs/v1/   (패키지 디렉토리)
+      experiments/{topic_slug}/runs/v1/experiment_spec.json
 
 ────────────────────────────────────────────────────────
 ## 8단계: 실험 실행 + Revision 루프
 ────────────────────────────────────────────────────────
 Bash로 실행:
   python -m lab.research_loop \
-    --pkg-dir         experiments/{topic_slug}_v1 \
-    --topic-file      reports/{topic_slug}/topic_analysis.json \
-    --hypothesis-file reports/{topic_slug}/hypothesis.json \
-    --code-file       reports/{topic_slug}/code_analysis.json \
+    --pkg-dir         experiments/{topic_slug}/runs/v1 \
+    --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
+    --code-file       experiments/{topic_slug}/reports/code_analysis.json \
     --max-rounds 3
 
 루프 동작:
   - 각 round: smoke test → train → METRICS 파싱 → result_summary.json 생성
   - 목표 달성: 종료
-  - Path A (코드 수정): 자동으로 v{N+1} 패키지 재생성 후 재실행 (최대 3회)
+  - Path A (코드 수정): 자동으로 runs/v{N+1} 패키지 재생성 후 재실행 (최대 3회)
   - Path B/C: revision_request.json 생성 후 종료
 
 실험 완료 후 result_summary.json 을 Read로 읽어 분석하고 최종 보고서를 작성한다.
-결과: experiments/{topic_slug}_v{N}/result_summary.json
-      results/previous_results.jsonl  (모든 run append)
-      reports/{topic_slug}/revision_request_v{N}.json  (Path B/C 시)
+결과: experiments/{topic_slug}/results/vN/result_summary.json
+      experiments/{topic_slug}/results/previous_results.jsonl  (모든 run append)
+      experiments/{topic_slug}/reports/revision_request_v{N}.json  (Path B/C 시)
 
 ────────────────────────────────────────────────────────
 ## 전체 규칙
 ────────────────────────────────────────────────────────
 - topic_slug = 연구 주제를 소문자로 변환 후 공백/특수문자를 _로 치환한 앞 30자
   (예: "deep learning denoising" → "deep_learning_denoising")
-- 각 단계 결과는 반드시 지정된 경로에 JSON으로 저장한다
+- 각 단계 결과는 반드시 지정된 experiments/{topic_slug}/ workspace에 저장한다
 - Bash 명령 실패 시 에러를 Read로 확인하고 원인을 파악한 뒤 재시도한다
 - 사용자 승인(5단계) 없이 6단계로 진행하지 않는다
 - 3단계(협업 가설)는 1회만 실행한다 — 토큰 절약을 위해 재수립하지 않는다
 - 개선은 4단계 refinement 루프(최대 3회) 내에서만 수행한다
 - 5단계 PDF는 점수 무관 항상 생성한다
-- 7단계 결과는 단일 .py 파일이 아닌 패키지 디렉토리(experiments/{slug}_v{N}/)다
+- 7단계 결과는 단일 .py 파일이 아닌 패키지 디렉토리(experiments/{slug}/runs/vN/)다
 - 8단계 --pkg-dir 인자에는 패키지 디렉토리 경로를 지정한다
 """
 
@@ -247,12 +258,15 @@ async def run_research(
 ) -> None:
     """협업 모드 연구 파이프라인을 실행한다."""
 
-    for d in ["reports", "results", "experiments"]:
-        Path(d).mkdir(exist_ok=True)
+    from lab.config import workspace, reports_dir as rdir, results_dir, topic_slug as make_slug
 
     image_paths  = image_paths  or []
     image_labels = image_labels or []
-    topic_slug   = re.sub(r"\W+", "_", topic.lower())[:30]
+    topic_slug   = make_slug(topic)
+
+    # workspace 디렉토리 생성: experiments/{slug}/reports/, results/
+    rdir(topic_slug).mkdir(parents=True, exist_ok=True)
+    results_dir(topic_slug).mkdir(parents=True, exist_ok=True)
 
     # 1단계 이미지 인자 구성
     image_args = ""
@@ -274,6 +288,7 @@ async def run_research(
 {"- 참조 이미지: " + ", ".join(image_paths) if image_paths else ""}
 
 topic_slug = "{topic_slug}"
+workspace  = "experiments/{topic_slug}"
 
 1단계 실행 시 아래 명령을 사용하세요:
   python -m lab.topic_analyzer \\
@@ -283,6 +298,8 @@ topic_slug = "{topic_slug}"
     --desired-outcome "{desired_outcome}" \\
     --constraints "{constraints}" \\
     --target-metric "{target_metric}"{image_args}
+
+모든 파일은 experiments/{topic_slug}/ workspace 아래에 저장됩니다.
 
 3단계는 반드시 --mode collaborative 옵션으로 실행하세요.
 4단계는 반드시 --refine --target-score 8.5 옵션으로 실행하세요.

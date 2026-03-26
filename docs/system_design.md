@@ -15,7 +15,7 @@ flowchart TD
     end
 
     D --> Proposal
-    M -->|experiments/{slug}_v{N}/| E[Runner\nlocal / GitHub Actions]
+    M -->|experiments/{slug}/runs/v{N}/| E[Runner\nlocal / GitHub Actions]
 
     subgraph Execution["Execution"]
         E1[smoke_test] --> E2[train]
@@ -81,7 +81,7 @@ flowchart TD
 ## 3. EXPERIMENT_PACKAGE_STRUCTURE
 
 ```
-experiments/{topic_slug}_v{N}/
+experiments/{topic_slug}/runs/v{N}/
 ├── train.py                   # Fabric entry point — Claude owns
 ├── module.py                  # TrainingModule (step logic) — Claude owns
 ├── model.py                   # Architecture — Claude owns, GPT may patch
@@ -106,9 +106,9 @@ experiments/{topic_slug}_v{N}/
 ```
 
 **Versioning rule:**
-- Each new experiment is a new directory `_v{N}` — never overwrite a prior version
-- `_v{N}/configs/` inherit from `_v{N-1}/configs/` unless explicitly changed
-- Ablation runs share the same `_v{N}/` package; differentiated by config file only
+- Each new experiment is a new directory `runs/v{N}` — never overwrite a prior version
+- `runs/v{N}/configs/` inherit from `runs/v{N-1}/configs/` unless explicitly changed
+- Ablation runs share the same `runs/v{N}/` package; differentiated by config file only
 
 ---
 

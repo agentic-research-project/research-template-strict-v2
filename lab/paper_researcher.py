@@ -758,7 +758,8 @@ def research_papers(topic_file: str) -> dict:
         "papers":         all_papers,
     }
 
-    output_path = Path("reports") / topic_slug / "papers.json"
+    from lab.config import reports_dir
+    output_path = reports_dir(topic_slug) / "papers.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  최종 논문 {len(all_papers)}편 저장: {output_path}")

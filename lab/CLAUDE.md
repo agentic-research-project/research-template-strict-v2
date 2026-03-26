@@ -27,7 +27,7 @@ flowchart LR
     P -->|papers.json| R
     H -->|hypothesis.json| R
     CA -->|code_analysis.json| R
-    MG -->|experiments/{slug}_v{N}/| EX[(experiments/)]
+    MG -->|experiments/{slug}/runs/v{N}/| EX[(experiments/)]
     RL -->|result_summary.json\nprevious_results.jsonl| RE[(results/)]
     RL -->|목표 달성| Done([완료])
 ```
@@ -42,8 +42,8 @@ flowchart LR
 | hypothesis_validator.py | GPT-4o + Gemini 검증 | hypothesis | 검증 결과 포함된 hypothesis |
 | user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | approval_{topic}.json |
 | code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | code_analysis.json |
-| model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | experiments/{slug}_v{N}/ (패키지 디렉토리) |
-| research_loop.py | 실험 실행 + Path A/B/C revision 루프 | pkg_dir + topic + hypothesis + code_analysis | result_summary.json, previous_results.jsonl, revision_request.json |
+| model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | experiments/{slug}/runs/vN/ (패키지 디렉토리) |
+| research_loop.py | 실험 실행 + Path A/B/C revision 루프 | pkg_dir + topic + hypothesis + code_analysis | results/vN/result_summary.json, results/previous_results.jsonl, reports/revision_request_vN.json |
 
 ## 실행 명령
 
@@ -51,40 +51,50 @@ flowchart LR
 # 단계별 독립 실행
 python -m lab.topic_analyzer --topic "..." --details "..." \
     --problem "..." --outcome "..." --constraints "..." --metric "PSNR, SSIM"
+# 결과: experiments/{slug}/reports/topic_analysis.json
 
-python -m lab.paper_researcher --topic-file reports/topic_analysis.json
+python -m lab.paper_researcher \
+    --topic-file experiments/{slug}/reports/topic_analysis.json
+# 결과: experiments/{slug}/reports/papers.json
 
 python -m lab.hypothesis_generator \
-    --topic-file reports/topic_analysis.json \
-    --papers-file reports/papers_{topic}.json
+    --topic-file  experiments/{slug}/reports/topic_analysis.json \
+    --papers-file experiments/{slug}/reports/papers.json
+# 결과: experiments/{slug}/reports/hypothesis.json
 
 python -m lab.hypothesis_validator \
-    --hypothesis-file reports/hypothesis_{topic}.json
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \
+    --topic-file      experiments/{slug}/reports/topic_analysis.json
+# 결과: experiments/{slug}/reports/validation.json
 
 python -m lab.user_approval \
-    --topic-file reports/topic_analysis.json \
-    --hypothesis-file reports/hypothesis_{topic}.json \
-    --papers-file reports/papers_{topic}.json
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \
+    --papers-file     experiments/{slug}/reports/papers.json
+# 결과: experiments/{slug}/reports/approval.json, report.pdf
 
 python -m lab.code_analyzer \
-    --topic-file reports/topic_analysis.json \
-    --hypothesis-file reports/hypothesis_{topic}.json
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json
+# 결과: experiments/{slug}/reports/code_analysis.json
 
 python -m lab.model_generator \
-    --topic-file      reports/{slug}/topic_analysis.json \
-    --hypothesis-file reports/{slug}/hypothesis.json \
-    --code-file       reports/{slug}/code_analysis.json \
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \
+    --code-file       experiments/{slug}/reports/code_analysis.json \
     --version 1
-# 결과: experiments/{slug}_v1/ (Fabric 패키지 디렉토리)
+# 결과: experiments/{slug}/runs/v1/ (Fabric 패키지 디렉토리)
 
 python -m lab.research_loop \
-    --pkg-dir         experiments/{slug}_v1 \
-    --topic-file      reports/{slug}/topic_analysis.json \
-    --hypothesis-file reports/{slug}/hypothesis.json \
-    --code-file       reports/{slug}/code_analysis.json \
+    --pkg-dir         experiments/{slug}/runs/v1 \
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \
+    --code-file       experiments/{slug}/reports/code_analysis.json \
     --max-rounds 3
-# Path A: 자동으로 v2, v3 재생성 후 재실행
-# Path B/C: revision_request_v{N}.json 생성 후 종료
+# Path A: 자동으로 runs/v2, v3 재생성 후 재실행
+# Path B/C: reports/revision_request_v{N}.json 생성 후 종료
+# 결과: experiments/{slug}/results/vN/result_summary.json
+#       experiments/{slug}/results/previous_results.jsonl
 ```
 
 ## LLM 설정 (config.py)
@@ -92,8 +102,8 @@ python -m lab.research_loop \
 | 역할 | 모델 | API |
 |---|---|---|
 | 논문 분석 / 가설 생성 / 코드 생성 | `claude-opus-4-6` | Anthropic |
-| 가설 검증 | `gpt-5.1` | OpenAI |
-| 가설 검증 | `gemini-2.5-pro` | Google |
+| 가설 검증 / Research Loop 분석 | `gpt-5.1` | OpenAI |
+| 가설 검증 / Research Loop 진단 | `gemini-2.5-pro` | Google |
 
 ```python
 CLAUDE_MODEL = "claude-opus-4-6"
