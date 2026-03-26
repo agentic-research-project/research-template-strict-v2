@@ -18,12 +18,13 @@ Novelty 특칙: 선행연구 3~5개와 비교표 필수 → prior_art_comparison
 
 사용법:
   # 단순 검증
-  python -m lab.hypothesis_validator --hypothesis-file reports/hypothesis.json
+  python -m lab.hypothesis_validator \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json
 
   # 자동 개선 루프 (목표 8.5점)
   python -m lab.hypothesis_validator \\
-    --hypothesis-file reports/hypothesis.json \\
-    --topic-file      reports/topic_analysis.json \\
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \\
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \\
     --refine --target-score 8.5 --max-iter 3
 """
 
@@ -675,7 +676,7 @@ def refine_and_validate(
     hypothesis = json.loads(hypothesis_path.read_text(encoding="utf-8"))
     topic = json.loads(topic_path.read_text(encoding="utf-8")) if (topic_path and topic_path.exists()) else {}
 
-    # reports_dir: hypothesis.json 의 부모 디렉터리 (= reports/{slug}/)
+    # reports_dir: hypothesis.json 의 부모 디렉터리 (= experiments/{slug}/reports/)
     reports_dir = hypothesis_path.parent
 
     history = []

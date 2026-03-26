@@ -39,14 +39,13 @@ on:
         type: string
       dispatch_id:
         description: "runner가 이 run을 식별하기 위한 고유 ID (GitHubActionsRunner가 자동 생성)"
-        required: false
-        default: ""
+        required: true
         type: string
 
 env:
-  EXPERIMENT_PKG: ${{ inputs.experiment_pkg }}
-  CONFIG_FILE:    ${{ inputs.config_file }}
-  PYTHON:         python
+  EXPERIMENT_PKG:    ${{ inputs.experiment_pkg }}
+  CONFIG_FILE:       ${{ inputs.config_file }}
+  PYTHON:            python
 
 # ──────────────────────────────────────────────────────────
 # 1. SETUP — 환경 구성 및 패키지 구조 검증
@@ -224,7 +223,7 @@ jobs:
 # ──────────────────────────────────────────────────────────
   package:
     needs: train
-    if: inputs.smoke_only != 'true'
+    if: success() && inputs.smoke_only != 'true'
     runs-on: [self-hosted, gpu]
     timeout-minutes: 10
     steps:

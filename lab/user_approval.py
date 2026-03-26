@@ -2,15 +2,15 @@
 Stage 5: 사용자 승인 인터페이스
 
 전 단계 결과를 PDF 보고서로 생성하고 사용자의 승인/수정/거부를 받는다.
-- PDF: reports/hypothesis_report_{topic}.pdf  (A4 1페이지, reportlab)
-- JSON: reports/approval_{topic}.json
+- PDF: experiments/{slug}/reports/report.pdf  (A4 1페이지, reportlab)
+- JSON: experiments/{slug}/reports/approval.json
 
 사용법:
   python -m lab.user_approval \
-    --topic-file      reports/topic_analysis.json \
-    --hypothesis-file reports/hypothesis_{topic}.json \
-    --papers-file     reports/papers_{topic}.json \
-    --validation-file reports/validation.json
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json \
+    --papers-file     experiments/{slug}/reports/papers.json \
+    --validation-file experiments/{slug}/reports/validation.json
 """
 
 import argparse
@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 # ── 상수 ──────────────────────────────────────────────────
-from lab.config import SCORE_THRESHOLD as PDF_SCORE_THRESHOLD
+from lab.config import SCORE_THRESHOLD as PDF_SCORE_THRESHOLD, topic_slug as _topic_slug, reports_dir as _reports_dir
 
 C_BG      = "#1A1A2E"
 C_HYPO    = "#0F3460"
@@ -773,8 +773,8 @@ def request_approval(
             hypothesis["hypothesis"] = val_hyp
 
     topic_name = topic.get("input", {}).get("topic", "research")
-    topic_slug = re.sub(r"\W+", "_", topic_name.lower())[:30]
-    reports_dir = Path(hypothesis_file).parent
+    topic_slug = _topic_slug(topic_name)
+    reports_dir = _reports_dir(topic_slug)
     summary    = validation.get("summary", {})
     avg_score  = summary.get("average_score", 0)
     below_thr  = avg_score < PDF_SCORE_THRESHOLD

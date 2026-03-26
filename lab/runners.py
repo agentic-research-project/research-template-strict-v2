@@ -16,6 +16,7 @@ Runner abstractions for experiment execution.
       "job_id":         str,        # GitHub: run_id, local: ""
       "pipeline_id":    str,        # GitHub: run_number, local: ""
       "dispatch_id":    str,        # GitHubActionsRunner가 생성한 UUID (local: "")
+      "runner_name":    str,        # GitHub self-hosted runner 이름 (GitHub only)
       "duration_s":     float,
       "artifact_uri":   str,        # GitHub: artifacts API URL
       "job_url":        str,        # GitHub: html_url (브라우저로 바로 열 수 있는 URL)
@@ -58,6 +59,8 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
+
+from lab.config import result_version_dir, slug_from_pkg, version_from_pkg
 
 
 # ──────────────────────────────────────────────────────────
@@ -421,12 +424,54 @@ class GitHubActionsRunner(BaseRunner):
             if resp.status != 204:
                 raise RuntimeError(f"workflow_dispatch 실패: HTTP {resp.status}")
 
-    def _find_run(self, after_ts: str, expected_sha: str, dispatch_id: str) -> int:
-        """dispatch_id/SHA/after_ts 기반으로 run을 식별한다.
+    def _check_run_dispatch_id(self, run_id: int, dispatch_id: str) -> bool | None:
+        """개별 run의 setup job 로그에서 dispatch_id를 검증한다.
 
-        - after_ts 이후 생성된 run 중 expected_sha와 일치하는 것을 찾는다.
-        - 후보가 복수이면 명시적 예외 (조용한 첫 번째 선택 금지).
-        - 120초 내에 식별 못하면 RuntimeError.
+        workflow의 'Print run info' 단계에서 dispatch_id를 출력하므로,
+        로그에서 해당 dispatch_id가 존재하는지 확인한다.
+
+        반환값:
+          True  — dispatch_id가 로그에서 확인됨
+          False — 로그에 접근했으나 dispatch_id가 없음 (다른 run)
+          None  — 로그에 아직 접근할 수 없음 (run이 시작 전이거나 로그 미생성)
+        """
+        import urllib.request
+        try:
+            url = f"{self._base()}/actions/runs/{run_id}/logs"
+            req = urllib.request.Request(url, headers=self._headers())
+            with urllib.request.urlopen(req) as resp:
+                import io, zipfile
+                zdata = resp.read()
+                with zipfile.ZipFile(io.BytesIO(zdata)) as zf:
+                    for name in zf.namelist():
+                        content = zf.read(name).decode("utf-8", errors="replace")
+                        if f"dispatch_id: {dispatch_id}" in content:
+                            return True
+            # 로그에 접근했으나 dispatch_id를 찾지 못함 → 확실히 불일치
+            return False
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 410):
+                # 로그가 아직 생성되지 않음 (run 시작 전)
+                return None
+            # 403 등 구조적 접근 불가
+            print(f"    [경고] run {run_id} 로그 접근 실패: HTTP {e.code}")
+            return None
+        except Exception as e:
+            # zip 파싱 실패 등 — 로그 미생성일 수 있음
+            print(f"    [경고] run {run_id} 로그 검증 중 예외: {e}")
+            return None
+
+    def _find_run(self, after_ts: str, expected_sha: str, dispatch_id: str) -> int:
+        """dispatch_id + SHA + after_ts 기반으로 정확한 run을 식별한다.
+
+        식별 전략:
+        1. after_ts 이후 생성된 run을 시간 기반 1차 필터
+        2. SHA 기반 2차 필터
+        3. 모든 후보(1개 포함)에 대해 dispatch_id 로그 검증 수행
+        4. dispatch_id 검증을 통과한 run이 정확히 1개여야 확정
+        5. 검증 통과 0개 → 로그 미생성일 수 있으므로 재시도
+        6. 검증 통과 2개 이상 → 명시적 실패
+        7. 120초 내 미발견 시 RuntimeError
         """
         import urllib.request
         deadline = time.time() + 120  # 2분 대기
@@ -442,7 +487,7 @@ class GitHubActionsRunner(BaseRunner):
             # after_ts 기반 1차 필터
             candidates = [r for r in runs if r.get("created_at", "") >= after_ts]
 
-            # sha 기반 2차 필터 (sha가 바뀐 경우)
+            # sha 기반 2차 필터
             sha_matched = [r for r in candidates if r.get("head_sha") == expected_sha]
             if sha_matched:
                 candidates = sha_matched
@@ -450,23 +495,52 @@ class GitHubActionsRunner(BaseRunner):
             if len(candidates) == 0:
                 continue  # 아직 run이 생성되지 않음
 
-            if len(candidates) == 1:
-                run_id = candidates[0]["id"]
-                print(f"  [GitHubRunner] run 식별 성공: run_id={run_id} "
-                      f"dispatch_id={dispatch_id} "
+            # 모든 후보에 대해 dispatch_id 로그 검증 (1개여도 반드시 검증)
+            print(f"  [GitHubRunner] {len(candidates)}개 후보 발견, dispatch_id 로그 검증 시작")
+            verified = []
+            logs_pending = False
+            for c in candidates:
+                cid = c["id"]
+                if c.get("status") in ("completed", "in_progress"):
+                    check = self._check_run_dispatch_id(cid, dispatch_id)
+                    if check is True:
+                        verified.append(c)
+                        print(f"    run_id={cid} → dispatch_id 일치 ✓")
+                    elif check is False:
+                        print(f"    run_id={cid} → dispatch_id 불일치 ✗")
+                    else:
+                        # None: 로그 미생성 → 재시도 대상
+                        logs_pending = True
+                        print(f"    run_id={cid} → 로그 미접근 (재시도)")
+                else:
+                    # queued 등 아직 시작 전 → 로그 검증 불가, 재시도
+                    logs_pending = True
+                    print(f"    run_id={cid} → status={c.get('status')} (대기 중)")
+
+            if len(verified) == 1:
+                run_id = verified[0]["id"]
+                print(f"  [GitHubRunner] dispatch_id 검증으로 run 확정: run_id={run_id} "
                       f"url={self._run_url(run_id)}")
                 return run_id
+            elif len(verified) > 1:
+                ids = [r["id"] for r in verified]
+                raise RuntimeError(
+                    f"run 식별 실패: dispatch_id={dispatch_id}에 대해 "
+                    f"{len(verified)}개 검증 통과 {ids} — 명시적 실패"
+                )
 
-            # 복수 후보 → 병렬 실행 충돌
-            ids = [r["id"] for r in candidates]
-            raise RuntimeError(
-                f"run 식별 실패: dispatch_id={dispatch_id}에 대해 "
-                f"{len(candidates)}개 후보 발견 {ids} — 병렬 실행 충돌로 명시적 실패"
-            )
+            # verified == 0: 로그 미생성이면 재시도, 모두 불일치면 즉시 실패
+            if not logs_pending:
+                raise RuntimeError(
+                    f"run 식별 실패: {len(candidates)}개 후보 모두 dispatch_id={dispatch_id} "
+                    f"검증 불일치 — 해당 dispatch에 대응하는 run 없음"
+                )
+            # logs_pending=True → 아직 로그가 준비되지 않은 run 있음, 재시도
+            continue
 
         raise RuntimeError(
             f"run 식별 timeout: dispatch_id={dispatch_id} "
-            f"(120s 내 미발견, branch={self.ref})"
+            f"(120s 내 dispatch_id 검증 통과 run 미발견, branch={self.ref})"
         )
 
     def _poll_run(self, run_id: int, timeout: int) -> dict:
@@ -496,8 +570,10 @@ class GitHubActionsRunner(BaseRunner):
         import io, urllib.request, zipfile
 
         # topic-local results 저장 경로
-        results_dir = pkg_dir.parent.parent / "results" / pkg_dir.name
-        results_dir.mkdir(parents=True, exist_ok=True)
+        slug = slug_from_pkg(pkg_dir)
+        ver = version_from_pkg(pkg_dir)
+        res_ver_dir = result_version_dir(slug, ver)
+        res_ver_dir.mkdir(parents=True, exist_ok=True)
 
         # artifact 목록 조회
         req = urllib.request.Request(
@@ -529,10 +605,10 @@ class GitHubActionsRunner(BaseRunner):
                 fname = Path(name).name
                 if fname == "final_metrics.json":
                     final_metrics = json.loads(data)
-                    (results_dir / "final_metrics.json").write_bytes(data)
+                    (res_ver_dir / "final_metrics.json").write_bytes(data)
                 elif fname == "runner_metadata.json":
                     runner_metadata = json.loads(data)
-                    (results_dir / "runner_metadata.json").write_bytes(data)
+                    (res_ver_dir / "runner_metadata.json").write_bytes(data)
 
         # 필수 파일 누락 시 명시적 실패
         if not final_metrics:
@@ -545,7 +621,7 @@ class GitHubActionsRunner(BaseRunner):
                 f"runner_metadata.json artifact에 없음 (run_id={run_id})"
             )
 
-        print(f"  [GitHubRunner] artifact 복원 완료 → {results_dir}")
+        print(f"  [GitHubRunner] artifact 복원 완료 → {res_ver_dir}")
         return final_metrics, runner_metadata
 
     def _build_result_from_run(
@@ -561,18 +637,18 @@ class GitHubActionsRunner(BaseRunner):
         run_id_str = str(run.get("id", ""))
         run_url    = run.get("html_url", self._run_url(run_id_str))
 
+        # artifact의 runner_metadata를 기반으로 시작하여 workflow가 생성한 필드를
+        # 손실 없이 보존하고, API에서 얻은 최신/정확한 값으로 오버라이드한다.
         meta = {
             **self._empty_metadata("github"),
+            **runner_metadata,
             "job_id":         run_id_str,
             "pipeline_id":    str(run.get("run_number", "")),
             "dispatch_id":    dispatch_id or runner_metadata.get("dispatch_id", ""),
-            "duration_s":     runner_metadata.get("duration_s", 0.0),
             "artifact_uri":   run.get("artifacts_url", f"{self._base()}/actions/runs/{run_id_str}/artifacts"),
             "job_url":        run_url,
-            "git_sha":        run.get("head_sha", ""),
+            "git_sha":        run.get("head_sha", "") or runner_metadata.get("git_sha", ""),
             "git_branch":     self.ref,
-            "experiment_pkg": runner_metadata.get("experiment_pkg", ""),
-            "started_at":     runner_metadata.get("started_at", ""),
             "finished_at":    runner_metadata.get("finished_at", run.get("updated_at", "")),
         }
         # METRICS 계약 유지: stdout_lines에 METRICS 라인 포함 (research_loop._build_result_summary 파싱용)

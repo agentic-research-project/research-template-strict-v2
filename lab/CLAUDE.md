@@ -121,6 +121,7 @@ python -m lab.research_loop \
     "job_id":         str,        # GitHub: run_id,    local: ""
     "pipeline_id":    str,        # GitHub: run_number, local: ""
     "dispatch_id":    str,        # GitHubActionsRunner UUID, local: ""
+    "runner_name":    str,        # GitHub self-hosted runner 이름 (GitHub only)
     "duration_s":     float,
     "artifact_uri":   str,        # GitHub artifact API URL
     "job_url":        str,        # GitHub: html_url (브라우저 링크)

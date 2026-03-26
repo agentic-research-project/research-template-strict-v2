@@ -4,10 +4,10 @@ Stage 2: 논문 조사
 arXiv API와 Semantic Scholar API로 최신 관련 논문을 검색한다.
 - 첫 시도: 최근 2년치 (current_year-1 ~ current_year)
 - 부족하면 1년씩 소급하여 최대 MAX_YEARS_BACK년까지 확장
-결과는 reports/papers_{topic}.json에 저장한다.
+결과는 experiments/{slug}/reports/papers.json에 저장한다.
 
 사용법:
-  python -m lab.paper_researcher --topic-file reports/topic_analysis.json
+  python -m lab.paper_researcher --topic-file experiments/{slug}/reports/topic_analysis.json
 """
 
 import argparse
@@ -19,7 +19,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import GITHUB_TOKEN, S2_API_KEY
+from lab.config import GITHUB_TOKEN, S2_API_KEY, topic_slug as _topic_slug, reports_dir as _reports_dir
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
@@ -664,7 +664,7 @@ def research_papers(topic_file: str) -> dict:
     primary    = keywords.get("primary", [])
     secondary  = keywords.get("secondary", [])
     topic_name = topic_data.get("input", {}).get("topic", "research")
-    topic_slug = re.sub(r"\W+", "_", topic_name.lower())[:30]
+    topic_slug = _topic_slug(topic_name)
     queries    = _build_search_queries(topic_data)
 
     cur_year  = datetime.now().year
@@ -758,8 +758,7 @@ def research_papers(topic_file: str) -> dict:
         "papers":         all_papers,
     }
 
-    from lab.config import reports_dir
-    output_path = reports_dir(topic_slug) / "papers.json"
+    output_path = _reports_dir(topic_slug) / "papers.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  최종 논문 {len(all_papers)}편 저장: {output_path}")

@@ -3,13 +3,13 @@ Stage 3: 가설 생성
 
 [단일 모드] Claude 단독 생성
   python -m lab.hypothesis_generator \
-    --topic-file reports/topic_analysis.json \
-    --papers-file reports/papers_{topic}.json
+    --topic-file  experiments/{slug}/reports/topic_analysis.json \
+    --papers-file experiments/{slug}/reports/papers.json
 
 [협업 모드] 5라운드 토론 기반 생성 (권장)
   python -m lab.hypothesis_generator \
-    --topic-file reports/topic_analysis.json \
-    --papers-file reports/papers_{topic}.json \
+    --topic-file  experiments/{slug}/reports/topic_analysis.json \
+    --papers-file experiments/{slug}/reports/papers.json \
     --mode collaborative
 
 협업 흐름:
@@ -32,6 +32,7 @@ load_dotenv()
 from lab.config import (
     OPENAI_MODEL, GEMINI_MODEL,
     query_claude, get_openai_client, get_gemini_model, parse_json,
+    topic_slug as _topic_slug,
 )
 
 
@@ -68,7 +69,7 @@ def _load_inputs(topic_file: str, papers_file: str):
     topic_data  = json.loads(Path(topic_file).read_text(encoding="utf-8"))
     papers_data = json.loads(Path(papers_file).read_text(encoding="utf-8"))
     topic_name  = topic_data.get("input", {}).get("topic", "research")
-    topic_slug  = re.sub(r"\W+", "_", topic_name.lower())[:30]
+    topic_slug  = _topic_slug(topic_name)
     return topic_data, papers_data, topic_name, topic_slug
 
 

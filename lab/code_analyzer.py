@@ -3,7 +3,7 @@ Stage 6: GitHub 코드 분석
 
 GitHub API로 관련 레포를 검색하고 주요 파일을 분석하여
 재사용 가능한 컴포넌트와 코드 스니펫을 추출한다.
-결과는 reports/{slug}/code_analysis.json에 저장한다.
+결과는 experiments/{slug}/reports/code_analysis.json에 저장한다.
 
 개선 사항:
   - 복합 쿼리 구성 (primary + secondary + constraints + architecture 조합, 최대 5개)
@@ -14,8 +14,8 @@ GitHub API로 관련 레포를 검색하고 주요 파일을 분석하여
 
 사용법:
   python -m lab.code_analyzer \
-    --topic-file   reports/{slug}/topic_analysis.json \
-    --hypothesis-file reports/{slug}/hypothesis.json
+    --topic-file      experiments/{slug}/reports/topic_analysis.json \
+    --hypothesis-file experiments/{slug}/reports/hypothesis.json
 """
 
 import argparse
@@ -28,7 +28,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import GITHUB_TOKEN, query_claude, parse_json
+from lab.config import GITHUB_TOKEN, query_claude, parse_json, topic_slug as _topic_slug, reports_dir as _reports_dir
 
 
 GITHUB_API = "https://api.github.com"
@@ -535,13 +535,13 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
     GitHub에서 관련 코드를 수집하고 분석한다.
 
     Returns:
-        분석 결과 dict (reports/{slug}/code_analysis.json에도 저장)
+        분석 결과 dict (experiments/{slug}/reports/code_analysis.json에도 저장)
     """
     topic      = json.loads(Path(topic_file).read_text(encoding="utf-8"))
     hypothesis = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
 
     topic_name = topic.get("input", {}).get("topic", "research")
-    topic_slug = re.sub(r"\W+", "_", topic_name.lower())[:30]
+    topic_slug = _topic_slug(topic_name)
 
     # 파일 필터 키워드 (primary + secondary 단어 추출)
     primary_kw   = topic.get("search_keywords", {}).get("primary", [])
@@ -674,7 +674,8 @@ def analyze_code(topic_file: str, hypothesis_file: str) -> dict:
         **analysis,
     }
 
-    output_path = Path(topic_file).parent / "code_analysis.json"
+    output_path = _reports_dir(topic_slug) / "code_analysis.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"    코드 분석 저장: {output_path}")
 

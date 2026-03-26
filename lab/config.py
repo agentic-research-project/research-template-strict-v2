@@ -23,6 +23,7 @@ SCORE_THRESHOLD = 8.5
 
 
 
+
 # ──────────────────────────────────────────────────────────
 # Topic workspace 경로 헬퍼
 # ──────────────────────────────────────────────────────────
@@ -50,6 +51,20 @@ def run_dir(slug: str, version: int) -> Path:
 def result_version_dir(slug: str, version: int) -> Path:
     """experiments/{slug}/results/v{N}/"""
     return results_dir(slug) / f"v{version}"
+
+
+def slug_from_pkg(pkg_dir: Path) -> str:
+    """runs/vN → experiments/{slug}/runs/vN 에서 slug 추출."""
+    # pkg_dir = experiments/{slug}/runs/vN
+    return pkg_dir.parent.parent.name
+
+
+def version_from_pkg(pkg_dir: Path) -> int:
+    """runs/vN 에서 version 정수 추출. 실패 시 ValueError."""
+    m = re.match(r"v(\d+)", pkg_dir.name)
+    if not m:
+        raise ValueError(f"Invalid pkg_dir name (expected vN): {pkg_dir.name}")
+    return int(m.group(1))
 
 
 def get_openai_client():

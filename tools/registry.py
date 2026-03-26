@@ -138,7 +138,7 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "pkg_dir":          {"type": "string", "description": "experiments/{slug}_vN 패키지 디렉토리 경로"},
+                "pkg_dir":          {"type": "string", "description": "experiments/{slug}/runs/vN 패키지 디렉토리 경로"},
                 "topic_file":       {"type": "string", "description": "topic_analysis.json 경로"},
                 "hypothesis_file":  {"type": "string", "description": "hypothesis.json 경로"},
                 "code_analysis_file":{"type": "string", "description": "code_analysis.json 경로"},

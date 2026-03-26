@@ -34,7 +34,10 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model
+from lab.config import (
+    query_claude, parse_json, get_openai_client, get_gemini_model,
+    result_version_dir, results_dir, reports_dir, slug_from_pkg, version_from_pkg,
+)
 from lab.model_generator import generate_experiment_package, _save_proposal, _archive_proposal
 from lab.runners import BaseRunner, create_runner
 
@@ -161,20 +164,15 @@ def _build_result_summary(
             run_result.get("stdout_lines", [])[-50:]
             if run_result["status"] == "metrics_parse_error" else []
         ),
-        # runner metadata: local 또는 gitlab 실행 정보
-        "runner_metadata": {
-            "runner":       runner_meta.get("runner", "local"),
-            "job_id":       runner_meta.get("job_id", ""),
-            "duration_s":   runner_meta.get("duration_s", 0),
-            "artifact_uri": runner_meta.get("artifact_uri", ""),
-            "job_url":      runner_meta.get("job_url", ""),
-            "git_sha":      runner_meta.get("git_sha", ""),
-        },
+        # runner metadata: RunResult.metadata 전체 보존 (필드 유실 방지)
+        "runner_metadata": runner_meta,
         "created_at": datetime.now().isoformat(),
     }
 
     # experiments/{slug}/results/vN/result_summary.json
-    ver_results_dir = pkg_dir.parent.parent / "results" / pkg_dir.name
+    slug = slug_from_pkg(pkg_dir)
+    ver = version_from_pkg(pkg_dir)
+    ver_results_dir = result_version_dir(slug, ver)
     ver_results_dir.mkdir(parents=True, exist_ok=True)
     summary_path = ver_results_dir / "result_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -908,8 +906,10 @@ def _write_revision_request(
 
 def _append_results_log(summary: dict, pkg_dir: Path) -> None:
     # experiments/{slug}/results/previous_results.jsonl
-    log_path = pkg_dir.parent.parent / "results" / "previous_results.jsonl"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    slug = slug_from_pkg(pkg_dir)
+    res_dir = results_dir(slug)
+    res_dir.mkdir(parents=True, exist_ok=True)
+    log_path = res_dir / "previous_results.jsonl"
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(summary, ensure_ascii=False) + "\n")
     print(f"    [append] {log_path}")
@@ -935,10 +935,8 @@ def run_research_loop(
     reports_dir = Path(topic_file).parent
 
     pkg     = Path(pkg_dir)
-    # pkg.name = "v1", "v2", ... (new structure) or legacy "_vN" suffix
-    m_new = re.match(r"^v(\d+)$", pkg.name)
-    m_old = re.search(r"_v(\d+)$", pkg.name)
-    version = int(m_new.group(1)) if m_new else (int(m_old.group(1)) if m_old else 1)
+    # pkg.name = "v1", "v2", ... (new structure only — 과거 구조는 에러 처리)
+    version = version_from_pkg(pkg)
 
     # runner 초기화 + 준비 상태 확인 (미구현이면 즉시 종료)
     runner: BaseRunner = create_runner(runner_type, runner_config)

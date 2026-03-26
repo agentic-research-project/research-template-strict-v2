@@ -45,7 +45,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model
+from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model, topic_slug as _topic_slug
 
 TEMPLATE_DIR = Path(__file__).parent.parent / "experiments" / "template"
 SCHEMAS_DIR  = Path(__file__).parent.parent / "schemas"
@@ -88,7 +88,7 @@ def _build_experiment_spec(
     inp      = topic.get("input", {})
     hyp      = hypothesis.get("hypothesis", {})
     exp_plan = hypothesis.get("experiment_plan", {})
-    slug     = re.sub(r"\W+", "_", inp.get("topic", "research").lower())[:30]
+    slug     = _topic_slug(inp.get("topic", "research"))
     ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ── 지표 추출 (도메인 무관 일반화) ────────────────────────────────
@@ -1113,8 +1113,9 @@ def _finalize_package(
             readme = readme.replace(placeholder, value)
         readme_path.write_text(readme, encoding="utf-8")
 
-    reports_dir = Path(topic_file).parent
-    (reports_dir / f"experiment_spec_v{version}.json").write_text(
+    rpt_dir = _get_reports_dir(slug)
+    rpt_dir.mkdir(parents=True, exist_ok=True)
+    (rpt_dir / f"experiment_spec_v{version}.json").write_text(
         json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
@@ -1164,9 +1165,9 @@ def generate_experiment_package(
     hypothesis    = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
     code_analysis = json.loads(Path(code_analysis_file).read_text(encoding="utf-8"))
 
-    from lab.config import topic_slug as make_slug, run_dir
+    from lab.config import run_dir, reports_dir as _get_reports_dir
     inp     = topic.get("input", {})
-    slug    = make_slug(inp.get("topic", "research"))
+    slug    = _topic_slug(inp.get("topic", "research"))
     pkg_dir = run_dir(slug, version)
 
     is_path_a_revision = bool(revised_from and revision_path == "A")
@@ -1312,7 +1313,7 @@ if __name__ == "__main__":
     parser.add_argument("--code-file",         required=True)
     parser.add_argument("--version",           type=int, default=1)
     parser.add_argument("--revised-from",      default=None,
-                        help="Path A 시 이전 패키지 경로 (예: experiments/{slug}_v1)")
+                        help="Path A 시 이전 패키지 경로 (예: experiments/{slug}/runs/v1)")
     parser.add_argument("--revision-path",     default=None, choices=["A", "B", "C"])
     parser.add_argument("--improvement-hints", default="")
     args = parser.parse_args()

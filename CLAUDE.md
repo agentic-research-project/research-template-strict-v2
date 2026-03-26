@@ -18,22 +18,38 @@ flowchart TD
         E{5. user_approval\nPDF 보고서} -->|승인| F
         E -->|거절/수정| C
         F[6. code_analyzer\nGitHub API] -->|code_analysis.json| G
-        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] -->|experiments/{slug}/runs/vN/| H
-        H[8. research_loop\nRunner + Multi-model 분석\nGPT→Gemini→합의→Claude→postcheck] -->|result_summary.json\nprevious_results.jsonl| I{목표 달성?}
+        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] --> H
+        H[8. research_loop\nRunner + Multi-model 분석\nGPT→Gemini→합의→Claude→postcheck] --> I{목표 달성?}
         I -->|Path A| G
         I -->|Path B/C| Rev([revision_request.json])
         I -->|done| Done([완료])
     end
 
-    subgraph Storage["experiments/{slug}/ (topic-local workspace)"]
-        R[(reports/\ntopic_analysis.json\npapers.json\nhypothesis.json\nvalidation.json\ncode_analysis.json\nrevision_request_vN.json)]
-        EX[(runs/vN/\ntrain.py model.py\nmodule.py data.py\nconfigs/ scripts/)]
-        RE[(results/vN/\nresult_summary.json\nrunner_metadata.json\nprevious_results.jsonl)]
+    subgraph Workspace["experiments/{slug}/ — topic-local workspace"]
+        subgraph Reports["reports/"]
+            R1[topic_analysis.json]
+            R2[papers.json]
+            R3[hypothesis.json]
+            R4[validation.json]
+            R5[code_analysis.json]
+            R6[revision_request_vN.json]
+        end
+        subgraph Runs["runs/vN/"]
+            X1[train.py · model.py]
+            X2[module.py · data.py]
+            X3[configs/ · scripts/]
+            X4[experiment_spec.json]
+        end
+        subgraph Results["results/"]
+            S1[vN/result_summary.json]
+            S2[vN/runner_metadata.json]
+            S3[previous_results.jsonl]
+        end
     end
 
-    A & B & C & D & E & F --> R
-    G --> EX
-    H --> RE
+    A & B & C & D & E & F --> Reports
+    G --> Runs
+    H --> Results
 ```
 
 ## 프로젝트 구조
@@ -124,7 +140,7 @@ export GITHUB_TOKEN="..."   # GitHub API 검색 속도 향상
 inputs:
   experiment_pkg: "experiments/{slug}/runs/v1"
   config_file:    "configs/default.yaml"
-  mode:           "smoke | train"
+  smoke_only:     "false"       # "true"이면 smoke test만 실행
   dispatch_id:    "<UUID — runners.py가 생성>"
 ```
 
@@ -135,6 +151,66 @@ runner가 수집하는 최종 artifact:
 - `runner_metadata.json` — 실행 메타데이터
 
 canonical `result_summary.json`은 `research_loop.py`만 생성한다 (workflow 생성 금지).
+
+**canonical `result_summary.json` 생성 책임**
+
+- workflow는 raw metrics (`artifacts/metrics/final_metrics.json`)와 `runner_metadata.json`만 생성한다.
+- canonical `result_summary.json`은 `research_loop.py`가 `experiment_spec.json`과 `RunResult`를 기반으로 생성한다.
+- 저장 위치: `experiments/{slug}/results/vN/result_summary.json`
+- revision 판단과 `previous_results.jsonl` 누적은 canonical summary만 사용한다.
+
+**Runner 추상화 (`RunResult` 계약)**
+
+`LocalRunner`와 `GitHubActionsRunner`는 동일한 `RunResult` 계약을 만족한다:
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `status` | str | `success`, `failed`, `smoke_failed`, `timeout`, `metrics_parse_error` |
+| `returncode` | int | 프로세스 종료 코드 (GitHub: 0=성공, 1=실패) |
+| `metrics` | dict | `METRICS:{...}` stdout에서 파싱한 metric dict |
+| `metadata` | dict | runner 메타데이터 (아래 스키마 참조) |
+| `stdout_lines` | list | stdout 라인 목록 (최대 500줄) |
+| `stderr_tail` | str | stderr 마지막 부분 (디버깅용) |
+
+**`runner_metadata.json` 필수 스키마**
+
+| 필드 | 설명 |
+|---|---|
+| `runner` | `"local"` 또는 `"github"` |
+| `job_id` | GitHub run ID 또는 local PID |
+| `pipeline_id` | GitHub run number 또는 빈 문자열 |
+| `dispatch_id` | `smoke_{uuid}` 또는 `train_{uuid}` (GitHub) / 빈 문자열 (local) |
+| `runner_name` | GitHub self-hosted runner 이름 (GitHub only) |
+| `duration_s` | 실행 시간 (초, float) |
+| `job_url` | GitHub Actions run URL (브라우저 열기 가능) |
+| `artifact_uri` | artifact API URL 또는 추적 가능한 식별값 |
+| `git_sha` | 실행 시점의 git commit SHA |
+| `git_branch` | 실행 브랜치 |
+| `experiment_pkg` | 실험 패키지 경로 |
+| `started_at` | ISO8601 시작 시간 |
+| `finished_at` | ISO8601 종료 시간 |
+
+**`dispatch_id` 기반 run 식별**
+
+- `GitHubActionsRunner`는 dispatch 전 고유 `dispatch_id`를 생성한다 (`smoke_{uuid}` / `train_{uuid}`).
+- workflow input으로 전달되어 `runner_metadata.json`에 기록된다.
+- run 식별 시 `dispatch_id`를 기준으로 정확한 run만 선택한다.
+- 병렬 실행에서도 안전하게 run을 구분한다.
+
+**failure semantics**
+
+GitHub 실행 실패 시 아래 상황을 구분한다:
+
+| 실패 유형 | 설명 |
+|---|---|
+| dispatch 실패 | workflow_dispatch API 호출 실패 |
+| run 식별 실패 | dispatch_id에 대응하는 run을 찾지 못함 |
+| poll timeout | 최대 대기 시간 초과 |
+| workflow failure | workflow job 실패 |
+| artifact 다운로드 실패 | artifact zip 다운로드 또는 파싱 실패 |
+| final_metrics.json 누락 | artifact 내 final_metrics.json 없음 |
+| runner_metadata.json 누락 | artifact 내 runner_metadata.json 없음 |
+| metrics parse 실패 | `METRICS:{...}` stdout 라인 파싱 실패 |
 
 ## 하위 호환성 정책
 
