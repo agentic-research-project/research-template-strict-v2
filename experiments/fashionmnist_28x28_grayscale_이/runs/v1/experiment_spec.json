@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "spec_id": "fashionmnist_28x28_grayscale_이_v1_20260327_215520",
+  "hypothesis_id": "a6d1361e",
+  "experiment_version": 1,
+  "topic_slug": "fashionmnist_28x28_grayscale_이",
+  "created_at": "2026-03-27T21:55:20.206698",
+  "revised_from_spec_id": null,
+  "revision_path": null,
+  "model_architecture": {
+    "name": "**입력**: 1×28×28 grayscale\n\n**Stem Block**: Conv2d(1→32, 3×3, padding=1) → BatchNorm → ReLU\n\n**Hybrid Residual Block (×3~4 스택)**:\n  - Depthwise Conv2d(C→C, 3×3, padding=1, groups=C) → BN → ReLU\n  - Pointwise Conv2d(C→C', 1×1) → BN → ReLU\n  - SE Module: GAP → FC(C'→C'//8) → ReLU → FC(C'//8→C') → Sigmoid → Scale\n  - Skip Connection: 입력과 출력을 element-wise add (채널 불일치 시 1×1 conv projection)\n  - 블록 간 다운샘플링: stride=2 적용 (28→14→7)\n\n**채널 구성**: Block1: 32→48, Block2: 48→64, Block3: 64→96 (필요시 Block4: 96→128)\n\n**Head**: Global Average Pooling → Dropout(0.3) → FC(최종채널→10)\n\n**예상 파라미터**: ~120K~180K (채널 구성에 따라 조정, 200K 미만 보장)",
+    "description": "컴팩트 잔차 블록 내부에 depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 파라미터 효율적인 공간 특징 추출·안정적인 그래디언트 흐름·유사 클래스 구분을 위한 적응적 채널별 판별 특징 재보정의 시너지를 통해, 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다.",
+    "key_components": [],
+    "param_budget_M": 0.2
+  },
+  "training_config": {
+    "epochs": 50,
+    "batch_size": 16,
+    "optimizer": "adamw",
+    "lr": 0.0001,
+    "loss_function": "auto",
+    "seed": 42,
+    "precision": "bf16-mixed",
+    "gradient_clip": 1.0
+  },
+  "evaluation_config": {
+    "primary_metric": "validation",
+    "target_value": 0.0,
+    "secondary_metrics": [
+      "test",
+      "total",
+      "total",
+      "per",
+      "per",
+      "flops"
+    ],
+    "metric_units": {
+      "validation": "primary, 목표 ≥92.5%",
+      "test": "최종 보고용",
+      "total": "단일 GPU, 목표 ~10분 이내",
+      "per": "유사 클래스 쌍 판별력 분석: Shirt/T-shirt, Pullover/Coat 등",
+      "flops": "연산량 비교"
+    },
+    "test_set": "val_split",
+    "eval_frequency": 1
+  },
+  "hypothesis_contract": {
+    "mechanism": "각 하이브리드 잔차 블록에서 depthwise-separable 컨볼루션이 공간적 특징을 저비용으로 추출하고, SE 모듈이 글로벌 평균 풀링→FC→ReLU→FC→Sigmoid 경로를 통해 채널별 중요도를 학습하여 유사 클래스(예: Shirt vs T-shirt, Pullover vs Coat) 구분에 유용한 채널을 강조하며, skip connection이 입력 정보를 직접 전달하여 그래디언트 흐름을 안정화한다. 이 세 메커니즘의 결합으로 제한된 파라미터 예산 내에서 공간적·채널적 특징의 효율적 활용이 극대화된다.",
+    "target_metric_raw": "Accuracy",
+    "constraints_raw": "parameter budget 0.2M 이하, single GPU 환경에서 실행 가능, 학습 시간은 짧아야 함, 추론 속도는 가벼운 CNN 수준으로 유지, 과도하게 복잡한 backbone이나 대형 pretrained model 사용 금지",
+    "architecture_hint": "**입력**: 1×28×28 grayscale\n\n**Stem Block**: Conv2d(1→32, 3×3, padding=1) → BatchNorm → ReLU\n\n**Hybrid Residual Block (×3~4 스택)**:\n  - Depthwise Conv2d(C→C, 3×3, padding=1, groups=C) → BN → ReLU\n  - Pointwise Conv2d(C→C', 1×1) → BN → ReLU\n  - SE Module: GAP → FC(C'→C'//8) → ReLU → FC(C'//8→C') → Sigmoid → Scale\n  - Skip Connection: 입력과 출력을 element-wise add (채널 불일치 시 1×1 conv projection)\n  - 블록 간 다운샘플링: stride=2 적용 (28→14→7)\n\n**채널 구성**: Block1: 32→48, Block2: 48→64, Block3: 64→96 (필요시 Block4: 96→128)\n\n**Head**: Global Average Pooling → Dropout(0.3) → FC(최종채널→10)\n\n**예상 파라미터**: ~120K~180K (채널 구성에 따라 조정, 200K 미만 보장)"
+  },
+  "constraints_structured": {},
+  "data_config": {
+    "data_path": "",
+    "dataset_name": "**FashionMNIST** (torchvision 내장)\n- Train: 60,000장 → Train/Val 분할: 50,000 / 10,000 (stratified)\n- Test: 10,000장 (최종 평가용)\n- 정규화: mean=0.2860, std=0.3530\n- Path A 초기 실험 증강: RandomHorizontalFlip(0.5)만 적용\n- Path A 후속 실험 증강: + RandomRotation(10°), RandomAffine(translate=0.1, scale=(0.9,1.1))\n- Path B (필요시): + Cutout(n_holes=1, length=4~8), Label Smoothing(0.1)"
+  },
+  "ablations": [],
+  "baselines": [
+    {
+      "name": "코드를 찾지 못했습니다. 직접 구현이 필요합니다.",
+      "source": "literature"
+    }
+  ],
+  "output_contract": {
+    "stdout_pattern": "^METRICS:\\{.*\\}$",
+    "required_keys": [
+      "validation",
+      "test",
+      "total",
+      "total",
+      "per",
+      "per",
+      "flops"
+    ]
+  }
+}
