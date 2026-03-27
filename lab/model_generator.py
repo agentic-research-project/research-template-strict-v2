@@ -185,6 +185,7 @@ def _build_experiment_spec(
                 or exp_plan.get("architecture", "")
             ),
         },
+        "constraints_structured": inp.get("constraints_structured", {}),
         "data_config": {
             "data_path": inp.get("data_path", ""),
             "dataset_name": exp_plan.get("dataset", hyp.get("dataset", "")),

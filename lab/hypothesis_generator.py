@@ -199,13 +199,29 @@ def _coverage_check_gate(papers_data: dict, topic_data: dict) -> dict:
     }
 
 
-def _build_context(input_info: dict, research_q: str, success_criteria: dict) -> str:
+def _build_context(input_info: dict, research_q: str, success_criteria: dict,
+                   decisive_evidence: dict | None = None,
+                   working_frame: str = "") -> str:
     """모든 라운드가 공통으로 받는 연구 컨텍스트 (evidence pack 제외)."""
-    return f"""## 연구 주제
+    constraints_structured = input_info.get("constraints_structured", {})
+    cs_text = ""
+    if constraints_structured:
+        cs_parts = []
+        if constraints_structured.get("param_budget_M"):
+            cs_parts.append(f"param_budget≤{constraints_structured['param_budget_M']}M")
+        if constraints_structured.get("single_gpu"):
+            cs_parts.append("single_gpu")
+        if constraints_structured.get("no_pretrained"):
+            cs_parts.append("no_pretrained")
+        if constraints_structured.get("latency_sensitive"):
+            cs_parts.append("real-time")
+        cs_text = f"\n- 제약 조건 (구조화): {', '.join(cs_parts)}" if cs_parts else ""
+
+    ctx = f"""## 연구 주제
 - 주제: {input_info.get('topic', '')}
 - 문제 정의: {input_info.get('problem_definition', '')}
 - 원하는 결과: {input_info.get('desired_outcome', '')}
-- 제약 조건: {input_info.get('constraints', '')}
+- 제약 조건: {input_info.get('constraints', '')}{cs_text}
 - 목표 지표: {input_info.get('target_metric', '')}
 
 ## 핵심 연구 질문
@@ -213,6 +229,26 @@ def _build_context(input_info: dict, research_q: str, success_criteria: dict) ->
 
 ## 성공 기준
 {json.dumps(success_criteria, ensure_ascii=False)}"""
+
+    if working_frame:
+        ctx += f"\n\n## Working Frame (문제 재정의)\n{working_frame}"
+
+    if decisive_evidence:
+        support = decisive_evidence.get("support", [])
+        contra = decisive_evidence.get("contra", [])
+        swing = decisive_evidence.get("swing", [])
+        pressure = decisive_evidence.get("decision_pressure", {})
+        ctx += "\n\n## Decisive Evidence (판세를 바꾸는 핵심 근거)"
+        if support:
+            ctx += f"\n- Support: {'; '.join(s.get('title','')[:60] + ' (' + s.get('supports_dimension','') + ')' for s in support[:2])}"
+        if contra:
+            ctx += f"\n- Contra: {'; '.join(c.get('title','')[:60] + ' (' + c.get('threatens_dimension','') + ')' for c in contra[:2] if c.get('paper_id'))}"
+        if swing:
+            ctx += f"\n- Swing: {swing[0].get('title','')[:60]} — {swing[0].get('if_confirmed_changes','')}"
+        if pressure.get("primary_dimension"):
+            ctx += f"\n- Decision pressure: {pressure['primary_dimension']} ({pressure.get('reason','')})"
+
+    return ctx
 
 
 def _print_round(n: int, label: str, statement: str,

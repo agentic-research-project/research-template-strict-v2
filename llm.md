@@ -7,17 +7,43 @@
 
 ## 1. 모델 할당 및 역할
 
-| 모델 | 상수 (config.py) | 역할 | 사용 단계 |
-|------|------------------|------|----------|
-| Claude | `CLAUDE_MODEL` | 코드 작성자, 가설 생성자, mechanism 감사관, override reviewer | 1, 2, 3, 6, 7, 8 |
-| GPT | `OPENAI_MODEL` | 비판적 리뷰어, 패치 제안자, 결과 해석자 | 3, 4, 7, 8 |
-| Gemini | `GEMINI_MODEL` | 독립 진단자, 설계 리뷰어, 중재자 | 3, 4, 7, 8 |
+| 역할 | 상수 (config.py) | 기본값 | 사용 단계 |
+|------|------------------|--------|----------|
+| 코드 작성 + 감사 + 최종 결정 | `CLAUDE_MODEL` | claude-opus-4-6 | 1, 2, 3, 6, 7, 8, Decisive, Reframe |
+| 비판 + 패치 + 해석 | `OPENAI_MODEL` | gpt-5.1 | 3, 4, 7, 8, Swing, Reframe |
+| 독립 진단 + 설계 리뷰 | `GEMINI_MODEL` | gemini-2.5-pro | 3, 4, 7, 8, Swing, Reframe |
+
+### 모델 변경 규칙
+
+모델명은 `config.py` 한 곳에서만 관리한다. 사용자는 자유롭게 변경 가능:
+
+```python
+# lab/config.py — 이 3줄만 수정하면 전체 파이프라인 반영
+CLAUDE_MODEL = "claude-opus-4-6"     # 예: "claude-sonnet-4-6"
+OPENAI_MODEL = "gpt-5.1"            # 예: "gpt-4o", "o1", "o3"
+GEMINI_MODEL = "gemini-2.5-pro"     # 예: "gemini-2.5-flash", "gemini-3.1-pro"
+```
+
+**변경 시 주의사항**:
+- `OPENAI_MODEL`을 o1/o3 계열로 변경 시: `response_format=json_object` 미지원 가능 → 파싱 오류 주의
+- `GEMINI_MODEL`을 flash 계열로 변경 시: 추론 깊이 저하 가능 → 독립 진단 품질 확인 필요
+- `CLAUDE_MODEL`을 sonnet/haiku로 변경 시: 코드 생성 품질 저하 가능 → mechanism audit 통과율 확인
+- 모델 변경 후 첫 실행에서 비용/품질 트레이드오프를 확인할 것
+- `LLM_QUERY_TIMEOUT`은 thinking 모델 기준(900s). 빠른 모델 사용 시 줄여도 됨
+
+### 역할별 최소 요구 능력
+
+| 역할 | 최소 요구 | 이유 |
+|------|----------|------|
+| Claude (코드 작성) | 코드 생성 + JSON 구조화 | model.py/module.py/data.py 전체 작성 |
+| GPT (비판 + 해석) | JSON 출력 강제 가능 | `response_format=json_object` 의존 |
+| Gemini (독립 진단) | 긴 입력 처리 + 독립 추론 | 전체 experiment context 수용 필요 |
 
 ### 역할 분리 원칙
 
 - **Claude**: 생성 + 집행. 코드를 작성하고, 합의 결과를 집행한다. 독단적 판단 금지.
 - **GPT**: 비판 + 제안. 약점을 공격하고, 패치를 제안한다. 코드를 직접 작성하지 않는다.
-- **Gemini**: 독립 검증 + 중재. GPT 결과를 보지 않고 독립 판단한다. 코드를 작성하지 않는다.
+- **Gemini**: 독립 검증 + 중재. GPT 결과를 보지 않고(blind) 독립 판단한다. 코드를 작성하지 않는다.
 
 > **핵심**: 어떤 LLM도 단독으로 최종 결정을 내리지 않는다. 합의 → 집행 → 사후검증 3단계를 거친다.
 
@@ -188,6 +214,65 @@ Claude: override reviewer (escalation만 허용)
 
 ---
 
+## 4b. 신규 모듈 LLM 계약
+
+### Decisive Evidence Compressor (`evidence_compressor.py`)
+
+```
+규칙 기반: importance_score 계산 (evidence_role × support_strength × rank × slots)
+LLM 협업: GPT semantic swing 분석 → Gemini 독립 검증 → 합의
+산출물: decisive_evidence.json (support/contra/swing/decision_pressure)
+```
+
+**Swing 합의 규칙**:
+- GPT + Gemini 모두 swing 판정 → strong consensus
+- paper_id 일치 + if_confirmed_changes 일치 → strong
+- paper_id 일치 + effect 불일치 → weak
+- 한쪽만 swing → 제외 (규칙 기반 fallback만 유지)
+
+### Scientific Betting Engine (`scientific_betting.py`)
+
+```
+입력: evidence_coverage + decisive_evidence + constraints_structured + falsification_criteria
+출력: scientific_bet.json (bet_type, info_gain, downside, minimal_test)
+```
+
+**bet_type 결정 (deterministic)**:
+- `exploit`: support 강함 + contra 약함 + downside 낮음
+- `probe`: evidence 희소 + info_gain 높음
+- `reject`: contra 강함 + downside 높음
+
+**downside 계산 (Expected Loss)**:
+- `E[Loss] = P(wrong) × Impact(wrong)`
+- P(wrong) ∝ contra 강도 + uncovered 비율
+- Impact(wrong) ∝ constraint 엄격도
+
+### Problem Reframing Layer (`problem_reframing.py`)
+
+```
+3자 협업:
+  GPT: 4번째 frame (competing_explanation_driven) 제안
+  Gemini: 4개 frame 4차원 점수 (falsifiability/feasibility/novelty/productivity) + 추천
+  Claude: structured decision (followed_gemini/override + rejected_frames + decision_basis)
+산출물: problem_reframing.json (frames[4], recommended_working_frame)
+```
+
+**Frame 선택 기준**: falsifiability 높고 + feasibility acceptable + novelty 보존
+
+### A-7: Senior Researcher Diagnostics (`research_loop.py`)
+
+```
+_triage_pivotal_evidence: 판세를 바꾸는 핵심 근거 최대 3개 추출
+_frame_scientific_bet: 희소 증거 기반 bet_grade (A~D) + hedge
+_detect_problem_reframe: 문제 재정의 신호 4가지 감지
+```
+
+**pivotal_evidence**: ablation + bottleneck + effect_size에서 영향력 순 상위 3개
+**scientific_bet**: confidence × evidence → A(강한 베팅) ~ D(보류). 단일 실행 → C 상한
+**problem_reframe**: 2+ 신호 → `reframe_detected=true` + 구체적 제안
+
+---
+
 ## 5. 증거 인용 규칙
 
 ### Evidence Pack → LLM 프롬프트 체인
@@ -229,12 +314,15 @@ result_summary.json (hypothesis_implementation: {mechanism_audit, metric_audit, 
 | 단계 | 출력 파일 | 필수 최상위 키 |
 |------|----------|---------------|
 | 1 | topic_analysis.json | research_question, search_keywords, success_criteria, constraints, target_metrics |
-| 2 | papers.json | papers (배열), evidence_coverage, search_log |
+| 1+ | problem_reframing.json | frames, recommended_working_frame, reason, claude_decision |
+| 2 | papers.json | papers (배열), evidence_coverage, decisive_evidence, search_log |
+| 2+ | decisive_evidence.json | support, contra, swing, decision_pressure |
 | 3 | hypothesis.json | statement, key_innovation, expected_mechanism, falsification_criteria, evidence_links |
 | 4 | validation.json | score, score_breakdown, verdict, evidence_used, prior_art_comparison |
+| 4+ | scientific_bet.json | bet_type, bet_confidence, info_gain, downside, minimal_test |
 | 6 | code_analysis.json | reusable_components, architecture_insights, recommended_baseline |
 | 7 | experiment_spec.json | spec_id, model_architecture, training_config, evaluation_config, hypothesis_contract |
-| 8 | result_summary.json | primary_metric, training_stability, bottleneck_candidates, confidence_model, effect_size |
+| 8 | result_summary.json | primary_metric, training_stability, bottleneck_candidates, confidence_model, effect_size, pivotal_evidence, scientific_bet, problem_reframe |
 
 ---
 
@@ -260,13 +348,15 @@ LLM이 결과를 해석할 때 참조하는 결정론적 prior:
 | 단계 | 호출 수 | 주요 모델 |
 |------|:-------:|----------|
 | Stage 1 | 2 | Claude |
+| Reframing | 3 | GPT + Gemini + Claude |
 | Stage 2 | 2 | Claude |
+| Decisive Evidence | 2 | GPT + Gemini (swing 협업) |
 | Stage 3 | 6 | Claude + GPT + Gemini |
 | Stage 4 | 2-8 | GPT + Gemini (+ Claude 개선 루프) |
 | Stage 6 | 2 | Claude |
 | Stage 7 | 8 | Claude + GPT + Gemini |
 | Stage 8 | 4/round | GPT + Gemini + Claude |
-| **1회 전체** | **~30** | **Path A 반복 시 +4/round** |
+| **1회 전체** | **~35** | **Path A 반복 시 +4/round** |
 
 ### 비용 절감 원칙
 

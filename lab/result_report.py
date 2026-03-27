@@ -37,33 +37,10 @@ C_BLACK    = "#222222"
 
 
 # ──────────────────────────────────────────────────────────
-# 폰트 설정 (user_approval.py와 동일 패턴)
+# 폰트 설정 — user_approval.py에서 재사용 (중복 제거)
 # ──────────────────────────────────────────────────────────
 
-def _setup_fonts():
-    import glob, sys
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    patterns = [
-        f"{sys.prefix}/lib/python*/site-packages/koreanize_matplotlib/fonts/NanumBarunGothic.ttf",
-        f"{sys.prefix}/lib/python*/site-packages/koreanize_matplotlib/fonts/*.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
-    ]
-    for pat in patterns:
-        matches = sorted(glob.glob(pat))
-        if not matches:
-            continue
-        regular = next((m for m in matches if "Bold" not in m and "bold" not in m), matches[0])
-        bold = next((m for m in matches if "Bold" in m or "bold" in m), regular)
-        try:
-            pdfmetrics.registerFont(TTFont("KR", regular))
-            pdfmetrics.registerFont(TTFont("KR-Bold", bold))
-            return "KR", "KR-Bold"
-        except Exception:
-            continue
-    return "Helvetica", "Helvetica-Bold"
+from lab.user_approval import _setup_fonts
 
 
 # ──────────────────────────────────────────────────────────

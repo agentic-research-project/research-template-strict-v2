@@ -1098,6 +1098,202 @@ def _infer_ablation_findings(
 
 
 # ──────────────────────────────────────────────────────────
+# A-7: Senior Researcher Diagnostics
+#   a) 판세를 바꾸는 핵심 근거 압축
+#   b) 희소 증거 기반 과학적 베팅
+#   c) 문제 재정의 신호 감지
+# ──────────────────────────────────────────────────────────
+
+def _triage_pivotal_evidence(
+    ablation_findings: list[dict],
+    bottleneck_candidates: list[dict],
+    effect_size: dict,
+    primary_metric: dict,
+) -> list[dict]:
+    """A-7a: 모든 증거 중 '판세를 바꾸는' 핵심만 추출한다 (최대 3개).
+
+    10년차 박사는 20개 근거 중 진짜 중요한 2-3개만 골라 판단한다.
+    """
+    pivots: list[dict] = []
+    target = float(primary_metric.get("target", 0))
+    value = float(primary_metric.get("value", 0))
+    gap = target - value
+
+    # 1. ablation에서 가장 큰 효과
+    for f in ablation_findings:
+        if f.get("change_family") == ["_summary"]:
+            continue
+        rel = abs(f.get("relative_delta", 0))
+        if rel < EFFECT_SIZE_MEDIUM:
+            continue
+        direction = "beneficial" if f.get("relative_delta", 0) > 0 else "detrimental"
+        gap_coverage = f"{rel / (abs(gap) + 1e-12) * 100:.0f}% of gap" if gap > 0 else ""
+        pivots.append({
+            "finding": f"{f['change_family']}: {direction} ({f.get('relative_delta',0):+.1%})",
+            "impact": f.get("effect_magnitude", ""),
+            "why_pivotal": gap_coverage or f"Largest effect ({f.get('effect_magnitude','')})",
+            "action": "repeat" if direction == "beneficial" else "revert",
+        })
+
+    # 2. critical bottleneck
+    for bn in bottleneck_candidates:
+        if bn.get("severity") in ("critical", "high"):
+            pivots.append({
+                "finding": f"Bottleneck: {bn['name']}",
+                "impact": bn["severity"],
+                "why_pivotal": "; ".join(bn.get("evidence", [])[:2]),
+                "action": "resolve_first",
+            })
+
+    # 3. effect size가 큰 경우 — 방향 검증
+    if effect_size.get("magnitude") in ("medium", "large"):
+        pivots.append({
+            "finding": f"Latest: {effect_size.get('magnitude')} effect ({effect_size.get('relative_change',0):+.1%})",
+            "impact": effect_size["magnitude"],
+            "why_pivotal": "Direction validated" if effect_size.get("relative_change", 0) > 0 else "Regression detected",
+            "action": "continue" if effect_size.get("relative_change", 0) > 0 else "investigate",
+        })
+
+    pivots.sort(key=lambda p: {"critical": 4, "high": 3, "large": 3, "medium": 2}.get(p["impact"], 0), reverse=True)
+    return pivots[:3]
+
+
+def _frame_scientific_bet(
+    primary_metric: dict,
+    confidence_model: dict,
+    run_history: list[dict],
+    bottleneck_candidates: list[dict],
+    hypothesis_impl: dict,
+) -> dict:
+    """A-7b: 희소한 증거에서 과학적 베팅을 구조화한다.
+
+    "X에 베팅하며, Y가 나오면 수정한다" 형식의 calibrated judgment.
+    bet_grade: A(강한 베팅) ~ D(보류)
+    """
+    conf = confidence_model.get("final_confidence", 0)
+    met = primary_metric.get("met", False)
+    n_runs = len(run_history)
+    value = float(primary_metric.get("value", 0))
+    target = float(primary_metric.get("target", 0))
+    attainment = value / target if target > 0 else 0
+
+    # 지지/반대 증거
+    evidence_for = [k for k, v in {
+        "metric_close": confidence_model.get("metric_score", 0) > 0.7,
+        "stable_training": confidence_model.get("stability_score", 0) > 0.7,
+        "mechanism_ok": confidence_model.get("implementation_score", 0) >= 1.0,
+        "improving_trend": confidence_model.get("trend_score", 0) > 0.6,
+    }.items() if v]
+
+    evidence_against = [
+        f"{bn['name']} ({bn.get('severity', '')})"
+        for bn in bottleneck_candidates if bn.get("severity") in ("critical", "high")
+    ]
+    mech = hypothesis_impl.get("mechanism_audit", {})
+    if mech and not mech.get("implemented", True):
+        evidence_against.append("mechanism_not_implemented")
+
+    # 등급 결정
+    if conf >= 0.8 and not evidence_against:
+        grade, hedge = "A", "Proceed. Validate on held-out data."
+    elif conf >= 0.6 and len(evidence_against) <= 1:
+        grade, hedge = "B", f"Proceed, monitor: {evidence_against[0] if evidence_against else 'trend'}."
+    elif conf >= 0.4:
+        grade, hedge = "C", f"Conditional. Resolve first: {'; '.join(evidence_against[:2])}."
+    else:
+        grade, hedge = "D", "Insufficient evidence. Pivot or collect more data."
+
+    if n_runs <= 1:
+        grade = max(grade, "C")
+        hedge += " [SPARSE: single run, wide confidence bounds]"
+
+    return {
+        "claim": f"{'Target met' if met else f'Attainment {attainment:.0%}'}: {primary_metric.get('name','')}={value:.4f}",
+        "bet_grade": grade,
+        "confidence": round(conf, 3),
+        "evidence_for": evidence_for,
+        "evidence_against": evidence_against,
+        "hedge": hedge,
+        "n_runs": n_runs,
+    }
+
+
+def _detect_problem_reframe(
+    run_history: list[dict],
+    bottleneck_candidates: list[dict],
+    stability: dict,
+    primary_metric: dict,
+    hypothesis_impl: dict,
+) -> dict:
+    """A-7c: 문제 자체를 다시 정의해야 하는 신호를 감지한다.
+
+    '해법이 틀린 것'이 아니라 '문제가 잘못 정의된 것'일 때의 패턴:
+    - 모든 변경이 효과 없음 → 데이터/태스크 문제
+    - mechanism 구현 + 반복 실패 → 가설 전제 오류
+    - 학습 안정적 + metric 낮음 → 잘못된 신호 학습
+    """
+    signals: list[str] = []
+    n_runs = len(run_history)
+
+    if primary_metric.get("met", False) or n_runs < 2:
+        return {"reframe_detected": False, "signals": [], "suggested_reframe": ""}
+
+    primary_name = primary_metric.get("name", "")
+    target = float(primary_metric.get("target", 0))
+    value = float(primary_metric.get("value", 0))
+
+    # 신호 1: 3+ 실행에서 metric 정체 (전체 변동 < 5%)
+    if n_runs >= 3:
+        vals = []
+        for e in run_history:
+            m = e.get("metrics", {})
+            v = m.get("value") if "value" in m else m.get(primary_name)
+            if v is not None:
+                vals.append(float(v))
+        if len(vals) >= 3:
+            rng = max(vals) - min(vals)
+            mean = sum(vals) / len(vals)
+            if mean > 0 and rng / mean < 0.05:
+                signals.append(f"plateau_across_{len(vals)}_runs ({rng/mean:.1%} variation)")
+
+    # 신호 2: mechanism 구현됨 + 반복 실패 → 전제 문제
+    mech = hypothesis_impl.get("mechanism_audit", {})
+    if mech.get("implemented", False) and n_runs >= 3:
+        fails = sum(1 for e in run_history if e.get("metrics", {}).get("met") is False)
+        if fails >= 3:
+            signals.append(f"mechanism_ok_but_{fails}_failures — premise may be wrong")
+
+    # 신호 3: 다수 bottleneck 동시 존재 → 문제 분해 필요
+    bn_names = set(bn.get("name", "") for bn in bottleneck_candidates)
+    if len(bn_names) >= 3:
+        signals.append(f"{len(bn_names)}_bottleneck_types — problem needs decomposition")
+
+    # 신호 4: 안정적 학습 + 낮은 metric → 잘못된 신호 학습
+    if (stability.get("loss_converged") and not stability.get("nan_detected")
+            and not stability.get("overfitting_suspected")):
+        attainment = value / target if target > 0 else 0
+        if attainment < 0.7:
+            signals.append(f"stable_converged_but_{attainment:.0%}_attainment — wrong signal?")
+
+    reframe = len(signals) >= 2
+    suggestion = ""
+    if reframe:
+        if any("stable" in s or "wrong" in s for s in signals):
+            suggestion = "Audit data quality/labeling/task definition before further model iteration."
+        elif any("premise" in s for s in signals):
+            suggestion = "Re-examine hypothesis premise. The mechanism may address the wrong bottleneck."
+        else:
+            suggestion = "Decompose the problem. Address the most constrained sub-problem first."
+
+    return {
+        "reframe_detected": reframe,
+        "signals": signals,
+        "suggested_reframe": suggestion,
+        "confidence": round(min(0.8, len(signals) * 0.25), 2),
+    }
+
+
+# ──────────────────────────────────────────────────────────
 # result_summary.json 생성 (A-1: value collector only)
 # ──────────────────────────────────────────────────────────
 
@@ -1221,6 +1417,15 @@ def _build_result_summary(
         "metric_warnings": metric_warnings,
         # A-4: deterministic recommended next actions (prior for LLM decision)
         "recommended_next_actions": recommended_actions,
+        # A-7: senior researcher diagnostics
+        "pivotal_evidence": _triage_pivotal_evidence(
+            ablation_findings, bottleneck_candidates, effect_size, primary_metric_obj),
+        "scientific_bet": _frame_scientific_bet(
+            primary_metric_obj, confidence_model, run_history or [],
+            bottleneck_candidates, hypothesis_impl),
+        "problem_reframe": _detect_problem_reframe(
+            run_history or [], bottleneck_candidates, stability,
+            primary_metric_obj, hypothesis_impl),
         "stderr_tail": run_result.get("stderr_tail", [])[-50:],
         "stdout_tail": (
             run_result.get("stdout_lines", [])[-50:]
@@ -1306,8 +1511,15 @@ Key mechanism: {hyp.get('expected_mechanism', hyp.get('key_mechanism', hyp.get('
 - recommended_next_actions (rule-based prior): {json.dumps(summary.get('recommended_next_actions', []), ensure_ascii=False)}
 - confidence_model: {json.dumps(summary.get('confidence_model', {}), ensure_ascii=False)}
 
+## Senior Researcher Diagnostics (A-7)
+- pivotal_evidence (판세를 바꾸는 핵심): {json.dumps(summary.get('pivotal_evidence', []), ensure_ascii=False)}
+- scientific_bet (과학적 베팅): {json.dumps(summary.get('scientific_bet', {}), ensure_ascii=False)}
+- problem_reframe (문제 재정의 신호): {json.dumps(summary.get('problem_reframe', {}), ensure_ascii=False)}
+
 NOTE: The above diagnostic prior is deterministic and rule-based.
 You may agree or disagree, but must justify departures from this prior.
+Pay special attention to problem_reframe signals — if reframe_detected=true,
+consider whether the problem definition itself needs revision, not just the solution.
 
 ## Revision criteria (strict)
 - Path A: implementation issue — hypothesis still valid (code bug, config, training instability)

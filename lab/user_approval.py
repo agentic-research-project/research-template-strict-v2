@@ -704,7 +704,8 @@ def _build_section1(inp: dict, hyp: dict) -> list:
     return items
 
 
-def _build_section2(hyp: dict, papers_list: list, val_norm: dict) -> list:
+def _build_section2(hyp: dict, papers_list: list, val_norm: dict,
+                    decisive_evidence: dict | None = None) -> list:
     """Section 2: Related Work & Evidence Synthesis."""
     items = []
 
@@ -765,6 +766,24 @@ def _build_section2(hyp: dict, papers_list: list, val_norm: dict) -> list:
         items.append(("subheading", "Falsification Criteria"))
         for fc in falsif[:4]:
             items.append(("bullet", str(fc) if isinstance(fc, str) else str(fc)))
+
+    # Decisive Evidence (판세를 바꾸는 핵심 근거)
+    if decisive_evidence:
+        de_support = decisive_evidence.get("support", [])
+        de_contra = decisive_evidence.get("contra", [])
+        de_swing = decisive_evidence.get("swing", [])
+        if de_support or de_contra or de_swing:
+            items.append(("gap", 2))
+            items.append(("subheading", "Decisive Evidence"))
+            for s in de_support[:2]:
+                if s.get("paper_id"):
+                    items.append(("bullet", f"Support ({s.get('supports_dimension','')}): {s.get('title','')} — {s.get('reason','')[:80]}"))
+            for c in de_contra[:2]:
+                if c.get("paper_id"):
+                    items.append(("bullet", f"Contra ({c.get('threatens_dimension','')}): {c.get('title','')} — {c.get('reason','')[:80]}"))
+            for w in de_swing[:1]:
+                if w.get("paper_id"):
+                    items.append(("bullet", f"Swing: {w.get('title','')} — if confirmed: {w.get('if_confirmed_changes','')}"))
 
     return items
 
@@ -978,6 +997,29 @@ def _build_section4(run_history: list, final_summary: dict,
                 f"Implementation audit — mechanism: {_pass_fail(mech_ok)}, "
                 f"metric: {_pass_fail(metr_ok)}, "
                 f"constraints: {_pass_fail(cons_ok)}."))
+
+    # Scientific Bet + Problem Reframe (A-7)
+    if has_results and final_summary:
+        bet = final_summary.get("scientific_bet", {})
+        if bet and bet.get("bet_grade"):
+            items.append(("gap", 2))
+            items.append(("kv", "Scientific bet",
+                f"Grade {bet['bet_grade']}. {bet.get('claim', '')} "
+                f"{bet.get('hedge', '')}"))
+
+        reframe = final_summary.get("problem_reframe", {})
+        if reframe and reframe.get("reframe_detected"):
+            items.append(("gap", 1))
+            items.append(("text",
+                f"Problem reframe signal detected ({len(reframe.get('signals',[]))} signals): "
+                f"{reframe.get('suggested_reframe', '')}"))
+
+        pivots = final_summary.get("pivotal_evidence", [])
+        if pivots:
+            items.append(("gap", 1))
+            items.append(("subheading", "Pivotal Evidence"))
+            for p in pivots[:3]:
+                items.append(("bullet", f"{p.get('finding','')} — {p.get('why_pivotal','')} → {p.get('action','')}"))
 
     items.append(("gap", 3))
 
@@ -1292,8 +1334,9 @@ def generate_pdf(
                      _build_section1(inp, hyp)))
     sec_num += 1
 
+    decisive_ev = papers.get("decisive_evidence")
     sections.append((f"{sec_num}. Related Work & Evidence Synthesis",
-                     _build_section2(hyp, papers_list, val_n)))
+                     _build_section2(hyp, papers_list, val_n, decisive_ev)))
     sec_num += 1
 
     chart_data = None

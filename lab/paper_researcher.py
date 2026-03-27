@@ -763,6 +763,12 @@ def _annotate_evidence_graph(papers: list[dict], topic_data: dict) -> list[dict]
         paper_entries.append(entry)
     papers_payload = json.dumps(paper_entries, ensure_ascii=False, indent=2)
 
+    constraints_structured = topic_data.get("constraints_structured", {})
+    cs_summary = ""
+    if constraints_structured:
+        cs_parts = [f"{k}={v}" for k, v in constraints_structured.items() if v]
+        cs_summary = f"\n- 제약 조건 (구조화): {', '.join(cs_parts)}" if cs_parts else ""
+
     prompt = f"""당신은 딥러닝 연구 분석가입니다.
 아래 논문들 각각에 대해 연구 맥락 기준으로 evidence 역할을 판정하세요.
 
@@ -770,7 +776,7 @@ def _annotate_evidence_graph(papers: list[dict], topic_data: dict) -> list[dict]
 - 주제: {inp.get('topic', '')}
 - 문제 정의: {inp.get('problem_definition', '')}
 - 원하는 결과: {inp.get('desired_outcome', '')}
-- 제약 조건: {inp.get('constraints', '')}
+- 제약 조건: {inp.get('constraints', '')}{cs_summary}
 - 목표 지표: {inp.get('target_metric', '')}
 
 ## 판정할 논문 목록
@@ -1030,6 +1036,23 @@ def research_papers(topic_file: str) -> dict:
     if not evidence_coverage["sufficient"]:
         print(f"  ⚠ [Evidence Coverage] 근거 부족 — 가설 생성 전 추가 검색 권장")
 
+    # ── Decisive Evidence Compression ──
+    from lab.evidence_compressor import compress_decisive_evidence
+    retrieval_plan = topic_data.get("retrieval_plan", {})
+    must_cover = retrieval_plan.get("must_cover", [s for s in evidence_coverage.get("coverage", {})])
+    decisive = compress_decisive_evidence(
+        all_papers,
+        evidence_coverage.get("coverage", {}),
+        evidence_coverage.get("group_coverage", {}),
+        must_cover,
+    )
+    n_support = len(decisive["decisive_evidence"]["support"])
+    n_contra = len(decisive["decisive_evidence"]["contra"])
+    n_swing = len(decisive["decisive_evidence"]["swing"])
+    print(f"\n  [Decisive Evidence] support={n_support}, contra={n_contra}, swing={n_swing}")
+    print(f"  [Decision Pressure] {decisive['decisive_evidence']['decision_pressure']['primary_dimension']}: "
+          f"{decisive['decisive_evidence']['decision_pressure']['reason']}")
+
     result = {
         "timestamp":         datetime.now().isoformat(),
         "topic":             topic_name,
@@ -1039,12 +1062,19 @@ def research_papers(topic_file: str) -> dict:
         "total_found":       len(all_papers),
         "papers":            all_papers,
         "evidence_coverage": evidence_coverage,  # B-5: coverage matrix
+        "decisive_evidence": decisive["decisive_evidence"],  # A-7: decisive compressor
     }
 
     output_path = _reports_dir(topic_slug) / "papers.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # decisive_evidence.json 별도 저장
+    de_path = _reports_dir(topic_slug) / "decisive_evidence.json"
+    de_path.write_text(json.dumps(decisive, ensure_ascii=False, indent=2), encoding="utf-8")
+
     print(f"\n  최종 논문 {len(all_papers)}편 저장: {output_path}")
+    print(f"  Decisive evidence 저장: {de_path}")
     print(f"  검색 이력: {' | '.join(search_log)}")
 
     return result
