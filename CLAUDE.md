@@ -58,6 +58,7 @@ flowchart TD
 project/
 ├── CLAUDE.md                    # 규칙 + 구조 참조
 ├── main.py                      # 전체 파이프라인 진입점
+├── llm.md                       # LLM 운용 가이드 (모델 역할, 프롬프트 원칙, 품질 기준)
 ├── todo.md                      # 연구 주제 입력 파일 (main.py 기본 입력)
 ├── .github/workflows/           # GitHub Actions CI (실험 실행 파이프라인)
 ├── lab/                         # 각 단계 모듈 → lab/CLAUDE.md 참조
@@ -81,6 +82,7 @@ project/
 | `experiments/` | `experiments/CLAUDE.md` | Fabric 코딩 규칙, 파일 소유권, 수정 정책(Path A/B/C), validation gate, multi-model 파이프라인 규칙, metric 명칭 규칙 |
 | `schemas/` | — | experiment_spec / result_summary / revision_request JSON Schema |
 | `docs/` | — | system_design.md (아키텍처 설계서), merge_checklist.md |
+| root | `llm.md` | LLM 운용 가이드: 모델 역할, 프롬프트 원칙, 단계별 계약, 품질 기준, 문체 규칙 |
 
 ## 문서 규칙
 - 아키텍처·흐름 다이어그램은 반드시 Mermaid로 작성 (ASCII 다이어그램 사용 금지)
