@@ -6,7 +6,7 @@ AI-Driven Deep Learning Research Automation
   1단계  주제 분석       topic_analyzer
   2단계  논문 검색       paper_researcher  (최신 2년 → 부족 시 1년씩 소급)
   3단계  협업 가설 수립  hypothesis_generator --mode collaborative
-           Claude(제안) → GPT-4o(비판+대안) → Gemini(중재+합성) → Claude(최종)
+           Claude(제안) → OpenAI(비판+대안) → Gemini(중재+합성) → Claude(최종)
   4단계  검증+자동개선   hypothesis_validator --refine --target-score 9.0
            9점 미달 → Claude가 약점 개선 후 재검증 (최대 3회)
            9점 미달 지속 → 3단계로 복귀
@@ -360,7 +360,7 @@ workspace  = "experiments/{topic_slug}"
 def _print_header(topic: str, image_paths: list[str] | None = None) -> None:
     print("\n" + "=" * 60)
     print("  AI-Driven Research Automation")
-    print("  협업 모드: Claude + GPT-4o + Gemini")
+    print("  협업 모드: Claude + OpenAI + Gemini")
     print("=" * 60)
     print(f"  주제: {topic}")
     if image_paths:

@@ -45,7 +45,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model, topic_slug as _topic_slug
+from lab.config import query_claude, parse_json, get_openai_client, get_gemini_model, OPENAI_MODEL, topic_slug as _topic_slug
 
 TEMPLATE_DIR = Path(__file__).parent.parent / "experiments" / "template"
 SCHEMAS_DIR  = Path(__file__).parent.parent / "schemas"
@@ -330,7 +330,11 @@ def _copy_previous_package(previous_pkg: Path, new_pkg: Path) -> None:
     """
     if new_pkg.exists():
         shutil.rmtree(new_pkg)
-    shutil.copytree(previous_pkg, new_pkg)
+    # 중첩된 버전 폴더(v1, v2, ...), __pycache__, data/ 캐시를 제외하고 복사
+    shutil.copytree(
+        previous_pkg, new_pkg,
+        ignore=shutil.ignore_patterns("v[0-9]*", "__pycache__", "data"),
+    )
 
     # ── 아티팩트 디렉토리 실제 초기화 ──────────────────────
     # artifacts/ 전체를 삭제 후 빈 서브디렉토리로 재생성
@@ -617,7 +621,7 @@ Return JSON only:
     try:
         client = get_openai_client()
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user",   "content": user_msg},

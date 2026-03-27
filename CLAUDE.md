@@ -14,12 +14,12 @@ flowchart TD
         A[1. topic_analyzer] -->|topic_analysis.json| B
         B[2. paper_researcher] -->|papers.json| C
         C[3. hypothesis_generator] -->|hypothesis.json| D
-        D[4. hypothesis_validator\nGPT-4o · Gemini] -->|검증 결과| E
+        D[4. hypothesis_validator\nOpenAI · Gemini] -->|검증 결과| E
         E{5. user_approval\nPDF 보고서} -->|승인| F
         E -->|거절/수정| C
         F[6. code_analyzer\nGitHub API] -->|code_analysis.json| G
-        G[7. model_generator\nClaude + GPT + Gemini\nvalidation gate] --> H
-        H[8. research_loop\nRunner + Multi-model 분석\nGPT→Gemini→합의→Claude→postcheck] --> I{목표 달성?}
+        G[7. model_generator\nClaude + OpenAI + Gemini\nvalidation gate] --> H
+        H[8. research_loop\nRunner + Multi-model 분석\nOpenAI→Gemini→합의→Claude→postcheck] --> I{목표 달성?}
         I -->|Path A| G
         I -->|Path B/C| Rev([revision_request.json])
         I -->|done| Done([완료])

@@ -65,7 +65,7 @@ TOOLS = [
     {
         "name": "validate_hypothesis",
         "description": (
-            "GPT-4o와 Gemini를 사용해 가설의 타당성을 검증하고 피드백을 수집한다. "
+            "OpenAI와 Gemini를 사용해 가설의 타당성을 검증하고 피드백을 수집한다. "
             "두 모델의 의견을 종합하여 신뢰도 점수를 산출한다."
         ),
         "input_schema": {

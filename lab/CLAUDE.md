@@ -10,7 +10,7 @@ flowchart LR
         T[1 topic_analyzer] --> P
         P[2 paper_researcher] --> H
         H[3 hypothesis_generator] --> V
-        V[4 hypothesis_validator\nGPT-4o · Gemini] --> U
+        V[4 hypothesis_validator\nOpenAI · Gemini] --> U
         U{5 user_approval\nPDF 보고서}
         U -->|거절/수정| H
     end
@@ -39,7 +39,7 @@ flowchart LR
 | topic_analyzer.py | 연구 주제 구조화 | 사용자 입력 4종 | `{slug}/reports/topic_analysis.json` |
 | paper_researcher.py | arXiv/Semantic Scholar 논문 검색 | topic_analysis.json | `{slug}/reports/papers.json` |
 | hypothesis_generator.py | Claude로 가설 생성 | topic + papers | `{slug}/reports/hypothesis.json` |
-| hypothesis_validator.py | GPT-4o + Gemini 검증 | hypothesis | `{slug}/reports/validation.json` |
+| hypothesis_validator.py | OpenAI + Gemini 검증 | hypothesis | `{slug}/reports/validation.json` |
 | user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | `{slug}/reports/approval.json`, `report.pdf` |
 | code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | `{slug}/reports/code_analysis.json` |
 | model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | `{slug}/runs/vN/` (Fabric 패키지) |
@@ -162,16 +162,17 @@ runner_metadata.json                   # 실행 메타데이터 (dispatch_id 포
 
 ## LLM 설정 (config.py)
 
-| 역할 | 모델 | API |
+모델명은 `lab/config.py`의 상수로 관리한다. 변경 시 config.py 한 곳만 수정.
+
+| 역할 | 상수 | API |
 |---|---|---|
-| 논문 분석 / 가설 생성 / 코드 생성 | `claude-opus-4-6` | Anthropic |
-| 가설 검증 / Research Loop 분석 | `gpt-5.1` | OpenAI |
-| 가설 검증 / Research Loop 진단 | `gemini-2.5-pro` | Google |
+| 논문 분석 / 가설 생성 / 코드 생성 | `CLAUDE_MODEL` | Anthropic (SDK) |
+| 가설 검증 / Research Loop 분석 | `OPENAI_MODEL` | OpenAI |
+| 가설 검증 / Research Loop 진단 | `GEMINI_MODEL` | Google |
 
 ```python
-CLAUDE_MODEL = "claude-opus-4-6"
-OPENAI_MODEL = "gpt-5.1"
-GEMINI_MODEL = "gemini-2.5-pro"
+# lab/config.py 에서 정의 — 여기에 구체적 모델명을 하드코딩하지 않는다
+from lab.config import CLAUDE_MODEL, OPENAI_MODEL, GEMINI_MODEL
 ```
 
 ## 데이터 스펙

@@ -7,16 +7,19 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Results & Reports (대용량 실험 결과)
-results/
-reports/
-workspace/
-models/
+# 대용량 바이너리 (체크포인트)
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.h5
+*.onnx
 
-# Experiments - 실험 코드(runs/)는 GitHub Actions CI checkout을 위해 추적
-# 대용량 바이너리/로그(artifacts/)만 제외
-experiments/*/runs/*/artifacts/
-experiments/*/runs/*/artifacts/**
+# Experiments - 체크포인트/로그/데이터캐시만 제외
+# 결과(results/), 보고서(reports/), 코드(runs/) 는 전부 추적
+experiments/*/runs/*/artifacts/checkpoints/
+experiments/*/runs/*/artifacts/logs/
+experiments/*/runs/*/data/
 
 # IDE
 .vscode/

@@ -52,6 +52,7 @@ GitHub 실행 전제조건:
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -174,13 +175,21 @@ class LocalRunner(BaseRunner):
     train: train.py --config <config_file>
     """
 
+    @staticmethod
+    def _env_with_pythonpath(pkg_dir: Path) -> dict:
+        """pkg_dir을 PYTHONPATH에 추가한 환경변수 딕셔너리."""
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(pkg_dir) + os.pathsep + env.get("PYTHONPATH", "")
+        return env
+
     def run_smoke(self, pkg_dir: Path) -> dict:
         cmd = [sys.executable, "scripts/smoke_test.py", "--config", "configs/fast.yaml"]
         print(f"    [smoke test] {' '.join(cmd)}")
         start = time.monotonic()
         try:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=180, cwd=str(pkg_dir)
+                cmd, capture_output=True, text=True, timeout=180,
+                cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir)
             )
             duration = round(time.monotonic() - start, 2)
             ok     = proc.returncode == 0
@@ -228,7 +237,8 @@ class LocalRunner(BaseRunner):
         started_at = _dt.datetime.utcnow().isoformat()
         try:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout, cwd=str(pkg_dir)
+                cmd, capture_output=True, text=True, timeout=timeout,
+                cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir)
             )
             duration      = round(time.monotonic() - start, 2)
             finished_at   = _dt.datetime.utcnow().isoformat()
@@ -310,6 +320,35 @@ class GitHubActionsRunner(BaseRunner):
 
     _API = "https://api.github.com"
 
+    @staticmethod
+    def _detect_from_git_remote() -> dict:
+        """git remote URL에서 owner, repo, token을 자동 감지한다.
+        예: https://TOKEN@github.com/OWNER/REPO.git → {token, owner, repo}
+        """
+        import re as _re
+        try:
+            result = subprocess.run(
+                ["git", "remote", "-v"], capture_output=True, text=True,
+            )
+            for line in result.stdout.strip().split("\n"):
+                # https://TOKEN@github.com/OWNER/REPO.git (push)
+                m = _re.search(
+                    r"https://([^@]+)@github\.com/([^/]+)/([^/\s]+?)(?:\.git)?\s",
+                    line,
+                )
+                if m:
+                    return {"token": m.group(1), "owner": m.group(2), "repo": m.group(3)}
+                # https://github.com/OWNER/REPO.git (token 없는 경우)
+                m = _re.search(
+                    r"https://github\.com/([^/]+)/([^/\s]+?)(?:\.git)?\s",
+                    line,
+                )
+                if m:
+                    return {"owner": m.group(1), "repo": m.group(2)}
+        except Exception:
+            pass
+        return {}
+
     def __init__(
         self,
         token: str = "",
@@ -321,9 +360,14 @@ class GitHubActionsRunner(BaseRunner):
         max_poll_secs: int = 10800,
         project_dir: str = "",
     ):
-        self.token         = token
-        self.owner         = owner
-        self.repo          = repo
+        # 명시적 값 → 환경변수 → git remote 자동 감지 순서
+        detected = {}
+        if not (token and owner and repo):
+            detected = self._detect_from_git_remote()
+
+        self.token         = token or os.environ.get("GITHUB_TOKEN", "") or detected.get("token", "")
+        self.owner         = owner or os.environ.get("GITHUB_OWNER", "") or detected.get("owner", "")
+        self.repo          = repo  or os.environ.get("GITHUB_REPO", "")  or detected.get("repo", "")
         self.ref           = ref
         self.workflow      = workflow
         self.poll_interval = poll_interval

@@ -166,7 +166,7 @@ def _passes_validation(gpt: dict, gem: dict, target_score: float = SCORE_THRESHO
 
 
 # ──────────────────────────────────────────
-# GPT-4o 검증
+# GPT (OpenAI) 검증
 # ──────────────────────────────────────────
 
 def validate_with_gpt4o(hypothesis: dict, validation_packet: dict | None = None) -> dict:
@@ -204,7 +204,7 @@ def refine_hypothesis_with_claude(
     validation_packet: dict | None = None,
 ) -> dict:
     """
-    GPT-4o + Gemini의 피드백을 바탕으로 Claude가 가설을 개선한다.
+    GPT + Gemini의 피드백을 바탕으로 Claude가 가설을 개선한다.
 
     개선 전략:
     - 약점마다 구체적인 수정 방향을 도출
@@ -283,7 +283,7 @@ def refine_hypothesis_with_claude(
 {json.dumps(avg_breakdown, ensure_ascii=False)}
 → 개선 필요 기준: {', '.join(weak_criteria) if weak_criteria else '전반적 강화 필요'}
 
-## GPT-4o 지적 약점
+## GPT 지적 약점
 {json.dumps(all_weaknesses, ensure_ascii=False)}
 
 ## 개선 제안 (GPT + Gemini)

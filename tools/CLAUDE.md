@@ -23,7 +23,7 @@
 | `analyze_topic` | `lab.topic_analyzer.analyze_topic` | 연구 주제 구조화 |
 | `search_papers` | `lab.paper_researcher.search_papers` | arXiv/Semantic Scholar 논문 검색 |
 | `generate_hypothesis` | `lab.hypothesis_generator.generate_hypothesis` | 가설 생성 |
-| `validate_hypothesis` | `lab.hypothesis_validator.validate_hypothesis` | GPT-4o + Gemini 검증 |
+| `validate_hypothesis` | `lab.hypothesis_validator.validate_hypothesis` | OpenAI + Gemini 검증 |
 | `request_approval` | `lab.user_approval.request_approval` | PDF 보고서 생성 + 사용자 승인 |
 | `analyze_github_code` | `lab.code_analyzer.analyze_code` | GitHub 코드 분석 |
 | `generate_model` | `lab.model_generator.generate_experiment_package` | Fabric 실험 패키지 생성 (validation gate 포함) |

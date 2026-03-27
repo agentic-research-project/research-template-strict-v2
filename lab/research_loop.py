@@ -29,6 +29,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import uuid
 from datetime import datetime
@@ -36,6 +37,7 @@ from pathlib import Path
 
 from lab.config import (
     query_claude, parse_json, get_openai_client, get_gemini_model,
+    OPENAI_MODEL, GEMINI_MODEL,
     result_version_dir, results_dir, reports_dir, slug_from_pkg, version_from_pkg,
 )
 from lab.model_generator import generate_experiment_package, _save_proposal, _archive_proposal
@@ -257,7 +259,7 @@ Return JSON only:
     try:
         client = get_openai_client()
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user",   "content": user_msg},
@@ -527,7 +529,7 @@ Return JSON only:
     try:
         client = get_openai_client()
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user",   "content": user_msg},
@@ -1147,9 +1149,10 @@ def run_research_loop(
         print(f"\n  [종료] Path {decision['path']} — 상위 파이프라인에서 처리 필요")
         break
 
-    # ── 결과 보고서 PDF 생성 ─────────────────────────────
+    # ── 결과 보고서 PDF 생성 (통합 PDF: 가설 + 실험결과 + 참고문헌) ──
     if final_summary:
         from lab.result_report import generate_result_report
+        # 구버전 result_report.pdf (호환성 유지)
         generate_result_report(
             pkg_dir=pkg,
             final_summary=final_summary,
@@ -1158,8 +1161,89 @@ def run_research_loop(
             hypothesis_file=hypothesis_file,
             decision=final_decision,
         )
+        # 통합 report.pdf (가설 + 결과 + 분석 + 참고문헌)
+        try:
+            from lab.user_approval import generate_pdf
+            from lab.config import slug_from_pkg, reports_dir as _rdir
+            _topic = json.loads(Path(topic_file).read_text(encoding="utf-8"))
+            _hyp   = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
+            _slug  = slug_from_pkg(pkg)
+            _rdir_path = _rdir(_slug)
+            _papers_path = _rdir_path / "papers.json"
+            _val_path    = _rdir_path / "validation.json"
+            _papers = json.loads(_papers_path.read_text(encoding="utf-8")) if _papers_path.exists() else {}
+            _val    = json.loads(_val_path.read_text(encoding="utf-8")) if _val_path.exists() else {}
+            _prev_path = Path(f"experiments/{_slug}/results/previous_results.jsonl")
+            _results = []
+            if _prev_path.exists():
+                for line in _prev_path.read_text(encoding="utf-8").strip().split("\n"):
+                    if line.strip():
+                        _results.append(json.loads(line))
+            generate_pdf(_topic, _hyp, _papers, _val,
+                         _rdir_path / "report.pdf",
+                         results=_results, final_summary=final_summary)
+        except Exception as e:
+            print(f"    [PDF 경고] 통합 보고서 생성 실패: {e}")
+
+    # ── 실험 결과 git push ────────────────────────────────
+    if final_summary:
+        _push_results(slug_from_pkg(pkg), version_from_pkg(pkg))
 
     return final_summary
+
+
+def _push_results(slug: str, version: int) -> None:
+    """실험 결과(results/, reports/, runs/)를 git commit & push한다.
+
+    체크포인트 등 대용량 파일은 .gitignore에서 제외됨.
+    push 실패 시 경고만 출력하고 파이프라인은 계속 진행.
+    """
+    exp_dir = f"experiments/{slug}"
+    try:
+        # stage: results + reports + runs (코드 변경분)
+        subprocess.run(
+            ["git", "add", f"{exp_dir}/results/", f"{exp_dir}/reports/",
+             f"{exp_dir}/runs/"],
+            capture_output=True, text=True,
+        )
+        # 변경사항 확인
+        diff = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            capture_output=True,
+        )
+        if diff.returncode == 0:
+            print("    [git] 변경사항 없음, push 건너뜀")
+            return
+
+        subprocess.run(
+            ["git", "commit", "-m",
+             f"experiment: {slug} v{version} results"],
+            capture_output=True, text=True, check=True,
+        )
+        # remote 자동 감지 (origin 우선, 없으면 첫 번째 remote)
+        remotes = subprocess.run(
+            ["git", "remote"], capture_output=True, text=True,
+        ).stdout.strip().split("\n")
+        remote = "origin" if "origin" in remotes else remotes[0] if remotes else ""
+        if not remote:
+            print("    [git 경고] remote 없음, push 건너뜀")
+            return
+
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True,
+        ).stdout.strip()
+
+        push = subprocess.run(
+            ["git", "push", remote, branch],
+            capture_output=True, text=True,
+        )
+        if push.returncode == 0:
+            print(f"    [git] 결과 push 완료 → {remote}/{branch}")
+        else:
+            print(f"    [git 경고] push 실패: {push.stderr.strip()}")
+    except Exception as e:
+        print(f"    [git 경고] 결과 push 중 오류: {e}")
 
 
 # ──────────────────────────────────────────────────────────
