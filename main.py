@@ -134,15 +134,20 @@ Bash로 실행:
     --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
     --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
     --validation-file experiments/{topic_slug}/reports/validation.json \
-    --papers-file     experiments/{topic_slug}/reports/papers.json
+    --papers-file     experiments/{topic_slug}/reports/papers.json \
+    [--auto-approve]
 
   → 통과: 정상 PDF (초록 푸터)
   → 미달: 경고 배너 PDF (주황 푸터) + 최고 점수 가설로 보고
+  → --auto-approve 시: input() 건너뛰고 자동 approve
 
-사용자 결정에 따라:
+사용자 결정에 따라 (대화 모드):
   approve → 6단계 진행 (미달이어도 사용자가 승인 가능)
   revise  → 사용자 수정 의견 기록 후 파이프라인 종료 (수동 재시작)
   reject  → 파이프라인 종료
+
+자동 승인 모드 (--auto-approve):
+  PDF 생성 후 즉시 approve 처리, 6단계로 진행
 
 결과: experiments/{topic_slug}/reports/approval.json
       experiments/{topic_slug}/reports/report.pdf
@@ -358,8 +363,15 @@ workspace  = "experiments/{topic_slug}"
         user_prompt += """
 
 ⚠️ 자동 승인 모드 (CI/CD):
-  5단계에서 AskUserQuestion을 사용하지 말고, PDF 생성 후 자동으로 approve 처리하세요.
-  approval.json에 {"decision": "approve", "mode": "auto"} 를 Write로 저장하고 6단계로 진행하세요."""
+  5단계 실행 시 반드시 --auto-approve 플래그를 추가하세요:
+    python -m lab.user_approval \
+      --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
+      --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
+      --validation-file experiments/{topic_slug}/reports/validation.json \
+      --papers-file     experiments/{topic_slug}/reports/papers.json \
+      --auto-approve
+  이 플래그가 있으면 input() 대기 없이 자동 approve 처리됩니다.
+  AskUserQuestion을 사용하지 마세요."""
 
     _print_header(topic, image_paths)
 

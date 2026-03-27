@@ -1390,6 +1390,7 @@ def request_approval(
     papers_file: str = "",
     results_file: str = "",
     summary_file: str = "",
+    auto_approve: bool = False,
 ) -> dict:
     topic      = _load_json(topic_file)
     hypothesis = _load_json(hypothesis_file)
@@ -1443,19 +1444,24 @@ def request_approval(
     print(f"  가설: {hyp.get('statement_kr', hyp.get('statement', ''))[:80]}")
     print(f"  PDF: {pdf_path.resolve()}")
     print("=" * 60)
-    print("\n  [approve] 승인 → 코드 분석·모델 생성 진행")
-    print("  [revise]  수정 의견 입력 → 파이프라인 종료")
-    print("  [reject]  거부 → 파이프라인 종료")
+    if auto_approve:
+        raw = "approve"
+        comment = "auto-approved (CI/CD mode)"
+        print(f"\n  [AUTO] 자동 승인 모드 — approve 처리")
+    else:
+        print("\n  [approve] 승인 → 코드 분석·모델 생성 진행")
+        print("  [revise]  수정 의견 입력 → 파이프라인 종료")
+        print("  [reject]  거부 → 파이프라인 종료")
 
-    while True:
-        raw = input("\n결정 (approve/revise/reject): ").strip().lower()
-        if raw in ("approve", "revise", "reject"):
-            break
-        print("  approve / revise / reject 중 하나를 입력하세요.")
+        while True:
+            raw = input("\n결정 (approve/revise/reject): ").strip().lower()
+            if raw in ("approve", "revise", "reject"):
+                break
+            print("  approve / revise / reject 중 하나를 입력하세요.")
 
-    comment = ""
-    if raw in ("revise", "reject"):
-        comment = input("이유 (선택, Enter 건너뜀): ").strip()
+        comment = ""
+        if raw in ("revise", "reject"):
+            comment = input("이유 (선택, Enter 건너뜀): ").strip()
 
     result = {
         "timestamp": datetime.now().isoformat(),
@@ -1486,6 +1492,8 @@ if __name__ == "__main__":
                         help="previous_results.jsonl 경로 (실험 결과 포함 시)")
     parser.add_argument("--summary-file",    default="",
                         help="result_summary.json 경로 (실험 결과 포함 시)")
+    parser.add_argument("--auto-approve",   action="store_true",
+                        help="자동 승인 모드 (CI/CD용, input() 건너뜀)")
     args = parser.parse_args()
 
     result = request_approval(
@@ -1495,5 +1503,6 @@ if __name__ == "__main__":
         args.papers_file,
         args.results_file,
         args.summary_file,
+        auto_approve=args.auto_approve,
     )
     print(f"\n최종 결정: {result['decision']}")
