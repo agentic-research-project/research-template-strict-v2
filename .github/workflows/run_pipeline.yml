@@ -47,20 +47,16 @@ jobs:
           echo "=== todo_file: ${{ inputs.todo_file }} ==="
           echo "=== runner.name: ${{ runner.name }} ==="
 
-      - name: Resolve GPU from runner name
+      - name: Resolve GPU from runner name (optional)
         run: |
           RUNNER_NAME="${{ runner.name }}"
-          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
-            echo "ERROR: runner name '$RUNNER_NAME' does not match 'gpu-runner-N' pattern"
-            exit 1
+          if [[ "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
+            GPU_ID="${BASH_REMATCH[1]}"
+            echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+            echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
+          else
+            echo "=== GPU pinning 건너뜀 (runner: $RUNNER_NAME) ==="
           fi
-          GPU_ID="${BASH_REMATCH[1]}"
-          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
-            echo "ERROR: GPU index $GPU_ID out of range (0-7)"
-            exit 1
-          fi
-          echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
-          echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
       - name: Detect project directory in container
         run: |

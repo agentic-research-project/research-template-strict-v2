@@ -75,21 +75,18 @@ jobs:
           echo "=== dispatch_id: ${{ inputs.dispatch_id }} ==="
           echo "=== runner.name: ${{ runner.name }} ==="
 
-      # ── 작업 5: runner 이름 기반 GPU pinning (일반화) ──
-      - name: Resolve GPU from runner name
+      # ── 빈 GPU 자동 선택 (runner 이름 무관) ──
+      - name: Detect available GPU
         run: |
-          RUNNER_NAME="${{ runner.name }}"
-          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
-            echo "ERROR: runner name '$RUNNER_NAME' does not match 'gpu-runner-N' pattern"
-            exit 1
-          fi
-          GPU_ID="${BASH_REMATCH[1]}"
-          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
-            echo "ERROR: GPU index $GPU_ID out of range (0-7)"
+          GPU_ID=$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | \
+                   awk -F', ' '$2 < 100 {print $1; exit}')
+          if [ -z "$GPU_ID" ]; then
+            echo "ERROR: 사용 가능한 GPU가 없습니다 (모든 GPU 메모리 사용 중)"
+            nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv,noheader
             exit 1
           fi
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
-          echo "=== GPU pinning: $RUNNER_NAME → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
+          echo "=== GPU auto-select: ${{ runner.name }} → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
       - name: Detect project directory in container
         run: |
@@ -210,17 +207,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve GPU from runner name
+      - name: Detect available GPU
         run: |
-          RUNNER_NAME="${{ runner.name }}"
-          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
-            echo "ERROR: runner name '$RUNNER_NAME' does not match pattern" && exit 1
-          fi
-          GPU_ID="${BASH_REMATCH[1]}"
-          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
-            echo "ERROR: GPU index $GPU_ID out of range (0-7)" && exit 1
+          GPU_ID=$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | \
+                   awk -F', ' '$2 < 100 {print $1; exit}')
+          if [ -z "$GPU_ID" ]; then
+            echo "ERROR: 사용 가능한 GPU가 없습니다" && exit 1
           fi
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+          echo "=== GPU auto-select: ${{ runner.name }} → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
       - name: Download setup artifacts
         uses: actions/download-artifact@v4
@@ -268,17 +263,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve GPU from runner name
+      - name: Detect available GPU
         run: |
-          RUNNER_NAME="${{ runner.name }}"
-          if [[ ! "$RUNNER_NAME" =~ ^gpu-runner-([0-9]+)$ ]]; then
-            echo "ERROR: runner name '$RUNNER_NAME' does not match pattern" && exit 1
-          fi
-          GPU_ID="${BASH_REMATCH[1]}"
-          if [ "$GPU_ID" -lt 0 ] || [ "$GPU_ID" -gt 7 ]; then
-            echo "ERROR: GPU index $GPU_ID out of range (0-7)" && exit 1
+          GPU_ID=$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | \
+                   awk -F', ' '$2 < 100 {print $1; exit}')
+          if [ -z "$GPU_ID" ]; then
+            echo "ERROR: 사용 가능한 GPU가 없습니다" && exit 1
           fi
           echo "CUDA_DEVICE=$GPU_ID" >> "$GITHUB_ENV"
+          echo "=== GPU auto-select: ${{ runner.name }} → CUDA_VISIBLE_DEVICES=$GPU_ID ==="
 
       - name: Download setup artifacts
         uses: actions/download-artifact@v4
