@@ -1431,8 +1431,8 @@ def _build_result_summary(
             run_result.get("stdout_lines", [])[-50:]
             if run_result["status"] == "metrics_parse_error" else []
         ),
-        # runner metadata: RunResult.metadata 전체 보존 (필드 유실 방지)
-        "runner_metadata": runner_meta,
+        # runner metadata: sanitized (토큰/키 제거 후 보존)
+        "runner_metadata": runner_meta,  # _make_result에서 이미 sanitize됨
         # hypothesis implementation audit 결과 로드
         "hypothesis_implementation": hypothesis_impl,
         "created_at": datetime.now().isoformat(),
@@ -1444,13 +1444,14 @@ def _build_result_summary(
     ver_results_dir = result_version_dir(slug, ver)
     ver_results_dir.mkdir(parents=True, exist_ok=True)
     summary_path = ver_results_dir / "result_summary.json"
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    # runner_metadata.json 별도 저장
+    clean_summary = _sanitize_summary(summary)
+    summary_path.write_text(json.dumps(clean_summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    # runner_metadata.json 별도 저장 (sanitized)
     (ver_results_dir / "runner_metadata.json").write_text(
-        json.dumps(summary.get("runner_metadata", {}), ensure_ascii=False, indent=2),
+        json.dumps(clean_summary.get("runner_metadata", {}), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"    [저장] {summary_path}")
+    print(f"    [저장] {summary_path} (sanitized)")
     return summary
 
 
@@ -2507,15 +2508,30 @@ def _write_revision_request(
 # previous_results.jsonl append
 # ──────────────────────────────────────────────────────────
 
+def _sanitize_summary(summary: dict) -> dict:
+    """result_summary에서 민감 정보를 제거한다."""
+    import re
+    _SECRET_RE = re.compile(
+        r"(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|"
+        r"github_pat_[A-Za-z0-9_]{82}|"
+        r"sk-[A-Za-z0-9]{48,}|"
+        r"AIza[A-Za-z0-9\-_]{35})"
+    )
+    text = json.dumps(summary, ensure_ascii=False)
+    sanitized = _SECRET_RE.sub("***REDACTED***", text)
+    return json.loads(sanitized)
+
+
 def _append_results_log(summary: dict, pkg_dir: Path) -> None:
     # experiments/{slug}/results/previous_results.jsonl
     slug = slug_from_pkg(pkg_dir)
     res_dir = results_dir(slug)
     res_dir.mkdir(parents=True, exist_ok=True)
     log_path = res_dir / "previous_results.jsonl"
+    clean = _sanitize_summary(summary)
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(summary, ensure_ascii=False) + "\n")
-    print(f"    [append] {log_path}")
+        f.write(json.dumps(clean, ensure_ascii=False) + "\n")
+    print(f"    [append] {log_path} (sanitized)")
 
 
 # ──────────────────────────────────────────────────────────

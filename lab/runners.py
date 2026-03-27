@@ -130,7 +130,7 @@ class BaseRunner(ABC):
             "stdout_lines": stdout_lines,
             "stderr_tail":  stderr_tail,
             "returncode":   returncode,
-            "metadata":     metadata,
+            "metadata":     BaseRunner._sanitize_metadata(metadata),
         }
 
     @staticmethod
@@ -145,6 +145,31 @@ class BaseRunner(ABC):
             returncode=-1,
             metadata=meta,
         )
+
+    @staticmethod
+    def _sanitize_metadata(meta: dict) -> dict:
+        """metadata에서 토큰/API 키 등 민감 정보를 제거한다.
+
+        URL에 포함된 토큰, 환경변수 값 등이 result_summary.json에
+        기록되지 않도록 sanitize한다.
+        """
+        import re
+        sanitized = {}
+        # 토큰 패턴: ghp_, gho_, github_pat_, sk-, AIza 등
+        _SECRET_PATTERN = re.compile(
+            r"(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|"
+            r"github_pat_[A-Za-z0-9_]{82}|"
+            r"sk-[A-Za-z0-9]{48,}|"
+            r"AIza[A-Za-z0-9\-_]{35})",
+        )
+        for k, v in meta.items():
+            if isinstance(v, str):
+                sanitized[k] = _SECRET_PATTERN.sub("***REDACTED***", v)
+            elif isinstance(v, dict):
+                sanitized[k] = BaseRunner._sanitize_metadata(v)
+            else:
+                sanitized[k] = v
+        return sanitized
 
     @staticmethod
     def _empty_metadata(runner: str) -> dict:
