@@ -40,6 +40,18 @@ from lab.config import (
     query_claude, parse_json, get_openai_client, get_gemini_model,
     OPENAI_MODEL, GEMINI_MODEL,
     result_version_dir, results_dir, reports_dir, slug_from_pkg, version_from_pkg,
+    # Diagnostic engine constants
+    CONVERGENCE_TAIL_FRACTION, CONVERGENCE_REL_THRESHOLD,
+    PLATEAU_WINDOW, PLATEAU_REL_THRESHOLD,
+    OVERFIT_GAP_THRESHOLD, UNDERTRAINING_IMPROVEMENT_FACTOR,
+    DIVERGENCE_LOSS_RATIO, ATTAINMENT_FAILURE_RATIO,
+    PATH_B_CONSECUTIVE_PLATEAUS, PATH_C_MIN_CONTRADICTIONS, PATH_C_MIN_RUNS,
+    CONFIDENCE_WEIGHTS,
+    ABLATION_EFFECT_THRESHOLD,
+    EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE,
+    METRIC_VALID_RANGES,
+    # LLM stability
+    llm_retry, prompt_hash,
 )
 from lab.model_generator import generate_experiment_package, _save_proposal, _archive_proposal
 from lab.runners import BaseRunner, create_runner
@@ -114,7 +126,884 @@ def _load_hypothesis_audit(pkg_dir: Path) -> dict:
 
 
 # ──────────────────────────────────────────────────────────
-# result_summary.json 생성
+# Diagnostic Helpers (A-1 ~ A-6)
+# ──────────────────────────────────────────────────────────
+
+# --- stdout / metrics trace parsing ---
+
+_RE_EPOCH_LOSS = re.compile(
+    r"(?:epoch|ep)\s*[\[:\s]*(\d+).*?"
+    r"(?:loss|train_loss)\s*[:=]\s*([\d.eE+\-]+)",
+    re.IGNORECASE,
+)
+_RE_VAL_METRIC = re.compile(
+    r"(?:val|valid|test)[\s_]*(?:loss|acc|psnr|ssim|f1|metric)\s*[:=]\s*([\d.eE+\-]+)",
+    re.IGNORECASE,
+)
+_RE_LR = re.compile(
+    r"(?:lr|learning_rate)\s*[:=]\s*([\d.eE+\-]+)",
+    re.IGNORECASE,
+)
+
+
+def _parse_traces_from_stdout(stdout_lines: list[str]) -> dict:
+    """Parse epoch-level train loss, val metric, and lr traces from stdout lines.
+
+    Returns dict with keys: train_losses, val_metrics, lr_values (all list[float]).
+    """
+    train_losses: list[float] = []
+    val_metrics: list[float] = []
+    lr_values: list[float] = []
+    for line in stdout_lines:
+        m = _RE_EPOCH_LOSS.search(line)
+        if m:
+            try:
+                train_losses.append(float(m.group(2)))
+            except (ValueError, OverflowError):
+                pass
+        m = _RE_VAL_METRIC.search(line)
+        if m:
+            try:
+                val_metrics.append(float(m.group(1)))
+            except (ValueError, OverflowError):
+                pass
+        m = _RE_LR.search(line)
+        if m:
+            try:
+                lr_values.append(float(m.group(1)))
+            except (ValueError, OverflowError):
+                pass
+    return {
+        "train_losses": train_losses,
+        "val_metrics": val_metrics,
+        "lr_values": lr_values,
+    }
+
+
+def _parse_traces_from_metrics(metrics: dict) -> dict:
+    """Extract trace data from final_metrics.json rich fields if present.
+
+    Rich trace fields (trainer가 가능하면 기록):
+        train_loss_history_tail    — 마지막 N epoch의 train loss 리스트
+        val_metric_history_tail    — 마지막 N epoch의 val metric 리스트
+        lr_history_tail            — 마지막 N epoch의 learning rate 리스트
+        train_metric_history_tail  — 마지막 N epoch의 train metric 리스트
+        train_loss_last            — 최종 epoch train loss (float)
+        train_loss_best            — 최소 train loss (float)
+        best_epoch                 — val metric 최고 epoch (int)
+        early_stop_triggered       — early stopping 발동 여부 (bool)
+    """
+    return {
+        "train_loss_last":            metrics.get("train_loss_last"),
+        "train_loss_best":            metrics.get("train_loss_best"),
+        "train_loss_history_tail":    metrics.get("train_loss_history_tail"),
+        "val_metric_history_tail":    metrics.get("val_metric_history_tail"),
+        "lr_history_tail":            metrics.get("lr_history_tail"),
+        "train_metric_history_tail":  metrics.get("train_metric_history_tail"),
+        "best_epoch":                 metrics.get("best_epoch"),
+        "early_stop_triggered":       metrics.get("early_stop_triggered"),
+    }
+
+
+# --- A-2: Training Stability ---
+# 임계값은 lab/config.py에서 관리 (CONVERGENCE_*, PLATEAU_*, OVERFIT_*, etc.)
+
+
+def _infer_training_stability(
+    run_result: dict,
+    metrics: dict,
+) -> dict:
+    """A-2: Compute real training stability diagnostics from traces and metrics.
+
+    Returns dict matching training_stability schema with:
+        nan_detected, loss_converged, lr_schedule_ok,
+        plateau_detected, overfitting_suspected, undertraining_suspected, notes
+    """
+    stdout_lines = run_result.get("stdout_lines", [])
+    stdout_text = "\n".join(stdout_lines)
+    status = run_result.get("status", "")
+
+    # --- NaN / Inf detection ---
+    nan_detected = bool(
+        re.search(r"\bnan\b", stdout_text, re.IGNORECASE)
+        or re.search(r"\binf\b", stdout_text, re.IGNORECASE)
+    )
+
+    # --- Parse traces ---
+    stdout_traces = _parse_traces_from_stdout(stdout_lines)
+    metrics_traces = _parse_traces_from_metrics(metrics)
+
+    train_losses = stdout_traces["train_losses"]
+    val_metrics = stdout_traces["val_metrics"]
+    lr_values = stdout_traces["lr_values"]
+
+    # Override with richer metrics-json traces if available (regex fallback보다 우선)
+    if metrics_traces.get("train_loss_history_tail"):
+        train_losses = [float(v) for v in metrics_traces["train_loss_history_tail"]]
+    if metrics_traces.get("val_metric_history_tail"):
+        val_metrics = [float(v) for v in metrics_traces["val_metric_history_tail"]]
+    if metrics_traces.get("lr_history_tail"):
+        lr_values = [float(v) for v in metrics_traces["lr_history_tail"]]
+
+    notes: list[str] = []
+
+    # --- Loss convergence ---
+    loss_converged = False
+    if train_losses and len(train_losses) >= 2:
+        tail_start = max(1, len(train_losses) - max(2, int(len(train_losses) * CONVERGENCE_TAIL_FRACTION)))
+        tail = train_losses[tail_start:]
+        if tail and tail[0] != 0:
+            rel_change = abs(tail[-1] - tail[0]) / (abs(tail[0]) + 1e-12)
+            loss_converged = rel_change < CONVERGENCE_REL_THRESHOLD
+        if not loss_converged and len(train_losses) > 3:
+            notes.append("convergence:loss_still_changing")
+    elif status == "success" and bool(metrics):
+        # Fallback: if we got successful metrics but no loss trace, assume converged
+        loss_converged = True
+    if nan_detected:
+        loss_converged = False
+        notes.append("nan:detected_in_output")
+
+    # --- Early divergence ---
+    if train_losses and len(train_losses) >= 3:
+        if train_losses[-1] > train_losses[0] * DIVERGENCE_LOSS_RATIO:
+            notes.append("divergence:final_loss_gt_2x_initial")
+            loss_converged = False
+
+    # --- Plateau detection ---
+    plateau_detected = False
+    plateau_epoch = None
+    if val_metrics and len(val_metrics) >= PLATEAU_WINDOW:
+        for i in range(len(val_metrics) - PLATEAU_WINDOW + 1):
+            window = val_metrics[i:i + PLATEAU_WINDOW]
+            if window[0] != 0:
+                max_rel_change = max(
+                    abs(window[j + 1] - window[j]) / (abs(window[0]) + 1e-12)
+                    for j in range(len(window) - 1)
+                )
+                if max_rel_change < PLATEAU_REL_THRESHOLD:
+                    plateau_detected = True
+                    plateau_epoch = i + 1
+                    break
+        if plateau_detected and plateau_epoch is not None:
+            notes.append(f"plateau:epoch{plateau_epoch}")
+    elif train_losses and len(train_losses) >= PLATEAU_WINDOW and not val_metrics:
+        # Use train loss as proxy if no val metrics
+        for i in range(len(train_losses) - PLATEAU_WINDOW + 1):
+            window = train_losses[i:i + PLATEAU_WINDOW]
+            if window[0] != 0:
+                max_rel_change = max(
+                    abs(window[j + 1] - window[j]) / (abs(window[0]) + 1e-12)
+                    for j in range(len(window) - 1)
+                )
+                if max_rel_change < PLATEAU_REL_THRESHOLD:
+                    plateau_detected = True
+                    plateau_epoch = i + 1
+                    notes.append(f"plateau:loss_epoch{plateau_epoch}")
+                    break
+
+    # --- LR schedule check ---
+    lr_schedule_ok: bool | None = None  # None = not applicable / no data
+    if lr_values and len(lr_values) >= 2:
+        unique_lrs = set(round(v, 10) for v in lr_values)
+        if len(unique_lrs) > 1:
+            lr_schedule_ok = True  # LR changed during training -> scheduler active
+        else:
+            lr_schedule_ok = False
+            notes.append("scheduler:constant_lr")
+    else:
+        notes.append("scheduler:not_applicable")
+
+    # --- Overfitting detection ---
+    overfitting_suspected = False
+    train_loss_last = metrics_traces["train_loss_last"]
+    train_metric_tail = metrics_traces.get("train_metric_history_tail", [])
+
+    # Method 1: train_loss_last vs val_metric gap (OVERFIT_GAP_THRESHOLD 사용)
+    if train_loss_last is not None and val_metrics and len(val_metrics) >= 2:
+        # 낮은 train loss + val metric 정체 → overfitting
+        val_best = max(val_metrics) if val_metrics else 0
+        val_last = val_metrics[-1] if val_metrics else 0
+        if val_best > 0 and (val_best - val_last) / (val_best + 1e-12) > OVERFIT_GAP_THRESHOLD:
+            overfitting_suspected = True
+            notes.append(f"overfit:val_degradation (best={val_best:.4f} → last={val_last:.4f}, gap>{OVERFIT_GAP_THRESHOLD:.0%})")
+
+    # Method 2: train metric vs val metric gap
+    if train_metric_tail and val_metrics and len(train_metric_tail) >= 2 and len(val_metrics) >= 2:
+        train_last = float(train_metric_tail[-1])
+        val_last_m = float(val_metrics[-1])
+        if train_last > 0:
+            gap = (train_last - val_last_m) / (train_last + 1e-12)
+            if gap > OVERFIT_GAP_THRESHOLD:
+                overfitting_suspected = True
+                if "overfit:" not in " ".join(notes):
+                    notes.append(f"overfit:train_val_gap (train={train_last:.4f}, val={val_last_m:.4f}, gap={gap:.2%})")
+
+    # Method 3: train loss decreasing but val metrics stagnant
+    if train_losses and val_metrics and len(train_losses) >= 3 and len(val_metrics) >= 3:
+        train_improving = train_losses[-1] < train_losses[0] * 0.8  # 20% improvement
+        mid_idx = max(1, len(val_metrics) // 2)
+        val_stagnant = abs(val_metrics[-1] - val_metrics[mid_idx]) / (abs(val_metrics[0]) + 1e-12) < PLATEAU_REL_THRESHOLD * 2
+        if train_improving and val_stagnant and not overfitting_suspected:
+            overfitting_suspected = True
+            notes.append("overfit:train_loss_80pct_improved_but_val_stagnant")
+
+    # --- Undertraining detection ---
+    undertraining_suspected = False
+    if loss_converged is False and not nan_detected and status == "success":
+        undertraining_suspected = True
+        notes.append("underfit:loss_not_converged_no_nan")
+    elif train_losses and len(train_losses) >= 2:
+        # Still improving significantly in last epochs
+        if len(train_losses) >= 3:
+            last_improvement = abs(train_losses[-1] - train_losses[-2]) / (abs(train_losses[-2]) + 1e-12)
+            if last_improvement > CONVERGENCE_REL_THRESHOLD * UNDERTRAINING_IMPROVEMENT_FACTOR:
+                undertraining_suspected = True
+                if "underfit:" not in " ".join(notes):
+                    notes.append("underfit:still_improving_rapidly")
+
+    return {
+        "loss_converged": loss_converged,
+        "nan_detected": nan_detected,
+        "lr_schedule_ok": lr_schedule_ok,
+        "plateau_detected": plateau_detected,
+        "overfitting_suspected": overfitting_suspected,
+        "undertraining_suspected": undertraining_suspected,
+        "notes": notes,
+    }
+
+
+# --- A-3: Bottleneck Candidates ---
+
+def _infer_bottlenecks(
+    stability: dict,
+    primary_metric: dict,
+    hypothesis_impl: dict,
+    run_result: dict,
+) -> list[dict]:
+    """A-3: Deterministic rule-based bottleneck candidate generation.
+
+    Returns list of {name, severity, evidence}.
+    """
+    candidates: list[dict] = []
+    target = float(primary_metric.get("target", 0))
+    value = float(primary_metric.get("value", 0))
+    met = primary_metric.get("met", False)
+    status = run_result.get("status", "")
+
+    nan_detected = stability.get("nan_detected", False)
+    loss_converged = stability.get("loss_converged", False)
+    plateau_detected = stability.get("plateau_detected", False)
+    overfitting = stability.get("overfitting_suspected", False)
+    undertraining = stability.get("undertraining_suspected", False)
+
+    mech_audit = hypothesis_impl.get("mechanism_audit", {})
+    metric_audit = hypothesis_impl.get("metric_audit", {})
+    constraints_audit = hypothesis_impl.get("constraints_audit", {})
+
+    attainment_ratio = value / target if target > 0 else 0
+
+    # Rule: NaN → optimization bottleneck
+    if nan_detected:
+        candidates.append({
+            "name": "optimization bottleneck",
+            "severity": "critical",
+            "confidence": 0.95,
+            "evidence": ["nan_detected=true", "possible optimizer/lr/gradient issue"],
+        })
+
+    # Rule: metric < 50% of target AND loss not converged → execution failure
+    if attainment_ratio < ATTAINMENT_FAILURE_RATIO and not loss_converged and not met:
+        candidates.append({
+            "name": "execution failure",
+            "severity": "critical",
+            "confidence": 0.85,
+            "evidence": [
+                f"attainment_ratio={attainment_ratio:.2f} (<{ATTAINMENT_FAILURE_RATIO})",
+                "loss_converged=false",
+                "core implementation mismatch likely",
+            ],
+        })
+
+    # Rule: plateau → representation bottleneck
+    if plateau_detected and not met:
+        candidates.append({
+            "name": "representation bottleneck",
+            "severity": "medium",
+            "confidence": 0.70,
+            "evidence": ["metric plateau", "stable training", f"attainment_ratio={attainment_ratio:.2f}"],
+        })
+
+    # Rule: overfitting → regularization gap
+    if overfitting:
+        candidates.append({
+            "name": "regularization gap",
+            "severity": "medium",
+            "confidence": 0.75,
+            "evidence": ["train improving but val stagnant/degrading", "regularization or data split issue"],
+        })
+
+    # Rule: mechanism_ok=false → core mechanism not implemented
+    if mech_audit and not mech_audit.get("implemented", True):
+        candidates.append({
+            "name": "core mechanism not implemented",
+            "severity": "critical",
+            "confidence": 0.90,
+            "evidence": ["mechanism_audit.implemented=false"] + mech_audit.get("missing_links", [])[:2],
+        })
+
+    # Rule: metric_ok=false → metrics contract failure
+    if metric_audit and not metric_audit.get("implemented", True):
+        candidates.append({
+            "name": "metrics contract failure",
+            "severity": "high",
+            "confidence": 0.90,
+            "evidence": [
+                "metric_audit.implemented=false",
+                f"expected={metric_audit.get('primary_metric_expected', '?')}",
+                f"found={metric_audit.get('primary_metric_found', '?')}",
+            ],
+        })
+
+    # Rule: constraints_ok=false → constraint violation
+    if constraints_audit and not constraints_audit.get("implemented", True):
+        violations = constraints_audit.get("violations", [])
+        candidates.append({
+            "name": "constraint violation",
+            "severity": "high",
+            "confidence": 0.85,
+            "evidence": ["constraints_audit.implemented=false"] + violations[:2],
+        })
+
+    # Rule: execution failure (smoke/timeout/parse error)
+    if status in ("smoke_failed", "failed", "metrics_parse_error", "timeout"):
+        # execution failure가 아직 없으면 추가
+        if not any(c["name"] == "execution failure" for c in candidates):
+            candidates.append({
+                "name": "execution failure",
+                "severity": "critical",
+                "confidence": 0.95,
+                "evidence": [f"status={status}"],
+            })
+
+    # Rule: undertraining → optimization bottleneck (mild)
+    if undertraining and not met:
+        candidates.append({
+            "name": "optimization bottleneck",
+            "severity": "low",
+            "confidence": 0.50,
+            "evidence": ["loss not fully converged", "more epochs or lr tuning may help"],
+        })
+
+    # Ensure at least 1 candidate if target not met
+    if not candidates and not met:
+        candidates.append({
+            "name": "representation bottleneck",
+            "severity": "low",
+            "confidence": 0.30,
+            "evidence": [f"target not met (attainment={attainment_ratio:.2f}) but no specific issue detected"],
+        })
+
+    return candidates
+
+
+# --- A-4: Recommended Next Actions ---
+
+def _infer_recommended_actions(
+    stability: dict,
+    primary_metric: dict,
+    hypothesis_impl: dict,
+    bottleneck_candidates: list[dict],
+    run_history: list[dict],
+    run_result: dict,
+) -> list[dict]:
+    """A-4: Rule-based recommended_next_actions as deterministic prior.
+
+    Returns list of {path, priority, rationale, evidence}.
+    """
+    actions: list[dict] = []
+    met = primary_metric.get("met", False)
+    status = run_result.get("status", "")
+
+    mech_audit = hypothesis_impl.get("mechanism_audit", {})
+    metric_audit = hypothesis_impl.get("metric_audit", {})
+    constraints_audit = hypothesis_impl.get("constraints_audit", {})
+
+    # Rule: target met -> done
+    if met:
+        actions.append({
+            "path": "done",
+            "priority": "high",
+            "rationale": "target metric achieved",
+            "evidence": [f"primary_metric.met=true"],
+        })
+        return actions
+
+    # Rule: execution failure -> Path A
+    if status in ("smoke_failed", "failed", "metrics_parse_error", "timeout"):
+        actions.append({
+            "path": "A",
+            "priority": "high",
+            "rationale": f"execution failure ({status}) requires implementation fix",
+            "evidence": [f"status={status}"],
+        })
+
+    # Rule: mechanism_ok=false -> Path A high
+    if mech_audit and not mech_audit.get("implemented", True):
+        actions.append({
+            "path": "A",
+            "priority": "high",
+            "rationale": "core mechanism not implemented",
+            "evidence": ["mechanism_audit.implemented=false"],
+        })
+
+    # Rule: metric_ok=false -> Path A high
+    if metric_audit and not metric_audit.get("correct", True):
+        actions.append({
+            "path": "A",
+            "priority": "high",
+            "rationale": "evaluation/metrics contract broken",
+            "evidence": ["metric_audit.correct=false"],
+        })
+
+    # Rule: constraints_ok=false -> Path A high
+    if constraints_audit and not constraints_audit.get("satisfied", True):
+        actions.append({
+            "path": "A",
+            "priority": "high",
+            "rationale": "constraint violation requires fix",
+            "evidence": ["constraints_audit.satisfied=false"],
+        })
+
+    # Rule: NaN -> Path A
+    if stability.get("nan_detected"):
+        actions.append({
+            "path": "A",
+            "priority": "high",
+            "rationale": "NaN/Inf detected, training instability",
+            "evidence": ["nan_detected=true"],
+        })
+
+    # Rule: 2+ consecutive plateaus -> Path B medium
+    n_runs = len(run_history)
+    consecutive_plateaus = 0
+    for entry in reversed(run_history):
+        entry_stability = entry.get("training_stability", {})
+        if entry_stability.get("plateau_detected", False):
+            consecutive_plateaus += 1
+        else:
+            break
+    if stability.get("plateau_detected"):
+        consecutive_plateaus += 1  # current run (not yet in history when called during build)
+
+    if consecutive_plateaus >= PATH_B_CONSECUTIVE_PLATEAUS:
+        actions.append({
+            "path": "B",
+            "priority": "medium",
+            "rationale": f"{consecutive_plateaus} consecutive plateaus suggest hypothesis refinement needed",
+            "evidence": [f"consecutive_plateaus={consecutive_plateaus}"],
+        })
+
+    # Rule: 3+ runs + mechanism implemented + repeated contradiction -> Path C
+    mechanism_implemented = not mech_audit or mech_audit.get("implemented", True)
+    if n_runs >= PATH_C_MIN_RUNS and mechanism_implemented:
+        # Check for "repeated contradiction": metric consistently far from target
+        contradiction_count = sum(
+            1 for entry in run_history
+            if entry.get("metrics", {}).get("met") is False
+            and entry.get("training_stability", {}).get("loss_converged", False)
+        )
+        if contradiction_count >= PATH_C_MIN_CONTRADICTIONS:
+            actions.append({
+                "path": "C",
+                "priority": "high",
+                "rationale": "3+ runs with mechanism implemented but target consistently unmet despite stable training",
+                "evidence": [
+                    f"contradiction_count={contradiction_count}",
+                    "mechanism_implemented=true",
+                    "repeated experimental contradiction",
+                ],
+            })
+
+    # Fallback: if no actions yet and not met, suggest Path A
+    if not actions:
+        actions.append({
+            "path": "A",
+            "priority": "medium",
+            "rationale": "target not met, implementation improvement suggested",
+            "evidence": [f"attainment={primary_metric.get('value', 0)}/{primary_metric.get('target', 0)}"],
+        })
+
+    return actions
+
+
+# --- A-5: Confidence Model ---
+
+# Confidence weights: lab/config.py CONFIDENCE_WEIGHTS 사용
+
+
+def _estimate_confidence(
+    primary_metric: dict,
+    stability: dict,
+    hypothesis_impl: dict,
+    deltas: dict,
+    run_history: list[dict],
+    run_result: dict,
+) -> dict:
+    """A-5: Weighted confidence score model with explanation.
+
+    Returns dict with sub-scores, final_confidence, and explanation.
+    Also includes backward-compatible flat 'confidence' float.
+    """
+    target = float(primary_metric.get("target", 0))
+    value = float(primary_metric.get("value", 0))
+    met = primary_metric.get("met", False)
+    status = run_result.get("status", "")
+    primary_name = primary_metric.get("name", "")
+
+    # --- metric_score: how close to target ---
+    if met:
+        metric_score = 1.0
+    elif target > 0:
+        metric_score = min(1.0, max(0.0, value / target))
+    else:
+        metric_score = 0.0
+
+    # --- stability_score ---
+    stability_score = 1.0
+    if stability.get("nan_detected"):
+        stability_score -= 0.5
+    if not stability.get("loss_converged", False):
+        stability_score -= 0.3
+    if stability.get("plateau_detected"):
+        stability_score -= 0.1
+    if stability.get("overfitting_suspected"):
+        stability_score -= 0.1
+    stability_score = max(0.0, stability_score)
+    if status in ("smoke_failed", "failed", "metrics_parse_error", "timeout"):
+        stability_score = 0.0
+
+    # --- implementation_score ---
+    implementation_score = 1.0
+    mech_audit = hypothesis_impl.get("mechanism_audit", {})
+    metric_audit = hypothesis_impl.get("metric_audit", {})
+    constraints_audit = hypothesis_impl.get("constraints_audit", {})
+
+    if mech_audit and not mech_audit.get("implemented", True):
+        implementation_score -= 0.5
+    if metric_audit and not metric_audit.get("correct", True):
+        implementation_score -= 0.3
+    if constraints_audit and not constraints_audit.get("satisfied", True):
+        implementation_score -= 0.2
+    implementation_score = max(0.0, implementation_score)
+
+    # --- trend_score: improvement across runs ---
+    trend_score = 0.5  # neutral default
+    if run_history and primary_name:
+        prev_values = []
+        for entry in run_history:
+            entry_metrics = entry.get("metrics", {})
+            if isinstance(entry_metrics, dict):
+                prev_val = entry_metrics.get("value") if "value" in entry_metrics else entry_metrics.get(primary_name)
+                if prev_val is not None:
+                    prev_values.append(float(prev_val))
+        if prev_values:
+            latest_prev = prev_values[-1]
+            if latest_prev > 0 and value > latest_prev:
+                improvement_ratio = (value - latest_prev) / latest_prev
+                trend_score = min(1.0, 0.5 + improvement_ratio * 2)
+            elif latest_prev > 0 and value < latest_prev:
+                degradation_ratio = (latest_prev - value) / latest_prev
+                trend_score = max(0.0, 0.5 - degradation_ratio * 2)
+    # Primary metric delta also informs trend
+    primary_delta = deltas.get(primary_name)
+    if primary_delta is not None and primary_delta > 0:
+        trend_score = min(1.0, trend_score + 0.1)
+
+    # --- Final weighted confidence ---
+    w = CONFIDENCE_WEIGHTS
+    final_confidence = round(
+        metric_score * w["metric"]
+        + stability_score * w["stability"]
+        + implementation_score * w["implementation"]
+        + trend_score * w["trend"],
+        4,
+    )
+
+    # --- Explanation ---
+    parts: list[str] = []
+    if met:
+        parts.append("target achieved")
+    elif metric_score > 0.8:
+        parts.append("close to target")
+    elif metric_score < 0.3:
+        parts.append("far from target")
+    else:
+        parts.append("metric below target")
+
+    if stability_score >= 0.8:
+        parts.append("training is stable")
+    elif stability_score < 0.3:
+        parts.append("training instability detected")
+
+    if implementation_score >= 1.0:
+        parts.append("implementation is valid")
+    elif implementation_score < 0.5:
+        parts.append("implementation issues detected")
+
+    if trend_score > 0.6:
+        parts.append("improving trend across runs")
+    elif trend_score < 0.4:
+        parts.append("degrading or stagnant trend")
+
+    explanation = "; ".join(parts)
+
+    return {
+        "metric_score": round(metric_score, 4),
+        "stability_score": round(stability_score, 4),
+        "implementation_score": round(implementation_score, 4),
+        "trend_score": round(trend_score, 4),
+        "final_confidence": final_confidence,
+        "explanation": explanation,
+    }
+
+
+# --- A-5b: Effect Size ---
+
+def _compute_effect_size(
+    current_value: float,
+    previous_value: float,
+    target: float,
+) -> dict:
+    """버전 간 효과 크기를 계산한다.
+
+    single-run 비교이므로 Cohen's d 대신 상대 변화율 + 목표 대비 진전율을 사용한다.
+    Returns: {relative_change, target_progress, magnitude, interpretation}
+    """
+    if previous_value == 0 and current_value == 0:
+        return {
+            "relative_change": 0.0,
+            "target_progress": 0.0,
+            "magnitude": "none",
+            "interpretation": "no change (both zero)",
+        }
+
+    # 상대 변화율
+    if previous_value != 0:
+        rel_change = (current_value - previous_value) / abs(previous_value)
+    else:
+        rel_change = 1.0 if current_value > 0 else 0.0
+
+    # 목표 대비 진전율: 이전→현재 변화가 이전→목표 거리의 몇 %를 해소했는지
+    gap_before = target - previous_value
+    gap_after = target - current_value
+    if abs(gap_before) > 1e-12:
+        target_progress = (gap_before - gap_after) / abs(gap_before)
+    else:
+        target_progress = 0.0
+
+    # 크기 판정
+    abs_rel = abs(rel_change)
+    if abs_rel < EFFECT_SIZE_SMALL:
+        magnitude = "negligible"
+    elif abs_rel < EFFECT_SIZE_MEDIUM:
+        magnitude = "small"
+    elif abs_rel < EFFECT_SIZE_LARGE:
+        magnitude = "medium"
+    else:
+        magnitude = "large"
+
+    # 해석
+    direction = "improved" if rel_change > 0 else "degraded" if rel_change < 0 else "unchanged"
+    interpretation = (
+        f"{direction} by {abs_rel:.2%} ({magnitude} effect). "
+        f"Target gap reduced by {target_progress:.1%}."
+    )
+
+    return {
+        "relative_change": round(rel_change, 6),
+        "target_progress": round(target_progress, 4),
+        "magnitude": magnitude,
+        "interpretation": interpretation,
+    }
+
+
+# --- A-5c: Metric Value Validation ---
+
+def _validate_metric_values(metrics: dict, primary_name: str) -> list[str]:
+    """Metric 값이 도메인 합리 범위 내인지 검증한다.
+
+    Returns: list of warning strings (empty if all ok).
+    """
+    warnings: list[str] = []
+    for key, value in metrics.items():
+        if not isinstance(value, (int, float)):
+            continue
+        # NaN / Inf 검사
+        if value != value:  # NaN check
+            warnings.append(f"metric_nan:{key}={value}")
+            continue
+        if abs(value) == float("inf"):
+            warnings.append(f"metric_inf:{key}={value}")
+            continue
+
+        # 범위 검사 — metric 이름의 접두어/접미어로 매칭
+        matched_range = None
+        key_lower = key.lower()
+        for range_key, (lo, hi) in METRIC_VALID_RANGES.items():
+            if key_lower == range_key or key_lower.endswith(f"_{range_key}"):
+                matched_range = (range_key, lo, hi)
+                break
+        if matched_range:
+            rk, lo, hi = matched_range
+            if value < lo or value > hi:
+                warnings.append(
+                    f"metric_range_suspect:{key}={value} "
+                    f"(expected {rk} in [{lo}, {hi}])"
+                )
+    return warnings
+
+
+# --- A-6: Ablation Findings ---
+
+# Patch family classification keywords
+_PATCH_FAMILY_KEYWORDS: dict[str, list[str]] = {
+    "augmentation":    ["augment", "transform", "flip", "crop", "noise", "jitter", "mixup", "cutout", "cutmix"],
+    "capacity":        ["channel", "depth", "width", "layer", "block", "head", "hidden", "dim", "expand"],
+    "optimizer":       ["optimizer", "lr", "learning_rate", "momentum", "weight_decay", "adam", "sgd", "scheduler", "warmup", "cosine"],
+    "regularization":  ["dropout", "drop_path", "regulariz", "l2", "l1", "label_smooth"],
+    "normalization":   ["norm", "batch_norm", "layer_norm", "group_norm", "instance_norm"],
+    "loss":            ["loss", "criterion", "bce", "cross_entropy", "mse", "focal", "dice"],
+}
+
+
+def _classify_patch_families(patches: list[dict]) -> list[str]:
+    """Classify a list of patch dicts into patch family tags."""
+    families: set[str] = set()
+    for patch in patches:
+        text = json.dumps(patch, ensure_ascii=False).lower()
+        for family, keywords in _PATCH_FAMILY_KEYWORDS.items():
+            if any(kw in text for kw in keywords):
+                families.add(family)
+    return sorted(families)
+
+
+def _infer_ablation_findings(
+    pkg_dir: Path,
+    primary_metric: dict,
+    run_history: list[dict],
+) -> list[dict]:
+    """A-6: Infer micro-ablation findings from revision history and metric deltas.
+
+    Reads previous_results.jsonl and compares patch changes vs metric changes.
+    Returns list of {change_family, likely_effect, supporting_runs, confidence}.
+    """
+    findings: list[dict] = []
+    slug = slug_from_pkg(pkg_dir)
+    prev_results_path = results_dir(slug) / "previous_results.jsonl"
+
+    if not prev_results_path.exists():
+        return findings
+
+    # Load all previous results
+    prev_results: list[dict] = []
+    try:
+        for line in prev_results_path.read_text(encoding="utf-8").strip().split("\n"):
+            line = line.strip()
+            if line:
+                prev_results.append(json.loads(line))
+    except Exception:
+        return findings
+
+    if len(prev_results) < 2:
+        return findings
+
+    primary_name = primary_metric.get("name", "")
+    if not primary_name:
+        return findings
+
+    # Compare consecutive runs to infer patch effects
+    for i in range(1, len(prev_results)):
+        prev_run = prev_results[i - 1]
+        curr_run = prev_results[i]
+
+        prev_primary = prev_run.get("primary_metric", {})
+        curr_primary = curr_run.get("primary_metric", {})
+        prev_val = float(prev_primary.get("value", 0))
+        curr_val = float(curr_primary.get("value", 0))
+
+        if prev_val == 0 and curr_val == 0:
+            continue
+
+        delta = curr_val - prev_val
+        rel_delta = delta / (abs(prev_val) + 1e-12)
+
+        # Get patch family tags from run history entries if available
+        patch_families: list[str] = []
+        for entry in run_history:
+            if entry.get("run_id") == curr_run.get("run_id"):
+                patch_families = entry.get("patch_family_tags", [])
+                break
+
+        # If no tags in history, try to infer from accepted patches
+        if not patch_families:
+            curr_patches = curr_run.get("accepted_patches", [])
+            if curr_patches:
+                patch_families = _classify_patch_families(curr_patches)
+
+        if not patch_families:
+            patch_families = ["unclassified"]
+
+        # Only report if significant change
+        if abs(rel_delta) < ABLATION_EFFECT_THRESHOLD:
+            continue
+
+        # Effect size classification
+        abs_rel = abs(rel_delta)
+        if abs_rel < EFFECT_SIZE_SMALL:
+            effect_magnitude = "negligible"
+        elif abs_rel < EFFECT_SIZE_MEDIUM:
+            effect_magnitude = "small"
+        elif abs_rel < EFFECT_SIZE_LARGE:
+            effect_magnitude = "medium"
+        else:
+            effect_magnitude = "large"
+
+        n_families = len(patch_families)
+        is_confounded = n_families > 1
+
+        if delta > 0:
+            effect = f"{'/'.join(patch_families)} likely beneficial (+{rel_delta:.1%}, {effect_magnitude})"
+            confidence_val = min(0.8, abs_rel * 3)
+        else:
+            effect = f"{'/'.join(patch_families)} likely detrimental ({rel_delta:.1%}, {effect_magnitude})"
+            confidence_val = min(0.7, abs_rel * 2)
+
+        # 다중 패치 묶음이면 신뢰도 감소 + confounded 경고
+        if is_confounded:
+            confidence_val *= 0.6  # 다수 패치 묶음 → 신뢰도 40% 감소
+            effect += f" [CONFOUNDED: {n_families} families applied together, individual effect unknown]"
+
+        findings.append({
+            "change_family": patch_families,
+            "likely_effect": effect,
+            "effect_magnitude": effect_magnitude,
+            "confounded": is_confounded,
+            "n_changes": n_families,
+            "supporting_runs": [
+                prev_run.get("run_id", f"v{i}"),
+                curr_run.get("run_id", f"v{i + 1}"),
+            ],
+            "confidence": round(confidence_val, 2),
+            "metric_delta": round(delta, 4),
+            "relative_delta": round(rel_delta, 4),
+        })
+
+    return findings
+
+
+# ──────────────────────────────────────────────────────────
+# result_summary.json 생성 (A-1: value collector only)
 # ──────────────────────────────────────────────────────────
 
 def _build_result_summary(
@@ -123,7 +1012,20 @@ def _build_result_summary(
     spec: dict,
     previous_run_id: str | None,
     previous_metrics: dict,
+    run_history: list[dict] | None = None,
 ) -> dict:
+    """Build canonical result_summary.json (A-1: value collector only).
+
+    All diagnostic logic is delegated to helper functions:
+        _infer_training_stability   (A-2)
+        _infer_bottlenecks          (A-3)
+        _infer_recommended_actions  (A-4)
+        _estimate_confidence        (A-5)
+        _infer_ablation_findings    (A-6)
+    """
+    if run_history is None:
+        run_history = []
+
     primary_name  = spec["evaluation_config"]["primary_metric"]
     target_value  = spec["evaluation_config"]["target_value"]
     primary_value = float(run_result["metrics"].get(primary_name, 0.0))
@@ -141,17 +1043,58 @@ def _build_result_summary(
         if k in previous_metrics
     }
 
-    stdout_text  = "\n".join(run_result.get("stdout_lines", []))
-    nan_detected = "nan" in stdout_text.lower() or "inf" in stdout_text.lower()
-    converged    = run_result["status"] == "success" and bool(run_result["metrics"])
-
     run_id = (
         f"{spec['topic_slug']}_v{spec['experiment_version']}_"
         f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     )
 
+    primary_metric_obj = {
+        "name":   primary_name,
+        "value":  primary_value,
+        "unit":   spec.get("evaluation_config", {}).get("metric_units", {}).get(primary_name, ""),
+        "target": float(target_value),
+        "met":    primary_met,
+    }
+
     # runner metadata (runner abstraction에서 제공)
     runner_meta = run_result.get("metadata", {})
+
+    # hypothesis implementation audit
+    hypothesis_impl = _load_hypothesis_audit(pkg_dir)
+
+    # --- A-2: Training stability ---
+    stability = _infer_training_stability(run_result, run_result.get("metrics", {}))
+
+    # --- A-3: Bottleneck candidates ---
+    bottleneck_candidates = _infer_bottlenecks(
+        stability, primary_metric_obj, hypothesis_impl, run_result,
+    )
+
+    # --- A-4: Recommended next actions ---
+    recommended_actions = _infer_recommended_actions(
+        stability, primary_metric_obj, hypothesis_impl,
+        bottleneck_candidates, run_history, run_result,
+    )
+
+    # --- A-5: Confidence model ---
+    confidence_model = _estimate_confidence(
+        primary_metric_obj, stability, hypothesis_impl,
+        deltas, run_history, run_result,
+    )
+
+    # --- A-5b: Effect size (vs previous version) ---
+    prev_primary_value = float(previous_metrics.get(primary_name, 0))
+    effect_size = _compute_effect_size(primary_value, prev_primary_value, target_value)
+
+    # --- A-5c: Metric value validation ---
+    metric_warnings = _validate_metric_values(run_result.get("metrics", {}), primary_name)
+    if metric_warnings:
+        print(f"    [METRIC 경고] {', '.join(metric_warnings)}")
+
+    # --- A-6: Ablation findings ---
+    ablation_findings = _infer_ablation_findings(
+        pkg_dir, primary_metric_obj, run_history,
+    )
 
     summary = {
         "schema_version":   "1.0",
@@ -160,33 +1103,29 @@ def _build_result_summary(
         "hypothesis_id":    spec.get("hypothesis_id", ""),
         "experiment_version": spec.get("experiment_version", 1),
         "status":           run_result["status"],
-        "primary_metric":   {
-            "name":   primary_name,
-            "value":  primary_value,
-            "unit":   spec.get("evaluation_config", {}).get("metric_units", {}).get(primary_name, ""),
-            "target": float(target_value),
-            "met":    primary_met,
-        },
+        "primary_metric":   primary_metric_obj,
+        "all_metrics":        run_result.get("metrics", {}),
         "secondary_metrics":  secondary,
         "deltas_vs_baseline": {
             "baseline_run_id": previous_run_id,
             "deltas":          deltas,
         },
-        "training_stability": {
-            "loss_converged": converged,
-            "nan_detected":   nan_detected,
-            "lr_schedule_ok": True,
-            "notes":          "",
-        },
-        "bottleneck_candidates": [],
-        "ablation_findings":     [],
-        "confidence":  (
-            0.9 if primary_met else
-            round(min(0.8, max(0.2, primary_value / float(target_value) * 0.8)), 2)
-            if converged and float(target_value) > 0 else
-            0.2
-        ),
-        "recommended_next_actions": [],
+        # A-2: real training stability diagnostics
+        "training_stability": stability,
+        # A-3: deterministic bottleneck candidates
+        "bottleneck_candidates": bottleneck_candidates,
+        # A-6: ablation findings from revision history
+        "ablation_findings": ablation_findings,
+        # A-5: backward-compatible float confidence
+        "confidence": confidence_model["final_confidence"],
+        # A-5: full confidence model with sub-scores
+        "confidence_model": confidence_model,
+        # A-5b: effect size vs previous version
+        "effect_size": effect_size,
+        # A-5c: metric value validation warnings
+        "metric_warnings": metric_warnings,
+        # A-4: deterministic recommended next actions (prior for LLM decision)
+        "recommended_next_actions": recommended_actions,
         "stderr_tail": run_result.get("stderr_tail", [])[-50:],
         "stdout_tail": (
             run_result.get("stdout_lines", [])[-50:]
@@ -195,7 +1134,7 @@ def _build_result_summary(
         # runner metadata: RunResult.metadata 전체 보존 (필드 유실 방지)
         "runner_metadata": runner_meta,
         # hypothesis implementation audit 결과 로드
-        "hypothesis_implementation": _load_hypothesis_audit(pkg_dir),
+        "hypothesis_implementation": hypothesis_impl,
         "created_at": datetime.now().isoformat(),
     }
 
@@ -266,6 +1205,15 @@ Key mechanism: {hyp.get('expected_mechanism', hyp.get('key_mechanism', hyp.get('
 ## Hypothesis Implementation Status
 {json.dumps(summary.get('hypothesis_implementation', {}), ensure_ascii=False, indent=2)}
 
+## Deterministic Diagnostic Prior (summary layer)
+- training_stability: {json.dumps(summary.get('training_stability', {}), ensure_ascii=False)}
+- bottleneck_candidates: {json.dumps(summary.get('bottleneck_candidates', []), ensure_ascii=False)}
+- recommended_next_actions (rule-based prior): {json.dumps(summary.get('recommended_next_actions', []), ensure_ascii=False)}
+- confidence_model: {json.dumps(summary.get('confidence_model', {}), ensure_ascii=False)}
+
+NOTE: The above diagnostic prior is deterministic and rule-based.
+You may agree or disagree, but must justify departures from this prior.
+
 ## Revision criteria (strict)
 - Path A: implementation issue — hypothesis still valid (code bug, config, training instability)
   - 특히 mechanism이 코드에 구현되지 않은 경우 (mechanism_audit.implemented=false) → Path A 우선
@@ -292,10 +1240,12 @@ Return JSON only:
   "why_not_other_paths": "..."
 }}"""
 
-    print("  [해석 / GPT]    결과 심층 분석...")
+    p_hash = prompt_hash(user_msg)
+    print(f"  [해석 / GPT]    결과 심층 분석... (prompt_hash={p_hash})")
     try:
         client = get_openai_client()
-        resp = client.chat.completions.create(
+        resp = llm_retry(
+            client.chat.completions.create,
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
@@ -303,8 +1253,10 @@ Return JSON only:
             ],
             temperature=0.3,
             response_format={"type": "json_object"},
+            label="GPT interpret",
         )
         result = json.loads(resp.choices[0].message.content)
+        result["_prompt_hash"] = p_hash
         print(f"    → suggested_path={result.get('suggested_path')}, "
               f"evidence={result.get('evidence_strength')}, "
               f"confidence={result.get('confidence')}")
@@ -328,19 +1280,20 @@ def _gemini_short_diagnosis(
     hypothesis: dict,
     gpt_interpretation: dict,
 ) -> dict:
-    """Gemini가 짧은 독립 진단 / 2차 의견을 제공한다.
+    """Gemini가 **독립** 진단을 수행한다.
 
-    GPT의 주요 해석과 독립적으로 진단하고, 동의/불일치를 명확히 한다.
+    GPT 해석을 사전에 보지 않고(blind) 동일한 데이터만으로 독립 판단한다.
+    이후 합의 레이어에서 GPT 결과와 비교하여 agreement 수준을 결정론적으로 판정.
     코드를 작성하거나 패치를 제안하지 않는다.
-    출력: suggested_path, short_diagnosis, agreement_with_gpt,
-           disagreement_reason, main_risk, confidence
+    출력: suggested_path, short_diagnosis, root_cause, main_risk, confidence
     """
     primary = summary["primary_metric"]
     hyp     = hypothesis.get("hypothesis", {})
 
-    prompt = f"""You are a deep learning research second opinion (Gemini role).
-Provide a SHORT independent diagnosis. Do NOT write code. Do NOT propose code changes.
-Return valid JSON only.
+    # ⚠️ GPT 해석을 Gemini에 전달하지 않음 — anchoring bias 방지
+    prompt = f"""You are a deep learning research diagnostician (Gemini role).
+Provide a SHORT **independent** diagnosis based ONLY on the data below.
+Do NOT write code. Do NOT propose code changes. Return valid JSON only.
 
 ## Hypothesis
 {hyp.get('statement_kr', hyp.get('statement', ''))}
@@ -350,34 +1303,68 @@ Return valid JSON only.
 - {primary['name']}: {primary['value']:.4f} (target={primary['target']:.2f}, met={primary['met']})
 - stability: {json.dumps(summary.get('training_stability', {}), ensure_ascii=False)}
 
-## GPT Interpretation (for reference — you may agree or disagree)
-- suggested_path: {gpt_interpretation.get('suggested_path')}
-- evidence_strength: {gpt_interpretation.get('evidence_strength')}
-- root_cause: {gpt_interpretation.get('root_cause_analysis', '')}
-- hypothesis_validity: {gpt_interpretation.get('hypothesis_validity_assessment', '')}
+## Deterministic Diagnostic Prior (summary layer — rule-based, for reference)
+- bottleneck_candidates: {json.dumps(summary.get('bottleneck_candidates', []), ensure_ascii=False)}
+- recommended_next_actions (rule-based): {json.dumps(summary.get('recommended_next_actions', []), ensure_ascii=False)}
+- confidence_model: {json.dumps(summary.get('confidence_model', {}), ensure_ascii=False)}
 
-Provide your SHORT independent second opinion:
+## Hypothesis Implementation Status
+{json.dumps(summary.get('hypothesis_implementation', {}), ensure_ascii=False, indent=2)}
+
+## Effect Size (vs previous version)
+{json.dumps(summary.get('effect_size', {}), ensure_ascii=False)}
+
+## Revision criteria (strict)
+- Path A: implementation issue — hypothesis still valid
+- Path B: hypothesis directionally valid but needs refinement (50-80% target met)
+- Path C: hypothesis CORE MECHANISM contradicted by repeated strong evidence (requires >=3 runs)
+- done: target metric achieved
+
+Your independent diagnosis:
 {{
   "suggested_path": "A|B|C|done",
   "short_diagnosis": "one clear sentence explaining the main issue",
-  "agreement_with_gpt": "agree|partial|disagree",
-  "disagreement_reason": "if partial or disagree, explain briefly; else empty string",
-  "main_risk": "biggest risk if GPT suggestion is followed",
+  "root_cause": "suspected root cause of current performance gap",
+  "main_risk": "biggest risk if current approach continues unchanged",
   "confidence": "low|medium|high"
 }}"""
 
-    print("  [진단 / Gemini] 2차 의견...")
+    p_hash = prompt_hash(prompt)
+    print(f"  [진단 / Gemini] 독립 진단... (prompt_hash={p_hash})")
     try:
         model  = get_gemini_model()
-        resp   = model.generate_content(prompt)
+        resp   = llm_retry(model.generate_content, prompt, label="Gemini diagnose")
         text   = resp.text.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0].strip()
         elif "```" in text:
             text = text.split("```")[1].split("```")[0].strip()
         result = json.loads(text)
-        print(f"    → suggested_path={result.get('suggested_path')}, "
-              f"agreement={result.get('agreement_with_gpt')}")
+
+        # 결정론적 agreement 판정 (GPT 결과와 비교)
+        gpt_path = gpt_interpretation.get("suggested_path", "A")
+        gem_path = result.get("suggested_path", "A")
+        if gem_path == gpt_path:
+            agreement = "agree"
+            disagreement_reason = ""
+        elif {gem_path, gpt_path} <= {"A", "B"} or {gem_path, gpt_path} <= {"B", "C"}:
+            agreement = "partial"
+            disagreement_reason = (
+                f"Gemini suggests {gem_path} vs GPT {gpt_path}. "
+                f"Gemini root cause: {result.get('root_cause', '')}"
+            )
+        else:
+            agreement = "disagree"
+            disagreement_reason = (
+                f"Gemini suggests {gem_path} vs GPT {gpt_path} (2+ levels apart). "
+                f"Gemini root cause: {result.get('root_cause', '')}"
+            )
+        result["agreement_with_gpt"] = agreement
+        result["disagreement_reason"] = disagreement_reason
+        result["_prompt_hash"] = p_hash
+
+        print(f"    → suggested_path={gem_path}, "
+              f"agreement={agreement} (blind comparison with GPT={gpt_path})")
         return result
     except Exception as e:
         print(f"    [경고] Gemini 2차 진단 실패: {e}")
@@ -386,6 +1373,7 @@ Provide your SHORT independent second opinion:
             "short_diagnosis": f"Gemini call failed: {e}",
             "agreement_with_gpt": "agree",
             "disagreement_reason": "",
+            "root_cause": "",
             "main_risk": "",
             "confidence": "low",
         }
@@ -562,10 +1550,12 @@ Return JSON only:
   "confidence": "low|medium|high"
 }}"""
 
-    print("  [패치 / GPT]    Path A 구현 패치 제안...")
+    p_hash = prompt_hash(user_msg)
+    print(f"  [패치 / GPT]    Path A 구현 패치 제안... (prompt_hash={p_hash})")
     try:
         client = get_openai_client()
-        resp = client.chat.completions.create(
+        resp = llm_retry(
+            client.chat.completions.create,
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
@@ -573,8 +1563,10 @@ Return JSON only:
             ],
             temperature=0.3,
             response_format={"type": "json_object"},
+            label="GPT patch",
         )
         result = json.loads(resp.choices[0].message.content)
+        result["_prompt_hash"] = p_hash
         print(f"    → {len(result.get('patches', []))}개 패치 제안 "
               f"(confidence={result.get('confidence')})")
         return result
@@ -748,6 +1740,12 @@ override 조건을 충족하지 못하면 candidate_path를 그대로 유지하�
 
 ## Hypothesis Implementation Audit
 {json.dumps(summary.get('hypothesis_implementation', {{}}), ensure_ascii=False, indent=2)}
+
+## Deterministic Diagnostic Prior (summary layer — rule-based, for reference)
+- bottleneck_candidates: {json.dumps(summary.get('bottleneck_candidates', []), ensure_ascii=False)}
+- recommended_next_actions: {json.dumps(summary.get('recommended_next_actions', []), ensure_ascii=False)}
+- confidence_model: {json.dumps(summary.get('confidence_model', {{}}), ensure_ascii=False)}
+- ablation_findings: {json.dumps(summary.get('ablation_findings', []), ensure_ascii=False)}
 {ballot_section}
 
 ## 가설 구현 감사 규칙
@@ -1273,8 +2271,8 @@ def run_research_loop(
                 },
             }
 
-        # result_summary 생성 + 기록
-        summary = _build_result_summary(pkg, run_result, spec, prev_run_id, prev_metrics)
+        # result_summary 생성 + 기록 (run_history passed for A-5 trend + A-6 ablation)
+        summary = _build_result_summary(pkg, run_result, spec, prev_run_id, prev_metrics, run_history)
         _append_results_log(summary, pkg)
         final_summary = summary
 
@@ -1283,17 +2281,38 @@ def run_research_loop(
               f"(target={primary['target']:.2f}, met={primary['met']})")
 
         stability = summary.get("training_stability", {})
+        hyp_impl = summary.get("hypothesis_implementation", {})
+        mech_audit = hyp_impl.get("mechanism_audit", {})
+        metric_audit = hyp_impl.get("metric_audit", {})
+        constraints_audit = hyp_impl.get("constraints_audit", {})
+
+        # A-7: Richer run_history entries
         run_entry: dict = {
             # 기본 실행 정보
             "run_id":  summary["run_id"],
             "version": version,
             "status":  summary["status"],
             "metrics": summary["primary_metric"],
-            # 훈련 안정성 요약
-            "training_stability": {
-                "loss_converged": stability.get("loss_converged", False),
-                "nan_detected":   stability.get("nan_detected", False),
-            },
+            # A-7: full training stability (including plateau, overfit, etc.)
+            "training_stability": stability,
+            # A-7: implementation audit flags
+            "hypothesis_implementation_ok": bool(
+                (not mech_audit or mech_audit.get("implemented", True))
+                and (not metric_audit or metric_audit.get("correct", True))
+                and (not constraints_audit or constraints_audit.get("satisfied", True))
+            ),
+            "mechanism_ok":    not mech_audit or mech_audit.get("implemented", True),
+            "metric_ok":       not metric_audit or metric_audit.get("correct", True),
+            "constraints_ok":  not constraints_audit or constraints_audit.get("satisfied", True),
+            # A-7: confidence from model
+            "confidence":      summary.get("confidence", 0.0),
+            # A-7: bottleneck candidates and recommended actions
+            "bottleneck_candidates":     summary.get("bottleneck_candidates", []),
+            "recommended_next_actions":  summary.get("recommended_next_actions", []),
+            # A-7: patch family tags (populated after patch phase)
+            "patch_family_tags":         [],
+            # A-7: ablation findings
+            "ablation_findings":         summary.get("ablation_findings", []),
             # 결정 컨텍스트 — 분석 완료 후 업데이트됨
             "decision_path":        None,
             "consensus_level":      None,
@@ -1379,6 +2398,12 @@ def run_research_loop(
             "created_at":            datetime.now().isoformat(),
         })
 
+        # A-7: Classify accepted patches into family tags
+        accepted_indices = decision.get("accepted_patch_indexes", [])
+        all_patches = gpt_patches.get("patches", [])
+        accepted_patches = [all_patches[i] for i in accepted_indices if i < len(all_patches)]
+        patch_family_tags = _classify_patch_families(accepted_patches)
+
         # run_history 마지막 항목에 결정 컨텍스트 보강 (사후검증 결과 + consensus-locked 필드 포함)
         run_history[-1].update({
             "decision_path":         decision.get("path"),
@@ -1387,13 +2412,14 @@ def run_research_loop(
             "consensus_level":       decision.get("consensus_level", consensus.get("agreement_level")),
             "gpt_suggested_path":    gpt_interp.get("suggested_path"),
             "gemini_suggested_path": gemini_diag.get("suggested_path"),
-            "accepted_patch_indexes": decision.get("accepted_patch_indexes",
-                                                   decision.get("accepted_gpt_patches", [])),
+            "accepted_patch_indexes": accepted_indices,
             "accepted_patch_source": decision.get("accepted_patch_source"),
             "postcheck_override":    decision.get("postcheck_override", False),
             "postcheck_ok":          decision.get("postcheck_ok", True),
             "original_claude_path":  decision.get("original_claude_path"),
             "postcheck_note":        decision.get("postcheck_note"),
+            # A-7: patch family tags
+            "patch_family_tags":     patch_family_tags,
         })
 
         final_decision = decision
@@ -1505,6 +2531,22 @@ def _push_results(slug: str, version: int) -> None:
     """
     exp_dir = f"experiments/{slug}"
     try:
+        # git config 보장 (container 내 미설정 시 fallback)
+        subprocess.run(
+            ["git", "config", "user.email"],
+            capture_output=True,
+        ).returncode != 0 and subprocess.run(
+            ["git", "config", "user.email", "pipeline@research.local"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name"],
+            capture_output=True,
+        ).returncode != 0 and subprocess.run(
+            ["git", "config", "user.name", "research-pipeline"],
+            capture_output=True,
+        )
+
         # stage: results + reports + runs (코드 변경분)
         subprocess.run(
             ["git", "add", f"{exp_dir}/results/", f"{exp_dir}/reports/",

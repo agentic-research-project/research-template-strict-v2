@@ -34,6 +34,163 @@ from lab.config import query_claude, parse_json
 
 
 # ──────────────────────────────────────────
+# 제약 조건 구조화 (B-2)
+# ──────────────────────────────────────────
+
+# 일반화된 제약 조건 인식 패턴 (model_generator._constraints_audit와 동일 규칙 재사용)
+_CONSTRAINT_PATTERNS: dict[str, re.Pattern] = {
+    "param_budget_M":     re.compile(r"(\d+(?:\.\d+)?)\s*[Mm](?:illion)?\s*param", re.IGNORECASE),
+    "single_gpu":         re.compile(r"single\s*gpu|1\s*gpu|단일\s*gpu", re.IGNORECASE),
+    "latency_sensitive":  re.compile(r"latency|실시간|real[\s\-]?time|inference\s*time|빠른\s*추론|fast\s*inference", re.IGNORECASE),
+    "no_pretrained":      re.compile(r"pretrained\s*금지|no\s*pretrain|from\s*scratch|사전학습\s*없", re.IGNORECASE),
+    "short_training":     re.compile(r"short\s*train|빠른\s*학습|fast\s*train|few\s*epoch", re.IGNORECASE),
+    "lightweight":        re.compile(r"lightweight|경량|가벼운|light\s*weight", re.IGNORECASE),
+    "memory_friendly":    re.compile(r"memory\s*friendly|메모리\s*효율|low\s*memory|memory\s*efficient", re.IGNORECASE),
+    "augmentation_limit": re.compile(r"augmentation\s*제한|minimal\s*augmentation|no\s*augmentation", re.IGNORECASE),
+}
+
+
+def _parse_constraints_structured(constraints_text: str) -> dict:
+    """제약 조건 텍스트를 구조화된 dict로 변환한다 (B-2).
+
+    Returns:
+        {
+            "param_budget_M": float | None,
+            "single_gpu": bool,
+            "latency_sensitive": bool,
+            ...
+        }
+    """
+    if not constraints_text or not constraints_text.strip():
+        return {}
+
+    result: dict = {}
+    for name, pattern in _CONSTRAINT_PATTERNS.items():
+        m = pattern.search(constraints_text)
+        if m:
+            if name == "param_budget_M":
+                # 숫자 값 추출
+                result[name] = float(m.group(1))
+            else:
+                result[name] = True
+
+    return result
+
+
+# ──────────────────────────────────────────
+# Retrieval Plan 생성 (B-1)
+# ──────────────────────────────────────────
+
+# must_cover 슬롯 — config.py 공통 상수 사용
+from lab.config import EVIDENCE_COVERAGE_SLOTS as _MUST_COVER_SLOTS
+
+
+def _build_retrieval_plan(
+    topic: str,
+    details: str,
+    problem_definition: str,
+    desired_outcome: str,
+    constraints: str,
+    target_metric: str,
+    search_keywords: dict,
+    image_analysis: dict | None = None,
+) -> dict:
+    """topic_analysis에 포함할 retrieval_plan을 생성한다 (B-1).
+
+    coverage-oriented query family 단위로 질의를 분류하여
+    paper_researcher가 목적별 검색을 수행할 수 있게 한다.
+    """
+    primary = search_keywords.get("primary", [])
+    secondary = search_keywords.get("secondary", [])
+
+    # task_type, domain_type 추론
+    domain_type = "unknown"
+    if image_analysis and image_analysis.get("domain_type"):
+        domain_type = image_analysis["domain_type"]
+
+    # query_families: 각 슬롯별 coverage를 위한 질의군 생성
+    query_families = []
+
+    # 1. task-core: 핵심 과제 + 도메인 중심 질의
+    task_core_queries = []
+    if primary:
+        task_core_queries.extend(primary[:3])
+    if problem_definition:
+        tokens = [t for t in re.split(r"\W+", problem_definition) if len(t) > 3]
+        if len(tokens) >= 2:
+            task_core_queries.append(" ".join(tokens[:4]))
+    query_families.append({"type": "task-core", "queries": task_core_queries[:4]})
+
+    # 2. constraint-aware: 제약 조건 반영 질의
+    constraint_queries = []
+    if constraints:
+        cons_tokens = [t for t in re.split(r"\W+", constraints) if len(t) > 3]
+        base_topic_tokens = [t for t in re.split(r"\W+", topic) if len(t) > 3][:2]
+        base = " ".join(base_topic_tokens)
+        if cons_tokens:
+            constraint_queries.append(f"{base} {' '.join(cons_tokens[:3])}")
+        # secondary 키워드 중 constraint 관련 항목 추가
+        for kw in secondary:
+            kw_lower = kw.lower()
+            if any(c in kw_lower for c in ["lightweight", "fast", "efficient", "real-time",
+                                            "경량", "실시간", "memory", "budget"]):
+                constraint_queries.append(kw)
+    query_families.append({"type": "constraint-aware", "queries": constraint_queries[:3]})
+
+    # 3. metric-aware: 평가 지표 중심 질의
+    metric_queries = []
+    if target_metric:
+        metric_tokens = [t.strip() for t in target_metric.split(",") if t.strip()]
+        for mt in metric_tokens[:3]:
+            base_tokens = [t for t in re.split(r"\W+", topic) if len(t) > 3][:2]
+            metric_queries.append(f"{' '.join(base_tokens)} {mt}")
+    query_families.append({"type": "metric-aware", "queries": metric_queries[:3]})
+
+    # 4. baseline-aware: 베이스라인/비교 대상 모델 중심 질의
+    baseline_queries = []
+    if desired_outcome:
+        outcome_tokens = [t for t in re.split(r"\W+", desired_outcome) if len(t) > 3]
+        if outcome_tokens:
+            baseline_queries.append(f"state-of-the-art {' '.join(outcome_tokens[:3])}")
+    if primary:
+        baseline_queries.append(f"benchmark {primary[0]}")
+    query_families.append({"type": "baseline-aware", "queries": baseline_queries[:3]})
+
+    # 5. mechanism-seeking: 핵심 메커니즘 근거 탐색
+    base_tokens = [t for t in re.split(r"\W+", topic) if len(t) > 3][:2]
+    base = " ".join(base_tokens)
+    mechanism_queries = [f"{base} mechanism", f"{base} how it works"]
+    query_families.append({"type": "mechanism-seeking", "queries": mechanism_queries[:2]})
+
+    # 6. closest-prior-art-seeking: 가장 유사한 기존 연구 탐색
+    prior_queries = [f"{base} prior work", f"{base} previous approach"]
+    query_families.append({"type": "closest-prior-art-seeking", "queries": prior_queries[:2]})
+
+    # 7. falsification-seeking: 반증 가능한 근거 탐색
+    falsif_queries = [f"{base} limitation failure", f"{base} does not work"]
+    query_families.append({"type": "falsification-seeking", "queries": falsif_queries[:2]})
+
+    # 8. failure-mode-seeking: 실패 모드 탐색
+    failure_queries = [f"{base} failure mode", f"{base} common pitfalls"]
+    query_families.append({"type": "failure-mode-seeking", "queries": failure_queries[:2]})
+
+    # 9. deployment-constraint-seeking: 배포/실행 제약 관련
+    deploy_queries = []
+    if constraints:
+        deploy_queries.append(f"{base} deployment {' '.join(cons_tokens[:2])}" if 'cons_tokens' in dir() and cons_tokens else f"{base} deployment constraint")
+    else:
+        deploy_queries.append(f"{base} inference efficiency")
+    query_families.append({"type": "deployment-constraint-seeking", "queries": deploy_queries[:2]})
+
+    return {
+        "task_type": topic,
+        "domain_type": domain_type,
+        "must_cover": list(_MUST_COVER_SLOTS),
+        "query_families": query_families,
+    }
+
+
+# ──────────────────────────────────────────
 # 도메인 자동 지표 추론
 # ──────────────────────────────────────────
 
@@ -250,6 +407,7 @@ def analyze_topic(
     desired_outcome: str,
     constraints: str = "",
     target_metric: str = "",
+    data_path: str = "",
     image_paths: list[str] | None = None,
     image_labels: list[str] | None = None,
 ) -> dict:
@@ -371,6 +529,7 @@ def analyze_topic(
         "desired_outcome":    desired_outcome,
         "constraints":        constraints,
         "target_metric":      target_metric,
+        "data_path":          data_path,
     }
 
     # search_keywords 후처리: generic term 제거 + secondary 승격 + fallback 보강
@@ -385,6 +544,31 @@ def analyze_topic(
     if image_paths:
         result["input"]["image_paths"]  = image_paths
         result["input"]["image_labels"] = image_labels
+
+    # ── B-2: constraints를 structured schema로 승격 ──────────
+    constraints_structured = _parse_constraints_structured(constraints)
+    if constraints_structured:
+        result["constraints_structured"] = constraints_structured
+        print(f"  [Constraints] 구조화: {constraints_structured}")
+    else:
+        result["constraints_structured"] = {}
+
+    # ── B-1: retrieval_plan 생성 ─────────────────────────────
+    result["retrieval_plan"] = _build_retrieval_plan(
+        topic=topic,
+        details=details,
+        problem_definition=problem_definition,
+        desired_outcome=desired_outcome,
+        constraints=constraints,
+        target_metric=target_metric,
+        search_keywords=result.get("search_keywords", {}),
+        image_analysis=result.get("image_analysis"),
+    )
+    rp = result["retrieval_plan"]
+    n_families = len(rp.get("query_families", []))
+    n_queries = sum(len(f.get("queries", [])) for f in rp.get("query_families", []))
+    print(f"  [RetrievalPlan] {n_families} families, {n_queries} queries, "
+          f"must_cover={rp.get('must_cover', [])}")
 
     return result
 

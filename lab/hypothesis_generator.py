@@ -65,12 +65,138 @@ _HYPOTHESIS_SCHEMA = """{
 }"""
 
 
+# config.py 공통 상수 사용
+from lab.config import EVIDENCE_COVERAGE_SLOTS as _MUST_COVER_SLOTS, COVERAGE_GROUPS
+
+
 def _load_inputs(topic_file: str, papers_file: str):
     topic_data  = json.loads(Path(topic_file).read_text(encoding="utf-8"))
     papers_data = json.loads(Path(papers_file).read_text(encoding="utf-8"))
     topic_name  = topic_data.get("input", {}).get("topic", "research")
     topic_slug  = _topic_slug(topic_name)
     return topic_data, papers_data, topic_name, topic_slug
+
+
+# ──────────────────────────────────────────────────────────
+# B-6: Coverage Check Gate
+# ──────────────────────────────────────────────────────────
+
+def _coverage_check_gate(papers_data: dict, topic_data: dict) -> dict:
+    """가설 생성 전 evidence coverage를 검사한다 (B-6).
+
+    근거가 부족한 상태에서 가설을 만들지 않도록 gate를 적용한다.
+
+    Returns:
+        {
+            "pass": True/False,
+            "evidence_coverage": {...},
+            "missing_critical": [...],
+            "recommendation": "proceed" | "re_query" | "fail_fast",
+            "suggested_queries": [...],
+        }
+    """
+    evidence_coverage = papers_data.get("evidence_coverage", {})
+    coverage = evidence_coverage.get("coverage", {})
+    missing = evidence_coverage.get("missing_slots", [])
+    papers = papers_data.get("papers", [])
+
+    # coverage가 papers.json에 없으면 직접 계산
+    if not coverage and papers:
+        retrieval_plan = topic_data.get("retrieval_plan", {})
+        must_cover = retrieval_plan.get("must_cover", _MUST_COVER_SLOTS)
+
+        slot_counts = {slot: 0 for slot in must_cover}
+        for p in papers:
+            for slot in p.get("claim_slots_supported", []):
+                if slot in slot_counts:
+                    slot_counts[slot] += 1
+        coverage = {slot: count > 0 for slot, count in slot_counts.items()}
+        missing = [slot for slot, covered in coverage.items() if not covered]
+
+        # closest_prior_art 역할 존재 여부
+        has_prior_art = any(p.get("evidence_role") == "closest_prior_art" for p in papers)
+        if not has_prior_art:
+            coverage["closest_prior_art"] = False
+            if "closest_prior_art" not in missing:
+                missing.append("closest_prior_art")
+
+    # slot-complete 판정: 3개 group별 최소 coverage 필요 (config.py 공통 계약)
+    novelty_slots = COVERAGE_GROUPS["novelty"]
+    validity_slots = COVERAGE_GROUPS["validity"]
+    feasibility_slots = COVERAGE_GROUPS["feasibility"]
+
+    novelty_ok = any(coverage.get(s, False) for s in novelty_slots)
+    validity_ok = any(coverage.get(s, False) for s in validity_slots)
+    feasibility_ok = any(coverage.get(s, False) for s in feasibility_slots)
+
+    all_critical = novelty_slots | validity_slots | feasibility_slots
+    critical_missing = [s for s in missing if s in all_critical]
+
+    # 논문 수 자체가 너무 적으면 fail_fast
+    if len(papers) < 3:
+        return {
+            "pass": False,
+            "evidence_coverage": coverage,
+            "missing_critical": critical_missing or missing,
+            "recommendation": "fail_fast",
+            "suggested_queries": [],
+            "reason": f"논문 {len(papers)}편으로 근거 부족 (최소 3편 필요)",
+            "group_coverage": {"novelty_ok": novelty_ok, "validity_ok": validity_ok, "feasibility_ok": feasibility_ok},
+        }
+
+    # group 중 2개 이상 미충족 → re_query
+    failed_groups = []
+    if not novelty_ok:
+        failed_groups.append("novelty")
+    if not validity_ok:
+        failed_groups.append("validity")
+    if not feasibility_ok:
+        failed_groups.append("feasibility")
+
+    if len(failed_groups) >= 2:
+        inp = topic_data.get("input", {})
+        topic_tokens = [t for t in re.split(r"\W+", inp.get("topic", "")) if len(t) > 3][:2]
+        base = " ".join(topic_tokens)
+        suggested = []
+        if "novelty" in failed_groups:
+            suggested.append(f"recent survey {base}")
+            suggested.append(f"novel approach mechanism {base}")
+        if "validity" in failed_groups:
+            suggested.append(f"state-of-the-art benchmark {base}")
+            suggested.append(f"evaluation metrics {base}")
+        if "feasibility" in failed_groups:
+            suggested.append(f"constraint-aware {base} deployment")
+        return {
+            "pass": False,
+            "evidence_coverage": coverage,
+            "missing_critical": critical_missing,
+            "recommendation": "re_query",
+            "suggested_queries": suggested,
+            "reason": f"group coverage 부족: {failed_groups}",
+            "group_coverage": {"novelty_ok": novelty_ok, "validity_ok": validity_ok, "feasibility_ok": feasibility_ok},
+        }
+
+    # 1개 group만 부족 → proceed with warning
+    if failed_groups:
+        return {
+            "pass": True,
+            "evidence_coverage": coverage,
+            "missing_critical": critical_missing,
+            "recommendation": "proceed",
+            "suggested_queries": [],
+            "reason": f"group coverage warning: {failed_groups} 부족하지만 진행 가능",
+            "group_coverage": {"novelty_ok": novelty_ok, "validity_ok": validity_ok, "feasibility_ok": feasibility_ok},
+        }
+
+    # 완전 통과
+    return {
+        "pass": True,
+        "evidence_coverage": coverage,
+        "missing_critical": [],
+        "recommendation": "proceed",
+        "suggested_queries": [],
+        "group_coverage": {"novelty_ok": novelty_ok, "validity_ok": validity_ok, "feasibility_ok": feasibility_ok},
+    }
 
 
 def _build_context(input_info: dict, research_q: str, success_criteria: dict) -> str:
@@ -220,14 +346,24 @@ def _build_evidence_pack(papers: list[dict]) -> str:
             raw_id       = item.get("id")
             pid = _normalize_pid(raw_paper_id, raw_id, original_ids, i)
 
+            # B-4: 원본 논문에서 evidence 메타데이터 가져오기
+            source_paper = papers[i] if i < len(papers) else {}
+
             pack_list.append({
                 "paper_id":               str(pid),
                 "title":                  item.get("title", ""),
+                "source":                 source_paper.get("source", ""),
                 "problem":                item.get("problem", ""),
                 "method":                 item.get("method", ""),
                 "limitations":            item.get("limitations", ""),
                 "experimental_conditions": item.get("experimental_conditions", ""),
                 "remaining_gaps":         item.get("remaining_gaps", ""),
+                # B-3/B-4: evidence graph 필드 (논문에서 계승)
+                "evidence_role":          source_paper.get("evidence_role", ""),
+                "claim_slots_supported":  source_paper.get("claim_slots_supported", []),
+                "support_strength":       source_paper.get("support_strength", "contextual"),
+                "why_selected":           source_paper.get("why_selected", ""),
+                "rank":                   i + 1,  # B-4: 순위
             })
 
         lines = ["## Evidence Pack — 논문 구조화 분석\n"]
@@ -632,6 +768,37 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
 
     debate_log = []
 
+    # ── B-6: Coverage Check Gate ──────────────────────────
+    gate_result = _coverage_check_gate(papers_data, topic_data)
+    print(f"\n  [Coverage Gate] pass={gate_result['pass']}, "
+          f"recommendation={gate_result.get('recommendation', '')}")
+    if gate_result.get("missing_critical"):
+        print(f"  [Coverage Gate] critical missing: {gate_result['missing_critical']}")
+    if not gate_result["pass"]:
+        recommendation = gate_result.get("recommendation", "fail_fast")
+        print(f"  ⚠ [Coverage Gate] 근거 부족 → {recommendation}")
+        print(f"  사유: {gate_result.get('reason', '')}")
+        if gate_result.get("suggested_queries"):
+            print(f"  추가 검색 제안: {gate_result['suggested_queries']}")
+
+        result = {
+            "timestamp":          datetime.now().isoformat(),
+            "topic":              topic_name,
+            "status":             "insufficient_evidence",
+            "reason":             gate_result.get("reason", "evidence coverage 부족"),
+            "evidence_coverage":  gate_result.get("evidence_coverage", {}),
+            "missing_critical":   gate_result.get("missing_critical", []),
+            "recommendation":     recommendation,
+            "suggested_queries":  gate_result.get("suggested_queries", []),
+            "generation_mode":    "collaborative",
+            "debate_log":         debate_log,
+        }
+        from lab.config import reports_dir as _rdir
+        output_path = _rdir(topic_slug) / "hypothesis.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        return result
+
     # ── Round 0: Evidence Pack ────────────────────────────
     evidence_pack, pack_list = _build_evidence_pack(papers)
 
@@ -725,6 +892,7 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
         "topic":            topic_name,
         "papers_analyzed":  len(papers),
         "generation_mode":  "collaborative",
+        "evidence_coverage": gate_result.get("evidence_coverage", {}),  # B-5
         "evidence_pack":    pack_list,
         "research_gap": {
             "summary":             final.get("research_gap_summary", ""),
@@ -778,6 +946,29 @@ def collaborative_generate(topic_file: str, papers_file: str) -> dict:
 def generate_hypothesis(topic_file: str, papers_file: str) -> dict:
     """Claude 단독으로 가설을 생성한다."""
     topic_data, papers_data, topic_name, topic_slug = _load_inputs(topic_file, papers_file)
+
+    # B-6: Coverage Check Gate (단일 모드에서도 적용)
+    gate_result = _coverage_check_gate(papers_data, topic_data)
+    print(f"\n  [Coverage Gate] pass={gate_result['pass']}")
+    if not gate_result["pass"]:
+        print(f"  ⚠ [Coverage Gate] 근거 부족 → {gate_result.get('recommendation', 'fail_fast')}")
+        result = {
+            "timestamp":          datetime.now().isoformat(),
+            "topic":              topic_name,
+            "status":             "insufficient_evidence",
+            "reason":             gate_result.get("reason", "evidence coverage 부족"),
+            "evidence_coverage":  gate_result.get("evidence_coverage", {}),
+            "missing_critical":   gate_result.get("missing_critical", []),
+            "recommendation":     gate_result.get("recommendation", "fail_fast"),
+            "suggested_queries":  gate_result.get("suggested_queries", []),
+            "generation_mode":    "single",
+        }
+        from lab.config import reports_dir as _rdir
+        output_path = _rdir(topic_slug) / "hypothesis.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        return result
+
     papers       = papers_data.get("papers", [])[:15]
     input_info   = topic_data.get("input", {})
     research_q   = topic_data.get("research_question", "")

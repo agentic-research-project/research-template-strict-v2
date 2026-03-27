@@ -134,7 +134,7 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 ```
 - 패턴: `^METRICS:\{.*\}$` (한 줄, 공백 없음)
 - 값은 반드시 float (정수도 float으로 캐스팅)
-- 이 줄이 없거나 파싱 실패 시 GitLab CI는 `metrics_parse_error`로 처리
+- 이 줄이 없거나 파싱 실패 시 `metrics_parse_error`로 처리
 
 ### Epoch 로깅 형식
 ```python

@@ -58,6 +58,22 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
     scoring_caps = ""
     if validation_packet:
         vp = validation_packet
+        # B-5: evidence coverage matrix 포함
+        evidence_coverage = vp.get("evidence_coverage", {})
+        coverage_section = ""
+        if evidence_coverage:
+            coverage_section = f"""
+### Evidence Coverage Matrix (슬롯별 근거 충족 현황)
+{json.dumps(evidence_coverage, ensure_ascii=False, indent=2)}
+"""
+        # B-2: 구조화된 제약 조건 포함
+        constraints_structured = vp.get("constraints_structured", {})
+        constraints_structured_section = ""
+        if constraints_structured:
+            constraints_structured_section = f"""
+### 구조화된 제약 조건 (Structured Constraints)
+{json.dumps(constraints_structured, ensure_ascii=False, indent=2)}
+"""
         packet_section = f"""
 ## 연구 맥락 (검증 패킷)
 
@@ -66,7 +82,7 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
 - 문제 정의: {vp.get('problem_definition', '')}
 - 제약 조건: {vp.get('constraints', '')}
 - 성공 기준: {json.dumps(vp.get('success_criteria', {}), ensure_ascii=False)}
-
+{constraints_structured_section}
 ### Evidence Pack (구조화된 선행연구 분석)
 {json.dumps(vp.get('evidence_pack', []), ensure_ascii=False, indent=2)}
 
@@ -84,13 +100,16 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
 
 ### 관련 논문
 {json.dumps(vp.get('related_papers', []), ensure_ascii=False, indent=2)}
-"""
+{coverage_section}"""
         scoring_caps = """
 ## ⚠️ 점수 상한 규칙 (반드시 적용)
 - evidence_pack의 paper_id를 인용하지 못하면 → novelty 최대 6점
 - evidence_links가 비어 있거나 paper_id가 evidence_pack과 불일치하면 → novelty/validity 최대 6점
 - constraints를 언급하지 않으면 → feasibility 최대 6점
 - baseline / metric / falsification criteria가 없으면 → validity 최대 6점
+- evidence coverage matrix에서 key_innovation 또는 expected_mechanism이 false이면 → novelty 최대 6점
+- evidence coverage matrix에서 baseline_models 또는 evaluation_metrics가 false이면 → validity 최대 6점
+- evidence coverage matrix에서 constraints가 false이면 → feasibility 최대 6점
 - 위 규칙을 어기고 높은 점수를 주지 마세요. 근거 없는 고점은 무의미합니다.
 """
 
@@ -101,10 +120,11 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
 
 ## 검토 기준
 1. 참신성 (Novelty): 기존 연구 대비 새로운 기여가 있는가?
-   ⚠️ **Novelty 채점 필수 조건**: 반드시 evidence_pack 또는 선행연구 3~5개와 이 가설의 차이점을 표 형식으로 비교한 뒤에 점수를 부여하세요.
+   ⚠️ **Novelty 채점 필수 조건**: 반드시 evidence_pack 또는 선행연구 3~5개와 이 가설의 차이점을 경쟁 비교 형식으로 분석한 뒤에 점수를 부여하세요.
    비교표 형식 (prior_art_comparison 필드):
-   | 선행연구 | 핵심 방법 | 본 가설과의 차이 |
-   각 행마다 선행연구명, 핵심방법, 차이점을 명시하세요.
+   | 선행연구 | 핵심 방법 | 본 가설과의 차이 | 경쟁 축 | 가설보다 강한 점 | 가설보다 약한 점 | 잔여 위험 |
+   각 행마다 선행연구명, 핵심방법, 차이점, 경쟁 축(performance/efficiency/mechanism/deployment),
+   가설보다 강한 점, 가설보다 약한 점, 잔여 위험을 명시하세요.
 
 2. 타당성 (Validity): 가설이 논리적으로 일관성 있는가?
 3. 실현 가능성 (Feasibility): 현재 기술로 구현 가능한가?
@@ -124,7 +144,11 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
   "score": 점수(1-10),
   "score_breakdown": {{"novelty": 0, "validity": 0, "feasibility": 0, "impact": 0}},
   "prior_art_comparison": [
-    {{"paper": "선행연구명", "method": "핵심 방법", "difference": "본 가설과의 차이"}}
+    {{"paper": "선행연구명", "method": "핵심 방법", "difference": "본 가설과의 차이",
+      "competes_on": "performance/efficiency/mechanism/deployment 중 택",
+      "stronger_than_hypothesis_in": "이 선행연구가 가설보다 강한 측면",
+      "weaker_than_hypothesis_in": "이 선행연구가 가설보다 약한 측면",
+      "residual_risk": "이 경쟁 설명으로 인해 가설에 남는 위험"}}
   ],
   "evidence_used": ["paper_id_1", "paper_id_2"],
   "constraint_considered": true,
@@ -392,8 +416,10 @@ def _build_validation_packet(hypothesis: dict, topic: dict | None = None) -> dic
         "topic":              inp.get("topic", ""),
         "problem_definition": inp.get("problem_definition", ""),
         "constraints":        inp.get("constraints", ""),
+        "constraints_structured": topic.get("constraints_structured", {}),  # B-2
         "success_criteria":   topic.get("success_criteria", {}),
         "evidence_pack":      hypothesis.get("evidence_pack", []),
+        "evidence_coverage":  hypothesis.get("evidence_coverage", {}),  # B-5
         "research_gap":       hypothesis.get("research_gap", {}),
         "experiment_plan":    hypothesis.get("experiment_plan", {}),
         "related_papers":     hypothesis.get("related_papers", []),
@@ -436,9 +462,20 @@ def _lint_hypothesis(hypothesis: dict) -> list[str]:
     if len(baselines) < 2:
         warnings.append(f"[구조] baseline {len(baselines)}개 — 최소 2개 필요")
 
-    # 2. Falsification criteria
+    # 2. Falsification criteria — 존재 + 품질 검증
     if not falsif or len(falsif) < 1:
         warnings.append("[구조] falsification_criteria 누락 — 반증 조건 최소 1개 필요")
+    else:
+        eval_metrics = exp.get("evaluation_metrics", [])
+        target_metric = ""
+        constraints_text = ""
+        inp = hypothesis.get("input", {})
+        if isinstance(inp, dict):
+            target_metric = inp.get("target_metric", "")
+            constraints_text = inp.get("constraints", "")
+        falsif_warnings = _validate_falsification_criteria(
+            falsif, eval_metrics, target_metric, constraints_text)
+        warnings.extend(falsif_warnings)
 
     # 3. Ablation 계획
     ablation = exp.get("ablation_plan", exp.get("ablation_studies", []))
@@ -465,6 +502,93 @@ def _lint_hypothesis(hypothesis: dict) -> list[str]:
         overlap = sum(1 for kw in gap_keywords if kw in stmt)
         if gap_keywords and overlap == 0:
             warnings.append("[연결] research_gap 키워드가 hypothesis statement에 미반영")
+
+    return warnings
+
+
+# ──────────────────────────────────────────────────────────
+# Falsification criteria 품질 검증
+# ──────────────────────────────────────────────────────────
+
+def _validate_falsification_criteria(
+    falsif: list,
+    evaluation_metrics: list,
+    target_metric: str = "",
+    constraints: str = "",
+) -> list[str]:
+    """Falsification criteria의 품질을 검증한다.
+
+    3가지 기준:
+      1. 측정 가능성: criterion이 evaluation_metrics, target_metric, 또는 constraints 관련
+         키워드를 참조하는가?
+      2. 비자명성: 구체적 수치 임계값이 포함되어 있는가?
+      3. 반증 방향성: "미달", "이하", "below", "<", "못" 등 실패 방향 키워드가 있는가?
+
+    Returns: list of warning strings (empty if all criteria pass).
+    """
+    import re
+
+    warnings: list[str] = []
+    if not falsif:
+        return warnings
+
+    # metric + constraint 키워드 집합 구성 (소문자)
+    metric_keywords = set()
+    for m in evaluation_metrics:
+        m_str = str(m).lower()
+        for token in re.split(r"[\s—\-:,/()]+", m_str):
+            if len(token) >= 2:
+                metric_keywords.add(token)
+    if target_metric:
+        for token in re.split(r"[\s,/]+", target_metric.lower()):
+            if len(token) >= 2:
+                metric_keywords.add(token)
+    # constraints 관련 키워드도 측정 가능 항목으로 인정
+    # (parameter, inference, latency, memory, GPU 등)
+    _CONSTRAINT_TERMS = {
+        "parameter", "param", "params", "inference", "latency",
+        "memory", "gpu", "flops", "fps", "throughput", "size",
+        "파라미터", "추론", "메모리",
+    }
+    metric_keywords.update(_CONSTRAINT_TERMS)
+    if constraints:
+        for token in re.split(r"[\s,/()]+", constraints.lower()):
+            if len(token) >= 3:
+                metric_keywords.add(token)
+
+    # 수치 패턴 (정수, 소수, 백분율)
+    _NUM_PATTERN = re.compile(r"\d+\.?\d*\s*%?|[<>≤≥]=?\s*\d")
+
+    # 실패 방향 키워드
+    _FAIL_KEYWORDS = {
+        "미달", "이하", "below", "less", "under", "못", "fail",
+        "worse", "lower", "not", "cannot", "unable", "<", "≤",
+        "exceed", "초과", "이상",  # 상한 제약도 반증 방향
+    }
+
+    for i, criterion in enumerate(falsif):
+        c_text = str(criterion).lower()
+        c_issues: list[str] = []
+
+        # 1. 측정 가능성: metric 키워드 포함 여부
+        metric_found = any(mk in c_text for mk in metric_keywords) if metric_keywords else True
+        if not metric_found:
+            c_issues.append("metric 미참조")
+
+        # 2. 비자명성: 수치 임계값 존재 여부
+        has_threshold = bool(_NUM_PATTERN.search(c_text))
+        if not has_threshold:
+            c_issues.append("수치 임계값 없음")
+
+        # 3. 반증 방향성: 실패 조건 키워드
+        has_direction = any(kw in c_text for kw in _FAIL_KEYWORDS)
+        if not has_direction:
+            c_issues.append("반증 방향 키워드 없음")
+
+        if c_issues:
+            warnings.append(
+                f"[반증{i+1}] \"{str(criterion)[:60]}\" — {', '.join(c_issues)}"
+            )
 
     return warnings
 
@@ -562,6 +686,32 @@ def _enforce_caps(result: dict, validation_packet: dict | None) -> dict:
         bd["novelty"]  = min(bd.get("novelty",  0), 6)
         bd["validity"] = min(bd.get("validity", 0), 6)
         cap_reasons.append(f"evidence_links audit failed: {link_errors}")
+
+    # B-5: evidence coverage matrix 기반 슬롯별 점수 상한
+    evidence_coverage = validation_packet.get("evidence_coverage", {}) if validation_packet else {}
+    if evidence_coverage:
+        # key_innovation 또는 expected_mechanism 미충족 → novelty max 6
+        if not evidence_coverage.get("key_innovation", True) or not evidence_coverage.get("expected_mechanism", True):
+            bd["novelty"] = min(bd.get("novelty", 0), 6)
+            uncovered = [s for s in ["key_innovation", "expected_mechanism"] if not evidence_coverage.get(s, True)]
+            cap_reasons.append(f"novelty capped: evidence coverage missing {uncovered}")
+
+        # baseline_models 또는 evaluation_metrics 미충족 → validity max 6
+        if not evidence_coverage.get("baseline_models", True) or not evidence_coverage.get("evaluation_metrics", True):
+            bd["validity"] = min(bd.get("validity", 0), 6)
+            uncovered = [s for s in ["baseline_models", "evaluation_metrics"] if not evidence_coverage.get(s, True)]
+            cap_reasons.append(f"validity capped: evidence coverage missing {uncovered}")
+
+        # constraints 미충족 → feasibility max 6
+        if not evidence_coverage.get("constraints", True):
+            bd["feasibility"] = min(bd.get("feasibility", 0), 6)
+            cap_reasons.append("feasibility capped: evidence coverage missing constraints")
+
+        # falsification_criteria 미충족 → validity + impact cap
+        if not evidence_coverage.get("falsification_criteria", True):
+            bd["validity"] = min(bd.get("validity", 0), 7)
+            bd["impact"]   = min(bd.get("impact", 0), 7)
+            cap_reasons.append("validity/impact capped: evidence coverage missing falsification_criteria")
 
     # score를 score_breakdown 평균으로 재계산
     criteria = ("novelty", "validity", "feasibility", "impact")

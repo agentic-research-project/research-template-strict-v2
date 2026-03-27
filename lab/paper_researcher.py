@@ -19,7 +19,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from lab.config import GITHUB_TOKEN, S2_API_KEY, topic_slug as _topic_slug, reports_dir as _reports_dir
+from lab.config import GITHUB_TOKEN, S2_API_KEY, query_claude, parse_json, topic_slug as _topic_slug, reports_dir as _reports_dir
 
 
 ARXIV_API = "https://export.arxiv.org/api/query"
@@ -32,8 +32,8 @@ INIT_WINDOW   = 2    # 첫 검색 연도 윈도우 (현재 연도 포함 2년)
 # 학회 논문 검색 대상 (S2 venue 필드 부분 매칭)
 CONF_VENUES = ["AAAI", "CVPR", "ICCV", "ECCV", "NeurIPS", "MICCAI", "ICLR", "ICML"]
 
-TOP_FULLTEXT      = 8     # 본문 섹션을 읽을 최대 논문 수
-MAX_SECTION_CHARS = 1200  # 섹션당 최대 문자 수 (introduction/method/experiment/limitation)
+TOP_FULLTEXT      = 20    # 본문 섹션을 읽을 최대 논문 수 (MAX_ANNOTATE와 일치)
+MAX_SECTION_CHARS = 2000  # 섹션당 최대 문자 수 (introduction/method/experiment/limitation)
 
 # 섹션 헤더 인식 키워드 (대소문자 무관)
 _SECTION_PATTERNS = {
@@ -646,6 +646,191 @@ def rerank_papers(papers: list[dict], topic_data: dict) -> list[dict]:
 
 
 # ──────────────────────────────────────────
+# Evidence Graph 주석 (B-3, B-4)
+# ──────────────────────────────────────────
+
+# config.py 공통 상수 사용
+from lab.config import EVIDENCE_COVERAGE_SLOTS as _MUST_COVER_SLOTS, EVIDENCE_ROLES as _EVIDENCE_ROLES
+
+
+def _annotate_evidence_graph(papers: list[dict], topic_data: dict) -> list[dict]:
+    """각 논문에 evidence_role, claim_slots_supported, support_strength, why_selected 필드를 추가한다 (B-3).
+
+    Claude에 상위 논문의 제목/초록과 연구 맥락을 전달하여
+    각 논문이 어떤 claim slot을 지지하는지 판정한다.
+    """
+    if not papers:
+        return papers
+
+    inp = topic_data.get("input", {})
+    retrieval_plan = topic_data.get("retrieval_plan", {})
+    must_cover = retrieval_plan.get("must_cover", _MUST_COVER_SLOTS)
+
+    # 상위 논문만 annotation 대상 (비용 절감)
+    MAX_ANNOTATE = 20
+    to_annotate = papers[:MAX_ANNOTATE]
+
+    # 논문 payload 구성: sections가 있으면 abstract 대신 sections를 우선 제공
+    paper_entries = []
+    for i, p in enumerate(to_annotate):
+        entry = {
+            "idx": i,
+            "paper_id": p.get("paper_id", ""),
+            "title": p.get("title", ""),
+            "abstract": p.get("abstract") or "",
+            "source": p.get("source", ""),
+        }
+        # sections가 있으면 포함 — abstract보다 깊은 분석 가능
+        sections = p.get("sections", {})
+        if sections:
+            entry["sections"] = sections
+        paper_entries.append(entry)
+    papers_payload = json.dumps(paper_entries, ensure_ascii=False, indent=2)
+
+    prompt = f"""당신은 딥러닝 연구 분석가입니다.
+아래 논문들 각각에 대해 연구 맥락 기준으로 evidence 역할을 판정하세요.
+
+## 연구 맥락
+- 주제: {inp.get('topic', '')}
+- 문제 정의: {inp.get('problem_definition', '')}
+- 원하는 결과: {inp.get('desired_outcome', '')}
+- 제약 조건: {inp.get('constraints', '')}
+- 목표 지표: {inp.get('target_metric', '')}
+
+## 판정할 논문 목록
+⚠️ 논문에 "sections" 필드가 있으면 abstract 대신 sections(introduction/method/experiment/limitation)을
+우선 참고하여 더 깊은 분석을 수행하세요.
+{papers_payload}
+
+## 각 논문에 대해 아래 필드를 판정하세요
+- evidence_role: 다음 중 하나 — closest_prior_art, supporting_mechanism, baseline_reference, evaluation_reference, constraint_reference
+- claim_slots_supported: 다음 중 해당하는 것 모두 — {json.dumps(must_cover)}
+- support_strength: direct / indirect / contextual
+  ⚠️ sections(method/experiment)를 기반으로 판정하면 direct,
+     abstract만 기반이면 최대 indirect로 제한하세요.
+- why_selected: 이 논문이 왜 선택되었는지 1문장 (sections 기반 근거 포함)
+
+## 출력 형식 (JSON 배열만, 마크다운 없이)
+[
+  {{
+    "idx": 0,
+    "evidence_role": "closest_prior_art",
+    "claim_slots_supported": ["key_innovation", "expected_mechanism"],
+    "support_strength": "direct",
+    "why_selected": "이유 1문장"
+  }}
+]"""
+
+    print(f"  [Evidence Graph] 상위 {len(to_annotate)}편 역할 주석 중...")
+    try:
+        annotations = parse_json(query_claude(prompt))
+    except Exception as e:
+        print(f"  [Evidence Graph] 주석 실패: {e} — 기본값 적용")
+        annotations = []
+
+    # annotation 결과를 논문에 병합
+    ann_map = {}
+    for ann in annotations:
+        idx = ann.get("idx")
+        if idx is not None:
+            ann_map[idx] = ann
+
+    for i, p in enumerate(to_annotate):
+        ann = ann_map.get(i, {})
+        role = ann.get("evidence_role", "")
+        # evidence_role 유효성 검사
+        p["evidence_role"] = role if role in _EVIDENCE_ROLES else ""
+        slots = ann.get("claim_slots_supported", [])
+        p["claim_slots_supported"] = [s for s in slots if s in set(must_cover)]
+        strength = ann.get("support_strength", "contextual")
+        p["support_strength"] = strength if strength in {"direct", "indirect", "contextual"} else "contextual"
+        p["why_selected"] = ann.get("why_selected", "")
+        p["rank"] = i + 1  # B-4: 순위 부여
+
+    # 나머지 논문 (annotation 미대상)에도 기본 필드 추가
+    for i, p in enumerate(papers[MAX_ANNOTATE:], start=MAX_ANNOTATE):
+        p.setdefault("evidence_role", "")
+        p.setdefault("claim_slots_supported", [])
+        p.setdefault("support_strength", "contextual")
+        p.setdefault("why_selected", "")
+        p["rank"] = i + 1
+
+    annotated_count = sum(1 for p in to_annotate if p.get("evidence_role"))
+    print(f"  [Evidence Graph] {annotated_count}/{len(to_annotate)}편 역할 주석 완료")
+    return papers
+
+
+def _check_evidence_coverage(papers: list[dict], topic_data: dict) -> dict:
+    """evidence coverage matrix를 생성하고 insufficiency 여부를 판정한다 (B-5, B-8).
+
+    Returns:
+        {
+            "coverage": {"key_innovation": True, ...},
+            "sufficient": True/False,
+            "missing_slots": [...],
+            "slot_paper_counts": {"key_innovation": 3, ...},
+        }
+    """
+    retrieval_plan = topic_data.get("retrieval_plan", {})
+    must_cover = retrieval_plan.get("must_cover", _MUST_COVER_SLOTS)
+
+    # 각 슬롯별 지원 논문 수 집계
+    slot_counts: dict[str, int] = {slot: 0 for slot in must_cover}
+    for p in papers:
+        for slot in p.get("claim_slots_supported", []):
+            if slot in slot_counts:
+                slot_counts[slot] += 1
+
+    # coverage 판정: 최소 1편 이상이 해당 슬롯을 지원해야 함
+    coverage = {slot: count > 0 for slot, count in slot_counts.items()}
+
+    # closest_prior_art 역할 논문이 있는지 추가 검사
+    has_prior_art = any(p.get("evidence_role") == "closest_prior_art" for p in papers)
+    if not has_prior_art:
+        coverage["closest_prior_art"] = False
+    else:
+        coverage.setdefault("closest_prior_art", True)
+
+    missing = [slot for slot, covered in coverage.items() if not covered]
+
+    # slot-complete sufficiency: config.py 공통 계약 기반
+    from lab.config import COVERAGE_GROUPS
+    novelty_ok = any(coverage.get(s, False) for s in COVERAGE_GROUPS["novelty"])
+    validity_ok = any(coverage.get(s, False) for s in COVERAGE_GROUPS["validity"])
+    feasibility_ok = any(coverage.get(s, False) for s in COVERAGE_GROUPS["feasibility"])
+
+    # 3개 group 모두 최소 1개 이상 커버되어야 sufficient
+    sufficient = novelty_ok and validity_ok and feasibility_ok
+
+    return {
+        "coverage": coverage,
+        "sufficient": sufficient,
+        "missing_slots": missing,
+        "slot_paper_counts": slot_counts,
+        "group_coverage": {
+            "novelty_ok": novelty_ok,
+            "validity_ok": validity_ok,
+            "feasibility_ok": feasibility_ok,
+        },
+    }
+
+
+def _retrieval_plan_queries(topic_data: dict) -> list[str]:
+    """retrieval_plan의 query_families에서 추가 질의를 추출한다 (B-1 연동).
+
+    기존 _build_search_queries와 별도로, retrieval_plan이 있으면
+    coverage 목적별 질의를 추가한다.
+    """
+    rp = topic_data.get("retrieval_plan", {})
+    queries = []
+    for family in rp.get("query_families", []):
+        for q in family.get("queries", []):
+            if q and q not in queries:
+                queries.append(q)
+    return queries
+
+
+# ──────────────────────────────────────────
 # 메인 검색 함수
 # ──────────────────────────────────────────
 
@@ -666,6 +851,16 @@ def research_papers(topic_file: str) -> dict:
     topic_name = topic_data.get("input", {}).get("topic", "research")
     topic_slug = _topic_slug(topic_name)
     queries    = _build_search_queries(topic_data)
+
+    # B-1 연동: retrieval_plan의 query_families에서 추가 질의 병합
+    rp_queries = _retrieval_plan_queries(topic_data)
+    existing_set = set(q.lower() for q in queries)
+    for rq in rp_queries:
+        if rq.lower() not in existing_set:
+            queries.append(rq)
+            existing_set.add(rq.lower())
+    if rp_queries:
+        print(f"  [RetrievalPlan] {len(rp_queries)}개 추가 질의 병합")
 
     cur_year  = datetime.now().year
     year_to   = cur_year
@@ -748,14 +943,26 @@ def research_papers(topic_file: str) -> dict:
             time.sleep(1)
     print(f"  → {ft_count}편 섹션 추출 완료 (총 {len(all_papers)}편 중)")
 
+    # ── B-3, B-4: Evidence Graph 주석 ────────────────────────
+    all_papers = _annotate_evidence_graph(all_papers, topic_data)
+
+    # ── B-5, B-8: Evidence Coverage 검사 ─────────────────────
+    evidence_coverage = _check_evidence_coverage(all_papers, topic_data)
+    print(f"\n  [Evidence Coverage] coverage={evidence_coverage['coverage']}")
+    if evidence_coverage["missing_slots"]:
+        print(f"  [Evidence Coverage] 미충족 슬롯: {evidence_coverage['missing_slots']}")
+    if not evidence_coverage["sufficient"]:
+        print(f"  ⚠ [Evidence Coverage] 근거 부족 — 가설 생성 전 추가 검색 권장")
+
     result = {
-        "timestamp":      datetime.now().isoformat(),
-        "topic":          topic_name,
-        "query_keywords": queries,
-        "year_range":     f"{year_from}~{cur_year}",
-        "search_log":     search_log,
-        "total_found":    len(all_papers),
-        "papers":         all_papers,
+        "timestamp":         datetime.now().isoformat(),
+        "topic":             topic_name,
+        "query_keywords":    queries,
+        "year_range":        f"{year_from}~{cur_year}",
+        "search_log":        search_log,
+        "total_found":       len(all_papers),
+        "papers":            all_papers,
+        "evidence_coverage": evidence_coverage,  # B-5: coverage matrix
     }
 
     output_path = _reports_dir(topic_slug) / "papers.json"

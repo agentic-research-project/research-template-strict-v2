@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, AssistantMessage
-from lab.config import query_claude, parse_json
+from lab.config import query_claude, parse_json, validate_stage_preconditions
 
 
 # ──────────────────────────────────────────────────────────
@@ -209,6 +209,24 @@ Bash로 실행:
 - 5단계 PDF는 점수 무관 항상 생성한다
 - 7단계 결과는 단일 .py 파일이 아닌 패키지 디렉토리(experiments/{slug}/runs/vN/)다
 - 8단계 --pkg-dir 인자에는 패키지 디렉토리 경로를 지정한다
+
+────────────────────────────────────────────────────────
+## ⚠️ 단계 선행 조건 검증 (Precondition Guard)
+────────────────────────────────────────────────────────
+각 단계를 시작하기 전에 아래 파일이 존재하는지 반드시 Read로 확인하라.
+파일이 없으면 해당 단계를 실행하지 말고 "[오류] N단계 선행 조건 미충족: {파일명}" 을 출력하라.
+
+| 단계 | 필수 선행 파일 |
+|------|---------------|
+| 2 | topic_analysis.json |
+| 3 | topic_analysis.json, papers.json |
+| 4 | hypothesis.json |
+| 5 | hypothesis.json, validation.json |
+| 6 | hypothesis.json, approval.json (decision=approve) |
+| 7 | hypothesis.json, code_analysis.json |
+| 8 | runs/v1/experiment_spec.json |
+
+이 검증을 건너뛰면 파이프라인이 불완전한 데이터로 실행되어 결과가 무효화된다.
 """
 
 
@@ -221,8 +239,9 @@ def parse_todo(todo_path: str) -> dict:
     text = Path(todo_path).read_text(encoding="utf-8")
 
     prompt = f"""아래 연구 계획 문서를 읽고 JSON으로 구조화해 주세요.
-반드시 아래 7개 키를 모두 포함해야 합니다.
+반드시 아래 8개 키를 모두 포함해야 합니다.
 이미지 경로가 없으면 image_paths는 빈 배열로, image_labels도 빈 배열로 반환하세요.
+데이터 경로가 없으면 data_path는 빈 문자열로 반환하세요.
 
 출력 형식 (JSON만, 설명 없이):
 {{
@@ -232,6 +251,7 @@ def parse_todo(todo_path: str) -> dict:
   "desired_outcome": "원하는 결과 (2~3문장)",
   "constraints": "제약 조건 (쉼표 구분)",
   "target_metric": "목표 지표 (쉼표 구분)",
+  "data_path": "데이터 경로 (없으면 빈 문자열)",
   "image_paths": ["경로1", "경로2"],
   "image_labels": ["레이블1", "레이블2"]
 }}
@@ -254,6 +274,7 @@ async def run_research(
     desired_outcome: str,
     constraints: str = "",
     target_metric: str = "",
+    data_path: str = "",
     image_paths: list[str] | None = None,
     image_labels: list[str] | None = None,
     auto_approve: bool = False,
@@ -280,6 +301,19 @@ async def run_research(
         if labels_str:
             image_args += f" \\\n    --image-labels {labels_str}"
 
+    # ── Precondition validator 함수 (user_prompt에 주입) ──
+    precondition_check = f"""
+⚠️ 파이프라인 선행 조건 검증기 (자동 생성):
+  topic_slug = "{topic_slug}"
+  workspace  = "experiments/{topic_slug}"
+
+각 단계 시작 전에 아래 Python 명령으로 선행 조건을 검증하세요:
+  python -c "from lab.config import validate_stage_preconditions; m = validate_stage_preconditions(N, '{topic_slug}'); print('PRECONDITION OK' if not m else f'MISSING: {{m}}')"
+(N을 해당 단계 번호로 치환)
+
+검증 실패 시 해당 단계를 실행하지 말고 이전 단계를 먼저 완료하세요.
+"""
+
     user_prompt = f"""다음 연구를 8단계 파이프라인으로 진행해주세요.
 
 - 연구 주제:   {topic}
@@ -288,6 +322,7 @@ async def run_research(
 - 원하는 결과: {desired_outcome}
 - 제약 조건:   {constraints if constraints else "없음"}
 - 목표 지표:   {target_metric if target_metric else "미정"}
+- 데이터 경로: {data_path if data_path else "미지정 (공개 데이터셋이면 자동 다운로드)"}
 {"- 참조 이미지: " + ", ".join(image_paths) if image_paths else ""}
 
 topic_slug = "{topic_slug}"
@@ -308,8 +343,15 @@ workspace  = "experiments/{topic_slug}"
 4단계는 반드시 --refine --target-score 8.5 옵션으로 실행하세요.
 5단계 PDF는 점수 무관 항상 생성됩니다.
 
+데이터 경로 규칙:
+- 데이터 경로가 지정되면 해당 경로에 데이터가 존재하는지 먼저 확인하세요.
+- 존재하면 그대로 사용: default.yaml의 data_dir에 해당 경로를 설정하세요.
+- 존재하지 않고 공개 데이터셋이면 data.py에서 해당 경로에 자동 다운로드하도록 구현하세요.
+- 데이터 경로가 미지정이면 data.py에서 torchvision 등으로 자동 다운로드하도록 구현하세요.
+
 8단계 실행 시 runner_type = "{runner_type}" 을 사용하세요.
-시스템 프롬프트의 {{runner_type}} 을 "{runner_type}" 으로 치환하세요."""
+시스템 프롬프트의 {{runner_type}} 을 "{runner_type}" 으로 치환하세요.
+{precondition_check}"""
 
     # auto_approve 모드: 5단계 자동 승인, AskUserQuestion 불필요
     if auto_approve:
@@ -416,6 +458,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--desired-outcome")
     parser.add_argument("--constraints",   default="")
     parser.add_argument("--target-metric", default="")
+    parser.add_argument("--data-path",     default="",
+                        help="데이터 경로 (비워두면 공개 데이터셋 자동 다운로드)")
     parser.add_argument("--image", nargs="*", dest="image_paths", default=[], metavar="PATH")
     parser.add_argument("--image-labels",  nargs="*", default=[], metavar="LABEL")
     parser.add_argument("--auto-approve",  action="store_true",
@@ -444,6 +488,7 @@ if __name__ == "__main__":
         desired_outcome    = fields["desired_outcome"]
         constraints        = fields.get("constraints", "")
         target_metric      = fields.get("target_metric", "")
+        data_path          = fields.get("data_path", "")
         image_paths        = fields.get("image_paths", [])
         image_labels       = fields.get("image_labels", [])
         print(f"  파싱 완료 → 주제: {topic}\n")
@@ -454,6 +499,7 @@ if __name__ == "__main__":
         desired_outcome    = args.desired_outcome or ""
         constraints        = args.constraints
         target_metric      = args.target_metric
+        data_path          = args.data_path
         image_paths        = args.image_paths
         image_labels       = args.image_labels
 
@@ -465,6 +511,7 @@ if __name__ == "__main__":
             desired_outcome=desired_outcome,
             constraints=constraints,
             target_metric=target_metric,
+            data_path=data_path,
             image_paths=image_paths,
             image_labels=image_labels,
             auto_approve=args.auto_approve,

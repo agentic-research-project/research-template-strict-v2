@@ -40,7 +40,7 @@ flowchart LR
 | paper_researcher.py | arXiv/Semantic Scholar 논문 검색 | topic_analysis.json | `{slug}/reports/papers.json` |
 | hypothesis_generator.py | Claude로 가설 생성 | topic + papers | `{slug}/reports/hypothesis.json` |
 | hypothesis_validator.py | OpenAI + Gemini 검증 | hypothesis | `{slug}/reports/validation.json` |
-| user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | `{slug}/reports/approval.json`, `report.pdf` |
+| user_approval.py | Decision Memo PDF (최대 4p, 박사 10년차 수준) + 승인 CLI | topic + hypothesis + papers + validation | `{slug}/reports/approval.json`, `report.pdf` |
 | code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | `{slug}/reports/code_analysis.json` |
 | model_generator.py | Fabric 실험 패키지 생성 (patch ballot + 2-of-3 merge) | topic + hypothesis + code_analysis | `{slug}/runs/vN/` (Fabric 패키지) |
 | research_loop.py | 실험 실행 + consensus-locked Path + override reviewer | pkg_dir + topic + hypothesis + code_analysis | `{slug}/results/vN/result_summary.json`, `{slug}/results/previous_results.jsonl`, `{slug}/reports/revision_request_vN.json` |
