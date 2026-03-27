@@ -909,12 +909,13 @@ class GitHubActionsRunner(BaseRunner):
 
     @classmethod
     def from_config(cls, cfg: dict) -> "GitHubActionsRunner":
+        """cfg dict → 환경변수 → git remote 자동 감지 순서로 값을 결정한다."""
         return cls(
-            token         = cfg.get("github_token", ""),
-            owner         = cfg.get("github_owner", ""),
-            repo          = cfg.get("github_repo", ""),
-            ref           = cfg.get("github_ref", "main"),
-            workflow      = cfg.get("github_workflow", "experiment.yml"),
+            token         = cfg.get("github_token")   or os.environ.get("GITHUB_TOKEN", ""),
+            owner         = cfg.get("github_owner")   or os.environ.get("GITHUB_OWNER", ""),
+            repo          = cfg.get("github_repo")    or os.environ.get("GITHUB_REPO", ""),
+            ref           = cfg.get("github_ref")     or os.environ.get("GITHUB_REF", "main"),
+            workflow      = cfg.get("github_workflow") or os.environ.get("GITHUB_WORKFLOW", "experiment.yml"),
             poll_interval = cfg.get("github_poll_interval", 30),
             max_poll_secs = cfg.get("github_max_poll_secs", 10800),
             project_dir   = cfg.get("project_dir", ""),
@@ -925,7 +926,7 @@ class GitHubActionsRunner(BaseRunner):
 # 팩토리
 # ──────────────────────────────────────────────────────────
 
-def create_runner(runner_type: str = "local", runner_config: dict | None = None) -> BaseRunner:
+def create_runner(runner_type: str = "github", runner_config: dict | None = None) -> BaseRunner:
     """runner_type에 따라 Runner 인스턴스를 생성한다.
 
     Args:

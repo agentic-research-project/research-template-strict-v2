@@ -19,9 +19,9 @@ on:
         default: "todo.md"
         type: string
       runner_type:
-        description: "실험 실행 방식 (local: GPU 직접 사용)"
+        description: "실험 실행 방식 (local: 직접 실행, github: Actions workflow dispatch)"
         required: false
-        default: "local"
+        default: "github"
         type: string
       project_dir:
         description: "컨테이너 내부 프로젝트 경로 (비워두면 git remote 매칭으로 자동 감지)"
@@ -125,11 +125,20 @@ jobs:
 
       - name: Run research pipeline
         run: |
-          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+          docker exec \
+            -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+            -e GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
+            -e GITHUB_TOKEN="${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
+            -e GITHUB_OWNER="${{ github.repository_owner }}" \
+            -e GITHUB_REPO="${{ github.event.repository.name }}" \
+            ${{ env.CONTAINER_NAME }} bash -lc '
             cd "${{ env.PROJECT_DIR }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             conda run -n ${{ env.CONDA_ENV_NAME }} \
-              python main.py --todo "${{ inputs.todo_file }}" --auto-approve
+              python main.py \
+                --todo "${{ inputs.todo_file }}" \
+                --auto-approve \
+                --runner-type "${{ inputs.runner_type }}"
           '
 
       - name: Upload results

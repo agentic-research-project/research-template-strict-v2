@@ -182,7 +182,8 @@ Bash로 실행:
     --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
     --hypothesis-file experiments/{topic_slug}/reports/hypothesis.json \
     --code-file       experiments/{topic_slug}/reports/code_analysis.json \
-    --max-rounds 3
+    --max-rounds 3 \
+    --runner-type {{runner_type}}
 
 루프 동작:
   - 각 round: smoke test → train → METRICS 파싱 → result_summary.json 생성
@@ -256,6 +257,7 @@ async def run_research(
     image_paths: list[str] | None = None,
     image_labels: list[str] | None = None,
     auto_approve: bool = False,
+    runner_type: str = "github",
 ) -> None:
     """협업 모드 연구 파이프라인을 실행한다."""
 
@@ -304,7 +306,10 @@ workspace  = "experiments/{topic_slug}"
 
 3단계는 반드시 --mode collaborative 옵션으로 실행하세요.
 4단계는 반드시 --refine --target-score 8.5 옵션으로 실행하세요.
-5단계 PDF는 점수 무관 항상 생성됩니다."""
+5단계 PDF는 점수 무관 항상 생성됩니다.
+
+8단계 실행 시 runner_type = "{runner_type}" 을 사용하세요.
+시스템 프롬프트의 {{runner_type}} 을 "{runner_type}" 으로 치환하세요."""
 
     # auto_approve 모드: 5단계 자동 승인, AskUserQuestion 불필요
     if auto_approve:
@@ -415,6 +420,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--image-labels",  nargs="*", default=[], metavar="LABEL")
     parser.add_argument("--auto-approve",  action="store_true",
                         help="5단계 사용자 승인을 자동 처리 (CI/CD용)")
+    parser.add_argument("--runner-type",  default="github", choices=["local", "github"],
+                        help="실험 실행 방식 (local: 직접 실행, github: Actions workflow dispatch)")
     return parser.parse_args()
 
 
@@ -461,6 +468,7 @@ if __name__ == "__main__":
             image_paths=image_paths,
             image_labels=image_labels,
             auto_approve=args.auto_approve,
+            runner_type=args.runner_type,
         )
 
     anyio.run(main)

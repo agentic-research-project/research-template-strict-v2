@@ -143,7 +143,7 @@ TOOLS = [
                 "hypothesis_file":  {"type": "string", "description": "hypothesis.json 경로"},
                 "code_analysis_file":{"type": "string", "description": "code_analysis.json 경로"},
                 "max_rounds":       {"type": "integer", "description": "최대 revision 횟수 (기본 3)", "default": 3},
-                "runner_type":      {"type": "string", "description": "local | github (기본 local)", "default": "local"},
+                "runner_type":      {"type": "string", "description": "local | github (기본 github)", "default": "github"},
             },
             "required": ["pkg_dir", "topic_file", "hypothesis_file", "code_analysis_file"],
         },
