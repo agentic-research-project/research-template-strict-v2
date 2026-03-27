@@ -1,0 +1,874 @@
+{
+  "timestamp": "2026-03-27T21:29:44.870958",
+  "topic": "FashionMNIST 28x28 grayscale 이미지 분류를 위한 경량 CNN 모델 설계",
+  "papers_analyzed": 15,
+  "generation_mode": "collaborative",
+  "evidence_coverage": {
+    "key_innovation": true,
+    "expected_mechanism": true,
+    "closest_prior_art": false,
+    "baseline_models": true,
+    "evaluation_metrics": true,
+    "constraints": true,
+    "falsification_criteria": false,
+    "failure_modes": false,
+    "deployment_constraints": true
+  },
+  "evidence_pack": [
+    {
+      "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+      "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+      "source": "SemanticScholar",
+      "problem": "기존 인공신경망(ANN) 대비 에너지 효율이 높은 스파이킹 신경망(SNN)의 파라미터 효율성을 입증하고, 동일 파라미터 수의 CNN 모델 및 다른 SNN 모델과 비교하고자 함.",
+      "method": "고속 시그모이드 대리 경사 하강법 기반 컨볼루션 SNN(CSNN)",
+      "limitations": "제시된 초록에서는 파라미터 효율성에 집중하여, 대규모 데이터셋에서의 최고 정확도 달성 여부나 복잡한 SNN 훈련의 안정성에 대한 언급이 부족함.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 / 주요 지표: 파라미터 효율성 / 베이스라인: 동일 파라미터 및 깊이의 CNN, 최신 SNN",
+      "remaining_gaps": "SNN을 대규모의 복잡한 데이터셋에 적용 시, ANN 수준의 정확도를 유지하면서 에너지 효율을 극대화하는 일반화된 훈련 기법 및 아키텍처 연구.",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "극소 파라미터 CNN과 동일 파라미터 수 비교를 수행하여, 0.2M 이하 경량 CNN 분류 모델 설계의 직접적 선행 연구에 해당한다.",
+      "rank": 1
+    },
+    {
+      "paper_id": "c136d64092bc8b88a5d2eb4ccb0c99820f74bf9a",
+      "title": "HMSA-SegNet: A Parameter-Efficient Architecture with Hierarchical Multi-Scale Attention for Medical Image Segmentation",
+      "source": "SemanticScholar",
+      "problem": "의료 영상 분할에서 기존 CNN은 장거리 의존성 포착에 한계가 있고, 트랜스포머는 계산 오버헤드가 크다. 정확도와 계산 효율성을 모두 만족시키는 모델이 필요함.",
+      "method": "계층적 다중 스케일 어텐션을 적용한 파라미터 효율적 HMSA-SegNet",
+      "limitations": "의료 영상 분할에 특화되어 있어 일반적인 영상 분할 문제에 대한 성능은 검증되지 않았으며, '실시간' 성능의 구체적인 하드웨어 조건이 명시되지 않음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (의료 영상) / 주요 지표: 정확도, 계산 효율성 / 베이스라인: U-Net, 트랜스포머 기반 모델",
+      "remaining_gaps": "다양한 의료 영상 모달리티(CT, MRI, X-ray 등)에 대한 일반화 성능 검증 및 3D 의료 영상 데이터로의 효율적인 확장.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "파라미터 효율적 아키텍처와 계층적 멀티스케일 어텐션 설계를 다루지만, 의료 영상 세그멘테이션 과제로서 FashionMNIST 분류와는 도메인과 태스크가 상이하다.",
+      "rank": 2
+    },
+    {
+      "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+      "title": "LMENet: A lightweight multiscale efficient convolutional neural network for image denoising",
+      "source": "SemanticScholar",
+      "problem": "기존 CNN 기반 이미지 노이즈 제거 방법들은 성능은 우수하나, 네트워크의 깊이와 너비가 커서 파라미터가 많고 계산 부담이 크므로 휴대용 장치에 적용하기 어려움.",
+      "method": "경량 다중스케일 효율적 컨볼루션 신경망(LMENet) 제안",
+      "limitations": "경량화에 초점을 맞추어, 매우 심한 노이즈나 복잡한 패턴을 가진 이미지에서는 대규모 모델 대비 노이즈 제거 성능이 저하될 수 있음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 / 주요 지표: 노이즈 제거 성능, 파라미터 수, 계산량 / 베이스라인: 기존 대규모 CNN 기반 노이즈 제거 모델",
+      "remaining_gaps": "경량성을 유지하면서 실제 모바일 기기 환경에서 발생하는 저조도, 압축 등 복합적인 노이즈에 강건한 모델 개발.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints",
+        "deployment_constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "경량 멀티스케일 CNN 설계와 파라미터 절감 전략을 제시하여, 제한된 파라미터 예산 하에서 효율적 CNN 구조 설계의 메커니즘적 근거를 제공한다.",
+      "rank": 3
+    },
+    {
+      "paper_id": "29fade37e4ebe52943d2ad98b7d7c2639c2d0fd3",
+      "title": "Efficient fetal ultrasound image segmentation for automatic head circumference measurement using a lightweight deep convolutional neural network.",
+      "source": "SemanticScholar",
+      "problem": "태아 머리 둘레(HC) 자동 측정을 위한 기존 딥러닝 방법들은 정확도는 높지만 모델 효율성 최적화에 대한 고려가 부족함.",
+      "method": "경량 딥 컨볼루션 신경망을 이용한 효율적인 태아 초음파 영상 분할",
+      "limitations": "태아 머리 초음파 영상 분할이라는 매우 특수한 작업에 최적화되어 있어, 다른 신체 부위나 다른 의료 영상 모달리티에 대한 일반화 가능성이 낮음.",
+      "experimental_conditions": "데이터셋: 2D 태아 초음파 이미지 / 주요 지표: 모델 효율성, 예측 정확도 / 베이스라인: 기존 HC 측정 딥러닝 모델",
+      "remaining_gaps": "2D 이미지를 넘어 3D 초음파 볼륨 데이터에 대한 효율적인 자동 측정 기술 및 다양한 산모/태아 조건에 대한 강건성 확보.",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [
+        "constraints",
+        "deployment_constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "경량 딥 CNN의 모델 효율성 최적화를 목표로 하여 경량화 제약 조건의 참고가 되지만, 초음파 세그멘테이션이라는 상이한 과제이다.",
+      "rank": 4
+    },
+    {
+      "paper_id": "c0e73428cae1abef512aa55ab77a5f238b4a54e7",
+      "title": "Small-scale image recognition based on Cascaded Convolutional Neural Network",
+      "source": "SemanticScholar",
+      "problem": "딥러닝, 특히 CNN을 활용하여 소규모(Small-scale) 데이터셋 환경에서 효과적인 이미지 인식 기술을 개발하는 것이 목표.",
+      "method": "캐스케이드(Cascaded) 구조의 컨볼루션 신경망 설계",
+      "limitations": "제안된 '캐스케이드' 구조의 구체적인 내용과 기존 CNN 대비 장점이 초록에 명확히 설명되지 않아 독창성을 파악하기 어려움.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (소규모 이미지) / 주요 지표: 이미지 인식 성능 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "대규모 데이터셋 사전학습 없이, 소규모 데이터만으로 높은 일반화 성능을 보이는 효율적인 모델 구조 및 학습 방법론 연구.",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models",
+        "evaluation_metrics"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "소규모 이미지 인식을 위한 Cascaded CNN을 설계하여, 작은 해상도 이미지 분류에 대한 CNN 아키텍처 설계의 가장 유사한 선행 연구이다.",
+      "rank": 5
+    },
+    {
+      "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+      "title": "Efficient remote sensing image classification using the novel STConvNeXt convolutional network",
+      "source": "SemanticScholar",
+      "problem": "원격 탐사 이미지는 복잡한 공간 구조와 높은 클래스 간 유사성으로 분류가 어렵다. 기존 방법들의 계산 효율성과 특징 추출 능력 간의 균형이 필요함.",
+      "method": "계층적 트리 구조의 분할 기반 모바일 컨볼루션을 활용한 STConvNeXt",
+      "limitations": "원격 탐사 이미지 분류에 특화된 경량 구조로, 일반적인 컴퓨터 비전 작업에서는 최적의 성능을 보장하기 어려울 수 있음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (원격 탐사 이미지) / 주요 지표: 분류 정확도, 계산 효율성 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "초고해상도 및 다중 스펙트럼 원격 탐사 이미지 처리를 위한 메모리 및 계산 효율성의 추가적인 개선 연구.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "경량 컨볼루션 네트워크에서 split-based 모바일 컨볼루션과 계층적 구조를 제안하여, 경량 CNN 분류 모델의 효율적 특징 추출 메커니즘에 참고가 된다.",
+      "rank": 6
+    },
+    {
+      "paper_id": "3e6f785f915147adf591be2b3acc9a615dc77c4d",
+      "title": "Application of local fully Convolutional Neural Network combined with YOLO v5 algorithm in small target detection of remote sensing image",
+      "source": "SemanticScholar",
+      "problem": "원격 탐사 이미지에 존재하는 작은 표적을 효과적으로 탐지하는 것이 주요 과제임.",
+      "method": "로컬 FCN(완전 컨볼루션 신경망)과 YOLO-v5 알고리즘 결합",
+      "limitations": "기존의 두 방법을 결합하는 접근법으로, 독창적인 아키텍처 혁신보다는 조합에 따른 점진적 성능 향상에 그칠 수 있음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (원격 탐사 이미지) / 주요 지표: 소형 표적 탐지 성능 / 베이스라인: R-CNN, FRCN, R-FCN, YOLO-v5",
+      "remaining_gaps": "수 픽셀 크기의 극소 표적이나 밀집된 소형 표적들을 개별적으로 분리하여 탐지하는 능력의 한계 극복.",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "FCN과 YOLO 기반 객체 탐지 파이프라인으로서, FashionMNIST 경량 분류와는 과제(탐지 vs 분류)와 도메인이 모두 상이하여 관련성이 낮다.",
+      "rank": 7
+    },
+    {
+      "paper_id": "70e4d74cc6295bcd25eb452e5fbf1d60222ebf5f",
+      "title": "Multi-Scale Feature Fusion Convolutional Neural Network for Indoor Small Target Detection",
+      "source": "SemanticScholar",
+      "problem": "실내와 같이 변화가 많은 적용 시나리오에서 중소형 객체에 대한 탐지 정확도가 낮은 문제를 해결해야 함.",
+      "method": "다중 스케일 특징 융합(Multi-Scale Feature Fusion) CNN",
+      "limitations": "실내 환경의 소형 객체 탐지에 초점을 맞추고 있어, 객체 스케일 분포가 다른 실외 환경에서는 성능 저하가 발생할 수 있음.",
+      "experimental_conditions": "데이터셋: 다양한 각도, 조명을 포함한 실내 이미지 / 주요 지표: 소형 객체 탐지 정확도 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "심한 조명 변화, 객체 가림(occlusion) 등 더 복잡하고 동적인 실내 환경에서의 소형 객체 탐지 강건성 확보.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "멀티스케일 특징 융합 CNN 기법을 다루지만 실내 소형 객체 탐지 과제로서, 분류 태스크와 직접적 연관이 부족하다.",
+      "rank": 8
+    },
+    {
+      "paper_id": "09e1975c3feb8c98dce281608289da9c22487a69",
+      "title": "Parameter-Efficient Fine-Tuning of 3D DDPM for MRI Image Generation Using Tensor Networks",
+      "source": "SemanticScholar",
+      "problem": "3D U-Net 기반 확산 모델(DDPM)의 파라미터 효율적 파인튜닝(PEFT)은 중요하지만, 3D 컨볼루션 연산을 효율적으로 표현하는 연구가 부족함.",
+      "method": "텐서 네트워크(Tensor Network) 기반 3D DDPM 파인튜닝(TenVOO)",
+      "limitations": "뇌 MRI 데이터에 대한 성능을 입증하였으나, 비디오나 산업용 CT 등 다른 3D 데이터 도메인으로의 일반화 가능성은 아직 검증되지 않음.",
+      "experimental_conditions": "데이터셋: UK Biobank (사전학습), ADNI, PPMI, BraTS2021 (파인튜닝) / 주요 지표: MS-SSIM / 베이스라인: 기존 PEFT 방법",
+      "remaining_gaps": "텐서 네트워크 기법을 DDPM 외 다른 3D 생성 모델(GAN, VAE 등)에 적용하고, MRI 외 다양한 3D 데이터 도메인으로의 확장성 검증.",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [
+        "constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "sections 분석 결과 텐서 네트워크 기반 3D DDPM 파인튜닝(0.3% 파라미터)으로, 파라미터 효율성 개념은 공유하나 MRI 생성이라는 완전히 다른 과제이다.",
+      "rank": 9
+    },
+    {
+      "paper_id": "51d8600ddc39b62139505670821f9b47edb040d9",
+      "title": "SPDC-YOLO: An Efficient Small Target Detection Network Based on Improved YOLOv8 for Drone Aerial Image",
+      "source": "SemanticScholar",
+      "problem": "드론으로 촬영한 이미지는 다중 스케일, 복잡한 배경, 낮은 해상도 등의 특징으로 인해 객체 탐지가 매우 어려움.",
+      "method": "YOLOv8 기반의 효율적인 소형 객체 탐지 네트워크 SPDC-YOLO",
+      "limitations": "YOLOv8 아키텍처의 특정 모듈을 제거하는 방식은 다른 객체 탐지 모델에 보편적으로 적용하기 어려운, 특정 모델에 종속적인 개선 방식임.",
+      "experimental_conditions": "데이터셋: 드론 항공 이미지 / 주요 지표: 소형 객체 탐지 성능 / 베이스라인: YOLOv8",
+      "remaining_gaps": "실시간 드론 영상 처리 시, 비행 고도 및 속도 변화에 따른 객체 스케일 변화에 동적으로 대응하는 탐지 모델 연구.",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "YOLOv8 기반 드론 영상 소형 객체 탐지 모델로서, 경량 이미지 분류 CNN 설계와는 과제 및 도메인이 상이하다.",
+      "rank": 10
+    },
+    {
+      "paper_id": "ea086d6c40acde747cbfeb50b7ddb19b59208282",
+      "title": "Data-efficient convolution-free vision transformers for small-scale defective insulator classification using token-based distillation",
+      "source": "SemanticScholar",
+      "problem": "소규모 데이터셋 환경에서 데이터 효율성이 낮은 비전 트랜스포머를 효과적으로 학습시켜 결함 있는 절연체(insulator)를 분류하는 문제.",
+      "method": "토큰 기반 증류(distillation)를 사용한 데이터 효율적인 비전 트랜스포머",
+      "limitations": "결함 절연체 분류라는 특정 산업 도메인과 컨볼루션 없는 비전 트랜스포머에 국한되어, 다른 도메인이나 CNN 아키텍처로의 확장성이 불분명함.",
+      "experimental_conditions": "데이터셋: 소규모 결함 절연체 이미지 / 주요 지표: 분류 정확도 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "다양한 산업 현장의 소규모 특화 데이터셋에 효과적으로 적용 가능한 일반화된 데이터 효율적 학습(distillation) 기법 개발.",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models",
+        "key_innovation",
+        "evaluation_metrics"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "소규모 데이터에서 토큰 기반 증류를 활용한 데이터 효율적 분류 접근으로, CNN 대비 ViT 기반 대안적 경량 분류 전략의 비교 기준이 된다.",
+      "rank": 11
+    },
+    {
+      "paper_id": "d554bcc6850d00746375766685f313683ae87966",
+      "title": "An Efficient Multi-Scale Convolutional Neural Network Based Multi-Class Brain MRI Classification for SaMD",
+      "source": "SemanticScholar",
+      "problem": "뇌종양 진단에 사용되는 MRI 영상은 Rician 노이즈를 포함하며, 의료용 소프트웨어(SaMD)로 사용되기 위한 효율적인 다중 클래스 분류 모델이 필요함.",
+      "method": "효율적인 다중 스케일 CNN 기반 다중 클래스 뇌 MRI 분류",
+      "limitations": "뇌 MRI 종양 분류에 특화되어 있어 다른 질병이나 다른 영상 모달리티로의 일반화 가능성이 낮으며, SaMD로서의 임상적 유효성 검증이 필요함.",
+      "experimental_conditions": "데이터셋: Rician 노이즈를 포함한 뇌 MRI / 주요 지표: 분류 정확도, 효율성 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "실제 임상 환경(SaMD)에 통합하기 위한 모델의 해석 가능성(explainability) 및 예측 불확실성(uncertainty) 정량화 연구.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism",
+        "evaluation_metrics"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "멀티스케일 CNN 기반 이미지 분류 구조를 제안하여, 경량 CNN에서 멀티스케일 특징 추출 메커니즘의 분류 성능 향상 근거를 제공한다.",
+      "rank": 12
+    },
+    {
+      "paper_id": "850f3316219da80f78925256556f6fb62cc3070f",
+      "title": "Image Enhancement of 3-D SAR via U-Net Framework",
+      "source": "SemanticScholar",
+      "problem": "3D 합성 개구 레이더(SAR) 영상의 해상도는 중요하나, 기존 필터 기반 향상 기법은 파라미터 불일치 시 품질이 저하될 수 있어 강건하고 효율적인 방법이 필요함.",
+      "method": "U-Net 프레임워크 기반의 강건하고 효율적인 3D SAR 영상 향상",
+      "limitations": "자연 이미지에 최적화된 U-Net 구조가 SAR 데이터의 고유한 통계적 특성을 완벽히 포착하지 못할 수 있으며, 고품질의 학습 데이터 쌍 확보가 어려움.",
+      "experimental_conditions": "데이터셋: 3D SAR 이미지 / 주요 지표: 이미지 해상도 및 품질 / 베이스라인: 전통적인 필터 기반 향상 알고리즘",
+      "remaining_gaps": "지도 학습을 위한 저/고해상도 영상 쌍 없이 3D SAR 영상의 해상도를 향상시키는 비지도 또는 자기지도 학습 방법론 개발.",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "U-Net 기반 3D SAR 영상 향상으로서, CNN 아키텍처의 일반적 참고 외에는 FashionMNIST 분류와 관련성이 매우 낮다.",
+      "rank": 13
+    },
+    {
+      "paper_id": "36fe156aab6db502f642c6f2297515fbfa9e9e04",
+      "title": "Optimized Convolutional Neural Networks with Multi-Scale Pyramid Feature Integration for Efficient Traffic Light Detection in Intelligent Transportation Systems",
+      "source": "SemanticScholar",
+      "problem": "지능형 교통 시스템(ITS) 및 첨단 운전자 보조 시스템(ADAS)의 도로 안전성 향상을 위해 효율적이고 신뢰성 높은 신호등 탐지 메커니즘이 필요함.",
+      "method": "다중 스케일 피라미드 특징 통합을 적용한 최적화된 CNN 프레임워크",
+      "limitations": "일반적인 주행 환경에 초점을 맞춰, 폭우, 안개, 역광 등 극한의 기상 조건이나 비표준 신호등 형태에 대한 강건성이 부족할 수 있음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (도로 주행 이미지) / 주요 지표: 신호등 탐지 정확도, 효율성 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "악천후, 야간, 부분 가림 등 실제 도로의 비정형적이고 도전적인 환경에서의 탐지 강건성 확보.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "멀티스케일 피라미드 특징 통합 CNN을 다루지만, 교통 신호 탐지라는 상이한 과제로 분류 모델 설계와의 직접적 관련성이 제한적이다.",
+      "rank": 14
+    },
+    {
+      "paper_id": "7863d62073960398f4ca258bd08b5f2b7854e574",
+      "title": "CMM-Net: Contextual multi-scale multi-level network for efficient biomedical image segmentation",
+      "source": "SemanticScholar",
+      "problem": "의료 영상 자동 분할은 정교한 해부학적 지식이 필요하며, 전역적 맥락(global context)과 지역적 특징을 효과적으로 결합하는 것이 중요함.",
+      "method": "컨텍스트 다중 스케일 다중 레벨 네트워크(CMM-Net)",
+      "limitations": "다양한 스케일과 레벨의 특징을 융합하는 복잡한 구조가 계산 비용을 증가시켜 '효율적'이라는 주장과 상충될 수 있으며, 3D 영상에 대한 고려가 없음.",
+      "experimental_conditions": "데이터셋: 명시되지 않음 (의생명 이미지) / 주요 지표: 분할 정확도 / 베이스라인: 명시되지 않음",
+      "remaining_gaps": "3D 의료 영상(CT, MRI 볼륨)으로 CMM-Net의 아이디어를 확장 적용하고, 실시간 분할 요구사항을 충족하기 위한 모델 경량화 연구.",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "컨텍스트 멀티스케일 멀티레벨 특징 융합 구조를 제안하지만, 의료 영상 세그멘테이션 과제로서 경량 분류 CNN과는 태스크가 다르다.",
+      "rank": 15
+    }
+  ],
+  "research_gap": {
+    "summary": "기존 경량 CNN 연구들은 의료영상·원격탐사·객체탐지 등 특정 도메인에 특화되어 있으며, 28×28 소규모 grayscale 이미지 분류에서 200K 이하 파라미터로 높은 정확도를 달성하기 위한 체계적인 아키텍처 설계 전략—특히 depthwise-separable 컨볼루션, 잔차 연결, 채널 어텐션의 시너지 효과—에 대한 실증적 검증이 부족하다. Evidence Pack의 논문들이 다중 스케일 특징 융합(LMENet, CMM-Net), 파라미터 효율적 구조(CSNN, STConvNeXt), 채널 어텐션(HMSA-SegNet) 등의 개별 기법을 제안하지만, 이들을 극소 파라미터 환경에서 통합 적용한 사례와 각 구성요소의 독립적 기여도를 정량화한 연구는 부재한다.",
+    "existing_approaches": [
+      "LMENet 등 경량 다중스케일 CNN: 다중 스케일 분기를 사용하되 노이즈 제거 등 저수준 태스크에 특화, 분류 경량화에는 미적용",
+      "STConvNeXt의 계층적 분할 기반 모바일 컨볼루션: 원격탐사 이미지의 높은 클래스 간 유사성 문제를 다루나 고해상도 대상이며 파라미터 제약이 느슨함",
+      "HMSA-SegNet의 계층적 다중 스케일 어텐션: 장거리 의존성과 효율성 균형을 추구하나 분할 태스크용으로 설계되어 분류에 직접 적용 시 오버헤드 발생",
+      "Cascaded CNN: 캐스케이드 구조로 소규모 데이터 인식을 시도하나 구체적 경량화 전략 부재",
+      "Multi-Scale Feature Fusion CNN: 다중 스케일 특징 융합으로 소형 객체 탐지 정확도 향상을 꾀하나 분류가 아닌 탐지 중심"
+    ],
+    "limitations": [
+      "다중 스케일 구조가 파라미터를 크게 증가시켜 200K 이하의 극소 파라미터 환경에서는 적용이 어려움",
+      "대부분 특정 도메인(의료, 원격탐사)에 최적화되어 28×28 저해상도 grayscale 분류 문제로의 일반화 검증이 부재",
+      "클래스 간 형태 유사성(예: FashionMNIST의 Shirt vs T-shirt vs Coat)을 명시적으로 해결하는 경량 메커니즘이 논의되지 않음",
+      "경량화와 정확도 간 트레이드오프를 체계적으로 분석하는 ablation 기반 점진적 개선 프레임워크가 부족"
+    ]
+  },
+  "hypothesis": {
+    "statement": "A hybrid lightweight CNN that integrates depthwise-separable convolutions within compact residual blocks augmented with Squeeze-and-Excitation (SE) modules will achieve over 92.5% validation accuracy on FashionMNIST with fewer than 200K parameters, by synergistically combining parameter-efficient spatial feature extraction, stable gradient flow, and adaptive channel-wise discriminative recalibration for visually similar classes.",
+    "statement_kr": "컴팩트 잔차 블록 내부에 depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 파라미터 효율적인 공간 특징 추출·안정적인 그래디언트 흐름·유사 클래스 구분을 위한 적응적 채널별 판별 특징 재보정의 시너지를 통해, 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다.",
+    "rationale": "본 가설은 Pairwise Ranking에서 GPT와 Gemini 모두 1위로 선정한 가설 #3(컴팩트 잔차 CNN + SE 어텐션)을 핵심 골격으로 유지하되, GPT가 지적한 '200K 제약 하에서의 표현력 부족 가능성'을 가설 #1의 depthwise-separable 컨볼루션 통합으로 해소한다. SE 모듈(reduction=8)의 파라미터 오버헤드는 채널 수 C 기준 2×C²/8로 극히 미미하여(예: C=128일 경우 약 4K), 200K 예산 내에서 충분히 수용 가능하다. 잔차 연결은 3~4블록 깊이에서의 그래디언트 소실을 방지하고, depthwise-separable 컨볼루션은 표준 3×3 컨볼루션 대비 약 8~9배의 파라미터 절감을 제공하여 동일 예산 내에서 더 넓거나 깊은 구조를 허용한다. GPT의 비판대로 아키텍처만으로 92.5% 달성이 불확실할 수 있으므로, 실험 설계에 데이터 증강과 label smoothing을 단계적으로 도입하되, 초기 실험에서는 최소 증강으로 구조적 기여도를 먼저 검증한다. Evidence Pack에서 LMENet과 STConvNeXt가 경량 구조에서 multi-scale 및 분할 기반 컨볼루션의 효과를 입증했고, HMSA-SegNet이 어텐션 기반 효율적 특징 추출의 가능성을 보여준 점이 본 가설의 구성요소 선택을 간접적으로 지지한다.",
+    "key_innovation": "Depthwise-separable 컨볼루션, skip connection, SE 채널 어텐션을 단일 '하이브리드 잔차 블록'으로 통합하여, 각 구성요소가 파라미터 효율(DW-Sep)·학습 안정성(Residual)·판별력(SE)이라는 서로 다른 축을 담당하는 모듈형 경량 블록 설계",
+    "expected_mechanism": "각 하이브리드 잔차 블록에서 depthwise-separable 컨볼루션이 공간적 특징을 저비용으로 추출하고, SE 모듈이 글로벌 평균 풀링→FC→ReLU→FC→Sigmoid 경로를 통해 채널별 중요도를 학습하여 유사 클래스(예: Shirt vs T-shirt, Pullover vs Coat) 구분에 유용한 채널을 강조하며, skip connection이 입력 정보를 직접 전달하여 그래디언트 흐름을 안정화한다. 이 세 메커니즘의 결합으로 제한된 파라미터 예산 내에서 공간적·채널적 특징의 효율적 활용이 극대화된다.",
+    "falsification_criteria": [
+      "반증 조건 1: 제안 하이브리드 모델의 최종 Validation Accuracy가 동일 파라미터 예산의 순수 Depthwise-separable CNN 베이스라인(가설 #1 기반) 대비 0.5%p 이상 향상되지 않으면, SE+Residual 결합의 시너지 효과가 없는 것으로 판정하여 가설 기각",
+      "반증 조건 2: Ablation에서 SE 모듈 제거 시 정확도 하락이 0.3%p 미만이면, 채널 어텐션이 FashionMNIST 유사 클래스 판별에 실질적 기여를 하지 않는 것으로 판정",
+      "반증 조건 3: 모든 실험 변형(증강·스케줄러 튜닝 포함)에서 Validation Accuracy가 92.0% 미만에 머무르면, 200K 파라미터 제약 하에서 본 아키텍처 접근으로는 목표 달성이 불가능한 것으로 판정",
+      "반증 조건 4: 제안 모델의 학습 시간이 단일 GPU(T4급)에서 15분을 초과하면, '빠른 학습' 제약 조건 위반으로 실용성 가설 기각"
+    ]
+  },
+  "experiment_plan": {
+    "architecture": "**입력**: 1×28×28 grayscale\n\n**Stem Block**: Conv2d(1→32, 3×3, padding=1) → BatchNorm → ReLU\n\n**Hybrid Residual Block (×3~4 스택)**:\n  - Depthwise Conv2d(C→C, 3×3, padding=1, groups=C) → BN → ReLU\n  - Pointwise Conv2d(C→C', 1×1) → BN → ReLU\n  - SE Module: GAP → FC(C'→C'//8) → ReLU → FC(C'//8→C') → Sigmoid → Scale\n  - Skip Connection: 입력과 출력을 element-wise add (채널 불일치 시 1×1 conv projection)\n  - 블록 간 다운샘플링: stride=2 적용 (28→14→7)\n\n**채널 구성**: Block1: 32→48, Block2: 48→64, Block3: 64→96 (필요시 Block4: 96→128)\n\n**Head**: Global Average Pooling → Dropout(0.3) → FC(최종채널→10)\n\n**예상 파라미터**: ~120K~180K (채널 구성에 따라 조정, 200K 미만 보장)",
+    "dataset": "**FashionMNIST** (torchvision 내장)\n- Train: 60,000장 → Train/Val 분할: 50,000 / 10,000 (stratified)\n- Test: 10,000장 (최종 평가용)\n- 정규화: mean=0.2860, std=0.3530\n- Path A 초기 실험 증강: RandomHorizontalFlip(0.5)만 적용\n- Path A 후속 실험 증강: + RandomRotation(10°), RandomAffine(translate=0.1, scale=(0.9,1.1))\n- Path B (필요시): + Cutout(n_holes=1, length=4~8), Label Smoothing(0.1)",
+    "baseline_models": [
+      "Baseline A — Pure DW-Sep CNN: Stem + 3×(DepthwiseSep Conv + BN + ReLU) + GAP + FC, ~180K params (가설 #1 구현체, skip connection·SE 없음)",
+      "Baseline B — Compact ResNet: Stem + 3×(Standard 3×3 Conv Residual Block + BN + ReLU) + GAP + FC, ~180K params (표준 컨볼루션 사용, SE 없음)",
+      "Baseline C — Simple 3-layer CNN: 3×(Conv + BN + ReLU + MaxPool) + FC, ~180K params (가장 단순한 기준선)"
+    ],
+    "evaluation_metrics": [
+      "Validation Accuracy (primary, 목표 ≥92.5%)",
+      "Test Accuracy (최종 보고용)",
+      "Total Parameter Count (≤200K 검증)",
+      "Total Training Time (단일 GPU, 목표 ~10분 이내)",
+      "Per-image Inference Latency (ms, 경량성 검증)",
+      "Per-class Accuracy & Confusion Matrix (유사 클래스 쌍 판별력 분석: Shirt/T-shirt, Pullover/Coat 등)",
+      "FLOPs (연산량 비교)"
+    ],
+    "key_experiments": [
+      "Experiment 1 (Path A-1, 구조 비교): 최소 증강(HorizontalFlip만)으로 제안 모델 vs Baseline A/B/C를 동일 조건(Adam, lr=1e-3, CosineAnnealing, 30 epochs)에서 학습·비교하여 아키텍처 자체의 우위를 검증",
+      "Experiment 2 (Path A-2, 증강 강화): Exp1 결과 기반으로 제안 모델에 RandomRotation + RandomAffine 증강 추가, Label Smoothing(0.1) 적용하여 92.5% 도달 여부 확인",
+      "Experiment 3 (Path A-3, 하이퍼파라미터 튜닝): 채널 구성(48-64-96 vs 32-64-128), 블록 수(3 vs 4), SE reduction ratio(4 vs 8 vs 16), Dropout rate(0.2 vs 0.3 vs 0.5), 학습률 스케줄러(CosineAnnealing vs OneCycleLR) 탐색",
+      "Experiment 4 (Ablation Study): 제안 모델의 각 구성요소 기여도 정량화 (아래 ablation_studies 참조)",
+      "Experiment 5 (유사 클래스 분석): 최종 모델의 confusion matrix를 분석하여 SE 모듈 유무에 따른 유사 클래스 쌍(Shirt/T-shirt/Pullover/Coat) 정확도 변화를 정량 비교"
+    ],
+    "ablation_studies": [
+      "Ablation 1 — SE 모듈 제거: 하이브리드 블록에서 SE만 제거 → 채널 어텐션의 정확도 기여도 측정",
+      "Ablation 2 — Skip Connection 제거: 하이브리드 블록에서 잔차 연결만 제거 → 학습 안정성 및 정확도 영향 측정",
+      "Ablation 3 — DW-Sep → Standard Conv 교체: 동일 채널 구성에서 depthwise-separable을 표준 3×3으로 교체 (파라미터 초과 시 채널 축소) → 파라미터 효율 vs 표현력 트레이드오프 측정",
+      "Ablation 4 — SE Reduction Ratio: r=4 vs r=8 vs r=16 비교 → 최적 어텐션 압축비 탐색",
+      "Ablation 5 — 블록 깊이: 2블록 vs 3블록 vs 4블록 비교 → 최적 깊이 탐색"
+    ]
+  },
+  "related_papers": [
+    {
+      "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+      "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+      "venue": "N/A",
+      "relevance": "파라미터 효율적 CNN 분류 모델의 성능 벤치마크 및 동일 파라미터 수 대비 정확도 비교 방법론 참고"
+    },
+    {
+      "paper_id": "c136d64092bc8b88a5d2eb4ccb0c99820f74bf9a",
+      "title": "HMSA-SegNet: A Parameter-Efficient Architecture with Hierarchical Multi-Scale Attention for Medical Image Segmentation",
+      "venue": "N/A",
+      "relevance": "계층적 어텐션 메커니즘의 파라미터 효율성과 정확도 간 트레이드오프 설계 참고"
+    },
+    {
+      "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+      "title": "LMENet: A lightweight multiscale efficient convolutional neural network for image denoising",
+      "venue": "N/A",
+      "relevance": "경량 다중스케일 CNN 구조 설계 및 파라미터 절감 전략 참고"
+    },
+    {
+      "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+      "title": "Efficient remote sensing image classification using the novel STConvNeXt convolutional network",
+      "venue": "N/A",
+      "relevance": "분할 기반 모바일 컨볼루션을 활용한 경량 분류 모델의 효율성 검증 사례 참고"
+    },
+    {
+      "paper_id": "c0e73428cae1abef512aa55ab77a5f238b4a54e7",
+      "title": "Small-scale image recognition based on Cascaded Convolutional Neural Network",
+      "venue": "N/A",
+      "relevance": "소규모 이미지 인식에서의 CNN 구조 설계 전략 참고"
+    },
+    {
+      "paper_id": "ea086d6c40acde747cbfeb50b7ddb19b59208282",
+      "title": "Data-efficient convolution-free vision transformers for small-scale defective insulator classification using token-based distillation",
+      "venue": "N/A",
+      "relevance": "소규모 데이터셋에서의 데이터 효율적 학습 전략(distillation) 참고, 향후 knowledge distillation 확장 시 활용 가능"
+    }
+  ],
+  "evidence_links": [
+    {
+      "paper_id": "c136d64092bc8b88a5d2eb4ccb0c99820f74bf9a",
+      "supports": [
+        "key_innovation",
+        "expected_mechanism"
+      ]
+    },
+    {
+      "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+      "supports": [
+        "key_innovation"
+      ]
+    },
+    {
+      "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+      "supports": [
+        "architecture"
+      ]
+    },
+    {
+      "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+      "supports": [
+        "key_innovation"
+      ]
+    }
+  ],
+  "confidence": 0.78,
+  "risk_factors": [
+    "SE 모듈의 실질적 기여 불확실성: 28×28 저해상도에서 채널 어텐션의 효과가 고해상도 대비 제한적일 수 있으며, reduction ratio 최적화가 필요",
+    "92.5% 목표의 아키텍처 단독 달성 불확실성: FashionMNIST에서 200K 이하 모델로 92.5%는 도전적이며, 데이터 증강·정규화 전략에 상당 부분 의존할 가능성이 높음",
+    "하이퍼파라미터 민감도: 채널 수·블록 수·SE ratio·학습률 등 탐색 공간이 넓어 2~3회 반복 내에 최적 조합을 찾지 못할 위험",
+    "Evidence Pack과의 간접적 연결: 참조 논문들이 FashionMNIST나 유사 벤치마크를 직접 다루지 않아, 구조적 아이디어의 이전 가능성에 대한 근거가 간접적임",
+    "Depthwise-separable 컨볼루션의 저채널 환경 비효율: 초기 블록(32~48채널)에서는 depthwise 분리의 파라미터 절감 효과가 크지 않고 오히려 표현력 손실이 발생할 수 있음"
+  ],
+  "debate_log": [
+    {
+      "round": 1,
+      "role": "Proposer",
+      "model": "Claude",
+      "output": {
+        "research_gap_summary": "Evidence Pack의 논문들은 경량 CNN, 다중 스케일 특징 융합, 파라미터 효율적 구조 설계를 다루지만, 대부분 의료영상·원격탐사·객체탐지 등 특정 도메인에 특화되어 있다. 28×28 소규모 grayscale 이미지 분류에서 200K 이하 파라미터로 높은 정확도를 달성하기 위한 경량 아키텍처 설계 전략—특히 (1) 다중 스케일 특징 융합의 극소 파라미터 환경 적용, (2) 채널 효율성 극대화를 위한 구조적 분해, (3) 클래스 간 형태 유사성 해결을 위한 특징 재보정—에 대한 연구 갭이 존재한다.",
+        "existing_approaches": [
+          "LMENet 등 경량 다중스케일 CNN: 다중 스케일 분기를 사용하되 노이즈 제거 등 저수준 태스크에 특화, 분류 경량화에는 미적용",
+          "STConvNeXt의 계층적 분할 기반 모바일 컨볼루션: 원격탐사 이미지의 높은 클래스 간 유사성 문제를 다루나 고해상도 대상이며 파라미터 제약이 느슨함",
+          "HMSA-SegNet의 계층적 다중 스케일 어텐션: 장거리 의존성과 효율성 균형을 추구하나 분할 태스크용으로 설계되어 분류에 직접 적용 시 오버헤드 발생",
+          "Cascaded CNN: 캐스케이드 구조로 소규모 데이터 인식을 시도하나 구체적 경량화 전략 부재",
+          "Multi-Scale Feature Fusion CNN: 다중 스케일 특징 융합으로 소형 객체 탐지 정확도 향상을 꾀하나 분류가 아닌 탐지 중심"
+        ],
+        "limitations": [
+          "다중 스케일 구조가 파라미터를 크게 증가시켜 200K 이하의 극소 파라미터 환경에서는 적용이 어려움",
+          "대부분 특정 도메인(의료, 원격탐사)에 최적화되어 28×28 저해상도 grayscale 분류 문제로의 일반화 검증이 부재",
+          "클래스 간 형태 유사성(예: FashionMNIST의 Shirt vs T-shirt vs Coat)을 명시적으로 해결하는 경량 메커니즘이 논의되지 않음",
+          "경량화와 정확도 간 트레이드오프를 체계적으로 분석하는 ablation 기반 점진적 개선 프레임워크가 부족"
+        ],
+        "hypotheses": [
+          {
+            "id": 1,
+            "statement": "A depthwise-separable CNN with progressive channel expansion (32→64→128) and global average pooling can achieve ≥92.5% validation accuracy on FashionMNIST within 200K parameters by maximizing per-parameter representational capacity through factorized convolutions.",
+            "statement_kr": "Depthwise-separable 컨볼루션으로 채널을 점진적으로 확장(32→64→128)하고 Global Average Pooling을 적용한 경량 CNN이, 분해된 컨볼루션을 통해 파라미터당 표현력을 극대화함으로써 200K 이하에서 FashionMNIST 검증 정확도 92.5% 이상을 달성할 수 있다.",
+            "core_idea": "LMENet과 STConvNeXt가 다중 스케일 분기로 경량화를 시도했지만 파라미터 오버헤드가 크다는 한계가 있었다. 본 가설은 MobileNet 스타일의 depthwise-separable convolution을 3×3 커널로 적용하여 표준 Conv 대비 파라미터를 8~9배 절감하면서도, 점진적 채널 확장과 Batch Normalization + ReLU 조합으로 충분한 특징 추출 능력을 확보한다. 이를 통해 단순한 3-block 구조로도 200K 이하에서 높은 정확도를 달성할 수 있다고 가정한다.",
+            "key_innovation": "기존 논문들(LMENet, HMSA-SegNet)은 다중 스케일 분기나 어텐션으로 경량화를 시도했으나 여전히 수백K~수M 파라미터를 사용한다. 본 가설은 다중 스케일 분기 없이 단일 경로의 depthwise-separable 구조만으로 28×28 입력에 최적화된 극소 파라미터 CNN을 설계하며, 복잡한 모듈 없이 컨볼루션 분해 자체로 효율성을 확보하는 점이 차별적이다.",
+            "potential_weaknesses": [
+              "Depthwise convolution은 채널 간 정보 교환이 제한되어 FashionMNIST의 유사 클래스(Shirt, T-shirt, Coat) 구분에 필요한 미세 특징 포착이 부족할 수 있음",
+              "극소 파라미터 환경에서 depthwise-separable의 이론적 이점이 실제 정확도 향상으로 이어지지 않을 가능성 (채널 수 자체가 적으면 분해 효과 감소)"
+            ]
+          },
+          {
+            "id": 2,
+            "statement": "A lightweight multi-scale feature aggregation CNN that uses parallel 1×1, 3×3, and 5×5 (or 3×3 dilated) convolutions with shared bottleneck compression can resolve inter-class shape ambiguity in FashionMNIST while staying under 200K parameters.",
+            "statement_kr": "공유 병목 압축(shared bottleneck)을 적용한 병렬 1×1, 3×3, 5×5(또는 dilated 3×3) 컨볼루션 기반 경량 다중 스케일 특징 집계 CNN이, FashionMNIST의 클래스 간 형태 모호성을 해결하면서 200K 이하 파라미터를 유지할 수 있다.",
+            "core_idea": "Multi-Scale Feature Fusion CNN과 CMM-Net은 다중 스케일 특징 융합이 형태 유사 클래스 구분에 효과적임을 보였으나, 파라미터 오버헤드가 크다는 공통 한계가 있었다. 본 가설은 Inception 스타일 병렬 분기를 사용하되, 각 분기 진입 전 공유 1×1 bottleneck으로 채널을 1/4로 압축하여 파라미터를 대폭 절감한다. 28×28 입력에서 다양한 수용 영역(receptive field)을 동시에 포착함으로써 Shirt와 Coat 같은 유사 형태 클래스를 효과적으로 분리할 수 있다고 가정한다.",
+            "key_innovation": "기존 Multi-Scale CNN(LMENet, CMM-Net 등)은 고해상도 이미지의 노이즈 제거나 분할에 다중 스케일을 적용했고 파라미터 제약이 느슨했다. 본 가설은 28×28 극소 해상도에 맞춰 다중 스케일 분기의 채널 폭을 극단적으로 압축(bottleneck ratio 1/4)하고, dilated convolution으로 5×5 수용영역을 3×3 파라미터로 구현하여 200K 이하에서 다중 스케일 효과를 최초로 적용하는 점이 차별적이다.",
+            "potential_weaknesses": [
+              "28×28 해상도에서 다중 스케일의 실질적 이점이 제한적일 수 있음 (5×5 수용영역이 이미 이미지의 상당 부분을 커버하므로 스케일 다양성의 효용이 낮을 수 있음)",
+              "병렬 분기 구조가 GPU 활용 효율을 저하시켜 학습·추론 속도가 단일 경로 대비 느려질 수 있음"
+            ]
+          },
+          {
+            "id": 3,
+            "statement": "A compact residual CNN augmented with lightweight channel attention (Squeeze-and-Excitation with reduction ratio 8) can adaptively recalibrate feature responses to discriminate visually similar FashionMNIST classes, achieving ≥92.5% accuracy under 200K parameters.",
+            "statement_kr": "경량 채널 어텐션(SE block, reduction ratio 8)을 결합한 컴팩트 잔차 CNN이, 시각적으로 유사한 FashionMNIST 클래스를 구별하기 위해 특징 응답을 적응적으로 재보정함으로써 200K 이하 파라미터에서 92.5% 이상 정확도를 달성할 수 있다.",
+            "core_idea": "HMSA-SegNet이 계층적 어텐션으로 효율성과 정확도 균형을 추구했지만 분할 태스크에 특화되어 있었고, 기존 경량 CNN 논문들은 클래스 간 유사성 문제를 명시적으로 다루지 않았다. 본 가설은 2-3개의 잔차 블록(각 블록: 2×Conv3×3 + skip connection)에 SE block(reduction ratio 8, 추가 파라미터 극소)을 부착하여, 모델이 'Pullover vs Coat', 'Shirt vs T-shirt' 등 혼동 클래스 구분에 중요한 채널을 자동으로 강조하도록 학습시킨다. 잔차 연결이 그래디언트 흐름을 보장하고, SE block이 채널별 중요도를 재보정하여 경량 구조에서도 판별력을 극대화한다.",
+            "key_innovation": "기존 논문들의 어텐션 메커니즘(HMSA-SegNet의 다중 스케일 어텐션, CMM-Net의 컨텍스트 어텐션)은 분할·탐지용으로 설계되어 파라미터가 무겁고, 분류에서의 클래스 혼동 문제를 직접 다루지 않았다. 본 가설은 SE block을 reduction ratio 8로 극도로 압축하여 블록당 수백 개 파라미터만 추가하면서도, 잔차 구조와 결합하여 FashionMNIST 특유의 클래스 간 형태 유사성을 채널 수준에서 명시적으로 해결하는 점이 차별적이다.",
+            "potential_weaknesses": [
+              "SE block의 global average pooling이 28×28의 작은 공간 해상도에서 충분한 통계적 요약을 제공하지 못할 수 있음 (특히 중간 레이어에서 7×7, 14×14 크기)",
+              "잔차 블록 + SE block 조합이 200K 파라미터 제약 하에서 충분한 네트워크 깊이/폭을 확보하지 못해 표현력이 부족할 수 있음"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "round": 2,
+      "role": "Critic",
+      "model": "gpt-5.1",
+      "output": {
+        "critiques": [
+          {
+            "id": 1,
+            "fatal_flaws": [
+              "논리 비약: \"분해된 컨볼루션을 통해 파라미터당 표현력을 극대화하면 200K 이하에서 92.5% 이상이 가능하다\"는 인과를 전제로 하지만, Evidence Pack 어디에도 depthwise-separable conv가 소규모(28×28, 단채널) 분류 문제에서 정확도–파라미터 효율 면에서 항상 우월하다는 근거가 없다. LMENet, STConvNeXt 등은 다중 스케일/모바일 conv를 쓰지만, 그 자체가 높은 정확도를 보장하지 않는다는 점(노이즈 제거/원격 탐사처럼 다른 도메인, 더 복잡한 구조)에 비춰볼 때, 단지 분해(conv factorization)만으로 성능 목표를 달성할 수 있다는 주장은 논리적으로 비약이다.",
+              "이미 해결된 문제와 차별성 부족: MobileNet류 depthwise-separable CNN으로 소형 이미지 분류를 하는 것은 매우 표준적인 접근이고, Evidence Pack의 여러 논문도 '효율적 CNN 구조'라는 큰 틀 안에서 유사 아이디어(모바일 conv, 파라미터 절감)를 쓴다. 하지만 본 가설은 FashionMNIST 특화 설계, 학습전략, 정규화/증강 정책 등에서 구체적인 차별점을 제시하지 않으며, 단순히 3블록 depthwise-separable 구조를 쓰겠다는 수준이라 선행연구 대비 실질적 혁신이 무엇인지 불분명하다.",
+              "성능 가정의 근거 부족: \"3-block 구조\"와 \"32→64→128 채널\"이라는 매우 제한된 설계에서 92.5% 이상을 달성한다는 수치는 전적으로 추측에 가깝고, Evidence Pack의 어떤 논문도 비슷한 파라미터/해상도 조건에서 분류 정확도의 상한을 제시하지 않는다. 특히 FashionMNIST는 MNIST보다 난도가 높고, 클래스 간 유사성을 다루려면 깊이/표현력이 필요한데, 단순한 3블록 DW-separable CNN이 이 한계를 넘는다는 주장은 논리적으로 과도하게 낙관적이다."
+            ],
+            "exaggerations": [
+              "\"표준 Conv 대비 파라미터를 8~9배 절감하면서도, 점진적 채널 확장과 BN+ReLU만으로 충분한 특징 추출 능력을 확보한다\"는 문장은 이론적 파라미터 절감(8~9배)은 맞더라도, \"충분한 특징 추출 능력\"이 실제 정확도(92.5%+)로 이어진다는 보장은 없다. 특히 Evidence Pack은 파라미터 효율성이 곧 정확도 보존을 의미하지 않는다는 예(예: SNN, 경량 노이즈 제거 네트워크의 성능 저하 가능성)를 포함하고 있는데, 이를 무시하고 성능을 단정 짓는 것은 과장이다.",
+              "\"복잡한 모듈 없이 컨볼루션 분해 자체로 효율성을 확보\"라는 표현도, 효율성(파라미터/연산량)은 확보 가능하나, 목표로 하는 정확도 수준까지 '손실 없이' 유지된다는 뉘앙스를 주는 점에서 근거 없는 일반화다."
+            ],
+            "unverifiable": [
+              "현 가설 수준에서는 구체적 파라미터 계산(정확한 레이어 구성, classifier head, padding/stride 설정, 중간 채널 수 조정 등)이 제공되지 않아 '≤200K 파라미터' 조건이 실제로 만족되는지는 재현 없이 검증 불가하다.",
+              "제안된 구조가 \"GitHub 기반 자동 실험 루프에서 10분 이내 학습\"을 만족한다고 암묵적으로 기대하지만, 배치 크기, GPU 스펙, 학습 스케줄(에폭 수) 등 핵심 변수를 명시하지 않아 실제 시간 제약을 충족하는지는 확인 불가능하다.",
+              "\"분해 효과가 파라미터당 표현력을 극대화한다\"는 표현은 정량적 정의 없이 직관적 슬로건 수준이라, 어떤 지표로 '극대화'를 측정할지 불명확해 실질적으로 검증이 어렵다."
+            ],
+            "score": 5
+          },
+          {
+            "id": 2,
+            "fatal_flaws": [
+              "28×28 해상도에서의 다중 스케일 필요성에 대한 논리 결여: Evidence Pack의 다중 스케일/피라미드/멀티레벨 구조(HMSA-SegNet, CMM-Net, Multi-Scale Feature Fusion CNN, 교통 신호등 탐지 등)는 주로 고해상도 또는 복잡한 장면, 분할/탐지 태스크에 대한 것으로, 공간적 컨텍스트가 넓게 필요하다는 전제가 있다. 28×28 단채널 FashionMNIST에서는 이미 3×3, 5×5 커널이 입력 대부분을 커버하며, 인셉션 스타일의 병렬 스케일이 '형태 모호성 해결'에 얼마나 기여하는지에 대한 근거가 없다. 다중 스케일이 필수라는 주장 자체가 Evidence Pack과 문제 특성을 고려할 때 설득력이 약하다.",
+              "병목(shared bottleneck) 구조의 실제 효과에 대한 비약: 채널을 1/4로 공유 압축하면 파라미터 수는 줄어들지만, 그만큼 정보 손실이 심해진다. Evidence Pack의 경량 네트워크들(LMENet 등)도 '극단적인' 채널 축소 시 성능 저하 가능성을 인정하고 있는데, 본 가설은 이 축소가 FashionMNIST의 세밀한 클래스 차이를 보존한다는 전제를 둔다. 이는 파라미터 감소와 판별력 유지 사이의 트레이드오프를 무시한 단정적 주장이다.",
+              "GPU 효율과 설계 목표의 모순 가능성: 병렬 분기 인셉션 구조는 연산량 대비 벽시계 시간 측면에서 항상 효율적이지 않으며, Evidence Pack에서도 복잡한 멀티브랜치/멀티스케일 구조가 '효율성' 주장과 상충될 수 있음을 지적(CMM-Net의 복잡한 스케일/레벨 융합이 계산 비용 증가). 본 가설은 이를 알면서도 병렬 분기를 도입하면서 '학습/추론이 빠르다'고 기대하는데, 구조 복잡도 증가에 따른 메모리 접근/커널 런칭 오버헤드를 전혀 고려하지 않는다."
+            ],
+            "exaggerations": [],
+            "unverifiable": [
+              "\"다양한 수용영역을 동시에 포착함으로써 Shirt와 Coat 같은 유사 형태 클래스를 효과적으로 분리할 수 있다\"는 주장은, 클래스 간 혼동 행렬 변화나 ablation 없이 단지 구조만으로 결과를 단정하는 것으로, Evidence Pack 어디에도 '다중 스케일이 유사 클래스 분리를 직접 개선했다'는 인과적 증거는 없다.",
+              "\"200K 이하에서 다중 스케일 효과를 최초로 적용\"한다는 식의 표현은, 작은 비전 분류 문제(특히 CIFAR-류, MNIST-류)에 대한 수많은 인셉션/멀티스케일 변형이 이미 존재한다는 점에서 재현 불가능한 우월성 주장이다. Evidence Pack이 해당 세부 도메인을 다루지 않기 때문에 반증도 불가하지만, '최초'라는 표현은 사실상 검증 불가능한 과장에 가깝다.",
+              "dilated 3×3로 5×5 수용영역을 구현할 때, 실제 파라미터·연산량·메모리 패턴이 어떻게 되는지, 그리고 이것이 200K 이내에서 최적의 선택인지에 대한 구체적 설계가 제시되지 않아, \"200K 이하 유지\"라는 조건 충족 여부는 현 상태로는 확인할 수 없다."
+            ],
+            "score": 3
+          },
+          {
+            "id": 3,
+            "fatal_flaws": [
+              "SE 블록이 클래스 혼동 문제를 '명시적으로' 해결한다는 논리 비약: Evidence Pack에서의 어텐션(HMSA-SegNet, CMM-Net 등)은 전역/지역 컨텍스트 결합이나 장거리 의존성 보완을 위한 것이며, \"유사 클래스 간 판별\"을 직접 겨냥했다는 근거는 없다. SE 채널 어텐션이 특정 혼동 쌍(Shirt vs T-shirt, Pullover vs Coat)을 구분하는 채널을 '자동으로 강조한다'는 것은 그럴듯한 직관일 뿐, 구조만으로 보장할 수 있는 속성이 아니다. 이는 구조적 특성과 데이터 분포를 혼동한 서술이다.",
+              "200K 제약 하에서의 깊이/폭 부족 가능성에 대한 과소평가: 가설 스스로 \"표현력 부족 가능성\"을 약점으로 적시했음에도, 동시에 92.5% 이상의 성능을 주장한다. Evidence Pack의 효율적 CNN 사례(예: SaMD용 MRI 분류, 다중 스케일 분류/분할)에서도, 도메인 복잡도에 맞춰 상당한 깊이나 복잡한 모듈을 사용한다. FashionMNIST가 상대적으로 단순하다고 해도, 2–3 residual blocks 수준의 얕은 네트워크가, 채널도 제한된 상태에서, SE까지 넣고도 목표 정확도를 달성한다는 것은 근거 없는 낙관이다.",
+              "SE 활용의 참신성 주장 부족: SE block은 매우 널리 사용되는 채널 어텐션 모듈로, '경량 reduction ratio=8' 역시 표준적인 튜닝 범위에 속한다. Evidence Pack에 직접 SE가 나오진 않지만, HMSA-SegNet, CMM-Net 등에서의 어텐션/멀티스케일 아이디어와 비교했을 때, 단지 SE를 residual block에 붙이는 정도로 \"경량 어텐션을 통한 새로운 해결\"이라고 주장하는 것은 선행연구 대비 차별성이 희박하다. 이 점을 전혀 자각하지 않고 '차별적'이라고 서술하는 건 논리적 정합성이 떨어진다."
+            ],
+            "exaggerations": [
+              "\"SE block이 채널별 중요도를 재보정하여 경량 구조에서도 판별력을 극대화한다\"는 표현은, SE가 항상 분류 성능 향상에 기여한다는 일반화를 전제로 한다. Evidence Pack에서는 어텐션이 항상 효율과 정확도를 동시에 보장하지는 않음을 반복적으로 언급(HMSA-SegNet, CMM-Net 등)하고 있으며, 의료/원격탐사 같은 복잡한 도메인조차 '균형'을 문제로 삼는다. FashionMNIST처럼 단순한 입력에서 '극대화'라는 표현은 과장이다.",
+              "\"FashionMNIST 특유의 클래스 간 형태 유사성을 채널 수준에서 명시적으로 해결\"한다는 문장은, SE의 설계 목적과 실제 학습 동작을 과도하게 의인화하여 해석한 것이다. 채널 가중치 학습이 특정 '유사성 해결' 전략을 학습한다는 증거 없이는, 이는 해석적 과잉 투사다."
+            ],
+            "unverifiable": [],
+            "score": 6
+          }
+        ],
+        "best_hypothesis_id": 3,
+        "best_hypothesis_reason": "세 가설 모두 성능 수치(≥92.5%)에 대한 근거가 약하고, Evidence Pack을 사용해 구조–성능 인과를 충분히 정당화하지 못한다. 그중에서도 2번은 28×28 문제에서 멀티스케일 인셉션 구조가 꼭 필요하다는 기본 전제가 빈약하고, 병렬 분기 구조가 효율성을 해칠 가능성을 스스로 약점으로 인정해놓고도 이를 보완할 구체 전략이 없다. 1번은 매우 전형적인 MobileNet류 설계를 거의 그대로 가져오면서도, FashionMNIST 특유의 클래스 유사성·난이도에 대한 대응이 전혀 없다. 반면 3번은 SE 채널 어텐션과 residual block을 결합해 \"유사 클래스 간 판별력 강화\"라는 문제 정의와 최소한 개념적으로는 맞닿아 있고, SE의 파라미터 오버헤드가 미미하다는 점에서 200K 제약 내에서의 설계 여지가 상대적으로 크다. 즉, 과장과 논리 비약은 분명하지만, 목표 문제(유사 클래스 판별)와 제안 메커니즘(SE+residual)의 정합성이 세 가설 중 가장 높아, 추가적인 정량적 검증과 아키텍처 조정 시 현실적인 출발점이 될 가능성이 크다.",
+        "critique_summary": "세 가설 모두 공통적으로 (1) 구조적 직관을 곧바로 정량적 성능 목표(Validation Accuracy 92.5% 이상)와 연결시키는 논리 비약이 있으며, Evidence Pack이 제공하는 선행 연구들(효율적 CNN, 멀티스케일, 어텐션 등)이 \"파라미터 효율성\"과 \"정확도 보존\"을 동시에 보장하지 못한다는 점을 충분히 반영하지 못한다. (2) 200K 파라미터 이하, 10분 이내 학습이라는 실질적 제약에 대해 구체적인 레이어 구성·연산량·하드웨어 가정을 명시하지 않아, 시간·자원 측면의 주장은 대부분 검증 불가능하다. (3) Evidence Pack과의 연결 역시 피상적이다. 논문들이 다루는 도메인(의료, 원격탐사, 노이즈 제거, 분할/탐지)은 FashionMNIST 분류와 상당히 다름에도, 구조적 키워드(멀티스케일, 경량, 어텐션 등)만을 가져와 \"우리도 비슷한 아이디어를 쓰므로 잘 될 것\"이라고 추론하는 식이다. 선행연구의 구체적인 수치, 실패 사례, 스케일 의존성 등을 비판적으로 활용하지 못하고, 결국 '경량 구조 → 효율적일 것 → 목표 정확도도 가능할 것'이라는 단선적인 서사에 머무른다.",
+        "missed_opportunities": [
+          "데이터 및 학습 전략 차원의 논의 부재: Evidence Pack에는 소규모 데이터셋, 파라미터 효율적 학습, distillation/PEFT 등의 주제가 반복 등장하지만(예: data-efficient ViT, tensor network 기반 PEFT), 제안 가설들은 모두 아키텍처 설계에만 매달려 있다. FashionMNIST에서 92.5% 수준은 적절한 데이터 증강, label smoothing, 간단한 regularization, 혹은 작은 teacher 네트워크로의 knowledge distillation만으로도 상당 부분 도달 가능할 수 있는데, 이를 전혀 활용하지 않고 구조만 바꾸려는 것은 연구 설계 상의 큰 간극이다.",
+          "정량적 파라미터/연산량 분석 및 ablation 계획의 부재: 성공 기준에는 '디자인 결정의 정당화(ablations)'가 포함되어 있음에도, 세 가설 모두 각 구성요소(depthwise, 멀티스케일 분기, SE block, 채널 수, 블록 수 등)에 대한 최소한의 ablation 계획이나 파라미터/연산량 대략치조차 제시하지 않는다. Evidence Pack에서 반복적으로 지적되듯, 복잡한 구조(CMM-Net, HMSA-SegNet 등의 멀티스케일·어텐션)가 '효율성' 주장과 충돌하는 경우가 많으므로, 어떤 구성요소가 진짜로 \"필수\"인지, 무엇을 제거해도 되는지에 대한 체계적인 검증 계획을 세우지 않은 것은 중요한 설계 상의 누락이다."
+        ]
+      }
+    },
+    {
+      "round": 2.5,
+      "role": "PairwiseRanker",
+      "model": "GPT+Gemini",
+      "output": {
+        "ranking": [
+          3,
+          1
+        ],
+        "win_count": {
+          "1": 2,
+          "3": 4
+        },
+        "pairwise_results": [
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "winner": 1,
+            "reason": "Depthwise-separable 단일 경로 구조는 200K 이하 파라미터와 빠른 학습·추론 제약 하에서 구현·튜닝이 더 단순하고 재현성이 높아, 병렬 분기 기반 다중 스케일 구조보다 실현 가능성과 검증 가능성이 크다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              1,
+              3
+            ],
+            "winner": 3,
+            "reason": "잔차 블록과 경량 SE 어텐션 조합은 채널 간 상호작용과 혼동 클래스 분리에 직접 기여하면서도 파라미터 증가가 매우 작아, 단순 depthwise-separable CNN보다 목표 정확도와 연구적 영향력 측면에서 우위가 있다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              2,
+              3
+            ],
+            "winner": 3,
+            "reason": "SE가 포함된 컴팩트 잔차 CNN은 구조가 더 단순하고 실험 반복·검증이 용이하며, 멀티스케일 병렬 구조보다 연산 효율과 클래스 분리 측면에서 더 직접적인 이점을 제공한다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "winner": 1,
+            "reason": "가설 1은 28x28 저해상도에서 효과가 불확실한 다중 스케일(가설 2)보다 검증된 기술로 더 빠르고 안정적인 성능 개선 경로를 제공하므로 우수하다.",
+            "evaluator": "Gemini"
+          },
+          {
+            "pair": [
+              1,
+              3
+            ],
+            "winner": 3,
+            "reason": "가설 3은 단순 파라미터 절감(가설 1)을 넘어, 채널 어텐션을 통해 클래스 간 유사성이라는 핵심 문제를 명시적으로 해결하므로 더 높은 성능 달성 가능성을 가진다.",
+            "evaluator": "Gemini"
+          },
+          {
+            "pair": [
+              2,
+              3
+            ],
+            "winner": 3,
+            "reason": "가설 3의 채널 어텐션은 저해상도 이미지에서 효과가 불분명한 다중 스케일(가설 2)보다 더 범용적이고 직접적으로 특징의 중요도를 재보정하여 문제 해결에 유리하다.",
+            "evaluator": "Gemini"
+          }
+        ],
+        "gpt_ranking": [
+          3,
+          1,
+          2
+        ],
+        "gemini_ranking": [
+          3,
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "round": 3,
+      "role": "Mediator",
+      "model": "gemini-2.5-pro",
+      "output": {
+        "synthesized_hypotheses": [
+          {
+            "statement": "A hybrid lightweight CNN, architected with depthwise-separable convolutions inside compact residual blocks and augmented with a Squeeze-and-Excitation (SE) module, will achieve ≥92.5% validation accuracy on FashionMNIST under 200K parameters by efficiently capturing discriminative channel-wise features for similar classes while ensuring stable gradient flow.",
+            "statement_kr": "컴팩트 잔차 블록 내부에 Depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 안정적인 그래디언트 흐름을 보장하면서 유사 클래스 구분을 위한 채널별 판별 특징을 효율적으로 포착함으로써 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다.",
+            "synthesis_rationale": "본 가설은 Pairwise Ranking 1위인 가설 #3(컴팩트 잔차 CNN + SE 어텐션)을 핵심 골격으로 삼고, GPT가 지적한 '200K 제약 하에서의 표현력 부족 가능성'을 해결하기 위해 가설 #1의 핵심 아이디어인 'Depthwise-separable 컨볼루션'을 블록 내부에 통합했습니다. 이는 SE 어텐션으로 클래스 간 유사성 문제(문제 정의)에 대응하고, 잔차 연결로 안정적인 학습을 지원하며(가설 #3의 장점), Depthwise-separable 컨볼루션으로 파라미터 효율을 극대화하여(가설 #1의 장점) 동일 예산 내에서 더 깊거나 넓은 모델 설계의 가능성을 열어줍니다. 이 구조는 단순한 절충이 아닌, 정확도(SE), 학습 안정성(Residual), 파라미터 효율(Depthwise-separable)이라는 세 가지 목표를 동시에 최적화하는 시너지를 창출합니다.",
+            "resolved_flaws": [
+              "논리 비약 해소: 'SE가 클래스 혼동을 명시적으로 해결한다'는 과감한 주장 대신, '유사 클래스 구분을 위한 채널별 판별 특징을 효율적으로 포착한다'는 더 정확하고 검증 가능한 메커니즘으로 수정했습니다.",
+              "표현력 부족 가능성 완화: 가설 #3의 약점이었던 '200K 제약 하의 깊이/폭 부족' 문제를, 가설 #1의 Depthwise-separable 컨볼루션을 채택하여 파라미터 효율성을 극대화함으로써 완화했습니다. 이로써 제한된 예산 안에서 더 많은 레이어를 쌓거나 채널을 확장할 여지를 확보했습니다.",
+              "차별성 부족 문제 개선: 가설 #1(단순 DW-CNN)과 가설 #3(단순 ResNet+SE)의 개별적인 아이디어를 결합하여, FashionMNIST의 특정 문제(클래스 유사성)에 맞춰 최적화된 '하이브리드 블록'이라는 구체적이고 차별화된 아키텍처를 제안했습니다."
+            ],
+            "preserved_innovations": [
+              "채널 어텐션을 통한 판별력 강화 (가설 #3): 시각적으로 유사한 클래스를 구별하기 위해 채널별 특징 중요도를 적응적으로 재보정하는 SE 블록의 핵심 아이디어를 유지했습니다.",
+              "잔차 연결을 통한 학습 안정성 확보 (가설 #3): 경량 모델에서도 그래디언트 흐름을 원활하게 하여 안정적인 학습과 점진적 성능 개선을 가능하게 하는 잔차 구조를 보존했습니다.",
+              "컨볼루션 분해를 통한 파라미터 효율성 (가설 #1): 표준 컨볼루션 대비 파라미터를 크게 절감하여 200K 예산 제약을 효과적으로 만족시키는 Depthwise-separable 컨볼루션의 원리를 채택했습니다."
+            ],
+            "remaining_risks": [
+              "최적의 하이퍼파라미터 탐색: 제안된 하이브리드 블록의 채널 수, 블록 반복 횟수, SE reduction ratio 등 최적의 조합을 찾는 데 실험적 튜닝이 필요하며, 초기 설계가 목표 성능에 미달할 수 있습니다.",
+              "데이터 증강 의존성: 92.5%라는 높은 정확도 목표는 아키텍처만으로는 달성이 어려울 수 있으며, Cutout, AutoAugment와 같은 강력한 데이터 증강 및 Label Smoothing 기법의 효과에 크게 의존할 수 있습니다."
+            ],
+            "verification_plan": "1. **데이터셋 및 전처리**: FashionMNIST 데이터셋을 표준 분할(train/val/test)하여 사용합니다. 학습 시 RandomHorizontalFlip, RandomRotation(10도), RandomAffine(translate=0.1, scale=0.1)과 같은 기본적인 데이터 증강을 적용합니다. \n2. **베이스라인 모델**: 동일 파라미터 예산(~180K) 내에서 설계된 (A) 순수 Depthwise-separable CNN (가설 #1 기반)과 (B) 표준 컨볼루션을 사용한 컴팩트 ResNet (가설 #3 기반)을 구현하여 성능을 비교합니다.\n3. **제안 모델 구현**: Depthwise-separable 컨볼루션, SE 블록(reduction=8), skip connection을 결합한 하이브리드 블록을 3~4개 쌓고 Global Average Pooling과 최종 분류기로 구성된 모델을 구현하여 파라미터가 200K 미만임을 확인합니다.\n4. **Ablation Study**: 제안 모델의 성능 기여도를 명확히 하기 위해 다음을 비교 검증합니다. (a) 제안 모델 vs. (b) 제안 모델에서 SE 블록만 제거한 버전 vs. (c) 제안 모델에서 잔차 연결만 제거한 버전. 이를 통해 SE와 잔차 연결 각각의 정확도 향상 기여도를 정량적으로 측정합니다.\n5. **핵심 지표 측정**: 모든 실험에서 Validation Accuracy (목표 ≥92.5%), 총 파라미터 수 (≤200K), 단일 GPU(T4 또는 유사) 기준 총 학습 시간 (목표 ~10분 이내), 이미지 당 평균 추론 시간(ms)을 측정하여 성공 기준 충족 여부를 종합적으로 평가합니다."
+          }
+        ],
+        "recommended_id": 0,
+        "for_claude_finalizer": [
+          "초기 실험(Path A)에서는 데이터 증강을 최소화(HorizontalFlip만 적용)한 상태에서 제안된 하이브리드 아키텍처와 베이스라인 모델들의 성능을 먼저 비교하여, 구조적 우월성을 명확히 검증하는 것을 추천합니다.",
+          "Ablation study에서 SE 모듈의 효과가 미미할 경우, reduction ratio를 4로 줄여 표현력을 높이는 실험(파라미터 소폭 증가) 또는 더 발전된 어텐션 모듈(예: ECA-Net)로 교체하는 실험을 Path B의 개선안으로 고려해볼 수 있습니다."
+        ]
+      }
+    },
+    {
+      "round": 4,
+      "role": "Finalizer",
+      "model": "Claude",
+      "output": {
+        "research_gap_summary": "기존 경량 CNN 연구들은 의료영상·원격탐사·객체탐지 등 특정 도메인에 특화되어 있으며, 28×28 소규모 grayscale 이미지 분류에서 200K 이하 파라미터로 높은 정확도를 달성하기 위한 체계적인 아키텍처 설계 전략—특히 depthwise-separable 컨볼루션, 잔차 연결, 채널 어텐션의 시너지 효과—에 대한 실증적 검증이 부족하다. Evidence Pack의 논문들이 다중 스케일 특징 융합(LMENet, CMM-Net), 파라미터 효율적 구조(CSNN, STConvNeXt), 채널 어텐션(HMSA-SegNet) 등의 개별 기법을 제안하지만, 이들을 극소 파라미터 환경에서 통합 적용한 사례와 각 구성요소의 독립적 기여도를 정량화한 연구는 부재한다.",
+        "statement": "A hybrid lightweight CNN that integrates depthwise-separable convolutions within compact residual blocks augmented with Squeeze-and-Excitation (SE) modules will achieve over 92.5% validation accuracy on FashionMNIST with fewer than 200K parameters, by synergistically combining parameter-efficient spatial feature extraction, stable gradient flow, and adaptive channel-wise discriminative recalibration for visually similar classes.",
+        "statement_kr": "컴팩트 잔차 블록 내부에 depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 파라미터 효율적인 공간 특징 추출·안정적인 그래디언트 흐름·유사 클래스 구분을 위한 적응적 채널별 판별 특징 재보정의 시너지를 통해, 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다.",
+        "rationale": "본 가설은 Pairwise Ranking에서 GPT와 Gemini 모두 1위로 선정한 가설 #3(컴팩트 잔차 CNN + SE 어텐션)을 핵심 골격으로 유지하되, GPT가 지적한 '200K 제약 하에서의 표현력 부족 가능성'을 가설 #1의 depthwise-separable 컨볼루션 통합으로 해소한다. SE 모듈(reduction=8)의 파라미터 오버헤드는 채널 수 C 기준 2×C²/8로 극히 미미하여(예: C=128일 경우 약 4K), 200K 예산 내에서 충분히 수용 가능하다. 잔차 연결은 3~4블록 깊이에서의 그래디언트 소실을 방지하고, depthwise-separable 컨볼루션은 표준 3×3 컨볼루션 대비 약 8~9배의 파라미터 절감을 제공하여 동일 예산 내에서 더 넓거나 깊은 구조를 허용한다. GPT의 비판대로 아키텍처만으로 92.5% 달성이 불확실할 수 있으므로, 실험 설계에 데이터 증강과 label smoothing을 단계적으로 도입하되, 초기 실험에서는 최소 증강으로 구조적 기여도를 먼저 검증한다. Evidence Pack에서 LMENet과 STConvNeXt가 경량 구조에서 multi-scale 및 분할 기반 컨볼루션의 효과를 입증했고, HMSA-SegNet이 어텐션 기반 효율적 특징 추출의 가능성을 보여준 점이 본 가설의 구성요소 선택을 간접적으로 지지한다.",
+        "key_innovation": "Depthwise-separable 컨볼루션, skip connection, SE 채널 어텐션을 단일 '하이브리드 잔차 블록'으로 통합하여, 각 구성요소가 파라미터 효율(DW-Sep)·학습 안정성(Residual)·판별력(SE)이라는 서로 다른 축을 담당하는 모듈형 경량 블록 설계",
+        "expected_mechanism": "각 하이브리드 잔차 블록에서 depthwise-separable 컨볼루션이 공간적 특징을 저비용으로 추출하고, SE 모듈이 글로벌 평균 풀링→FC→ReLU→FC→Sigmoid 경로를 통해 채널별 중요도를 학습하여 유사 클래스(예: Shirt vs T-shirt, Pullover vs Coat) 구분에 유용한 채널을 강조하며, skip connection이 입력 정보를 직접 전달하여 그래디언트 흐름을 안정화한다. 이 세 메커니즘의 결합으로 제한된 파라미터 예산 내에서 공간적·채널적 특징의 효율적 활용이 극대화된다.",
+        "falsification_criteria": [
+          "반증 조건 1: 제안 하이브리드 모델의 최종 Validation Accuracy가 동일 파라미터 예산의 순수 Depthwise-separable CNN 베이스라인(가설 #1 기반) 대비 0.5%p 이상 향상되지 않으면, SE+Residual 결합의 시너지 효과가 없는 것으로 판정하여 가설 기각",
+          "반증 조건 2: Ablation에서 SE 모듈 제거 시 정확도 하락이 0.3%p 미만이면, 채널 어텐션이 FashionMNIST 유사 클래스 판별에 실질적 기여를 하지 않는 것으로 판정",
+          "반증 조건 3: 모든 실험 변형(증강·스케줄러 튜닝 포함)에서 Validation Accuracy가 92.0% 미만에 머무르면, 200K 파라미터 제약 하에서 본 아키텍처 접근으로는 목표 달성이 불가능한 것으로 판정",
+          "반증 조건 4: 제안 모델의 학습 시간이 단일 GPU(T4급)에서 15분을 초과하면, '빠른 학습' 제약 조건 위반으로 실용성 가설 기각"
+        ],
+        "architecture": "**입력**: 1×28×28 grayscale\n\n**Stem Block**: Conv2d(1→32, 3×3, padding=1) → BatchNorm → ReLU\n\n**Hybrid Residual Block (×3~4 스택)**:\n  - Depthwise Conv2d(C→C, 3×3, padding=1, groups=C) → BN → ReLU\n  - Pointwise Conv2d(C→C', 1×1) → BN → ReLU\n  - SE Module: GAP → FC(C'→C'//8) → ReLU → FC(C'//8→C') → Sigmoid → Scale\n  - Skip Connection: 입력과 출력을 element-wise add (채널 불일치 시 1×1 conv projection)\n  - 블록 간 다운샘플링: stride=2 적용 (28→14→7)\n\n**채널 구성**: Block1: 32→48, Block2: 48→64, Block3: 64→96 (필요시 Block4: 96→128)\n\n**Head**: Global Average Pooling → Dropout(0.3) → FC(최종채널→10)\n\n**예상 파라미터**: ~120K~180K (채널 구성에 따라 조정, 200K 미만 보장)",
+        "dataset": "**FashionMNIST** (torchvision 내장)\n- Train: 60,000장 → Train/Val 분할: 50,000 / 10,000 (stratified)\n- Test: 10,000장 (최종 평가용)\n- 정규화: mean=0.2860, std=0.3530\n- Path A 초기 실험 증강: RandomHorizontalFlip(0.5)만 적용\n- Path A 후속 실험 증강: + RandomRotation(10°), RandomAffine(translate=0.1, scale=(0.9,1.1))\n- Path B (필요시): + Cutout(n_holes=1, length=4~8), Label Smoothing(0.1)",
+        "baseline_models": [
+          "Baseline A — Pure DW-Sep CNN: Stem + 3×(DepthwiseSep Conv + BN + ReLU) + GAP + FC, ~180K params (가설 #1 구현체, skip connection·SE 없음)",
+          "Baseline B — Compact ResNet: Stem + 3×(Standard 3×3 Conv Residual Block + BN + ReLU) + GAP + FC, ~180K params (표준 컨볼루션 사용, SE 없음)",
+          "Baseline C — Simple 3-layer CNN: 3×(Conv + BN + ReLU + MaxPool) + FC, ~180K params (가장 단순한 기준선)"
+        ],
+        "evaluation_metrics": [
+          "Validation Accuracy (primary, 목표 ≥92.5%)",
+          "Test Accuracy (최종 보고용)",
+          "Total Parameter Count (≤200K 검증)",
+          "Total Training Time (단일 GPU, 목표 ~10분 이내)",
+          "Per-image Inference Latency (ms, 경량성 검증)",
+          "Per-class Accuracy & Confusion Matrix (유사 클래스 쌍 판별력 분석: Shirt/T-shirt, Pullover/Coat 등)",
+          "FLOPs (연산량 비교)"
+        ],
+        "key_experiments": [
+          "Experiment 1 (Path A-1, 구조 비교): 최소 증강(HorizontalFlip만)으로 제안 모델 vs Baseline A/B/C를 동일 조건(Adam, lr=1e-3, CosineAnnealing, 30 epochs)에서 학습·비교하여 아키텍처 자체의 우위를 검증",
+          "Experiment 2 (Path A-2, 증강 강화): Exp1 결과 기반으로 제안 모델에 RandomRotation + RandomAffine 증강 추가, Label Smoothing(0.1) 적용하여 92.5% 도달 여부 확인",
+          "Experiment 3 (Path A-3, 하이퍼파라미터 튜닝): 채널 구성(48-64-96 vs 32-64-128), 블록 수(3 vs 4), SE reduction ratio(4 vs 8 vs 16), Dropout rate(0.2 vs 0.3 vs 0.5), 학습률 스케줄러(CosineAnnealing vs OneCycleLR) 탐색",
+          "Experiment 4 (Ablation Study): 제안 모델의 각 구성요소 기여도 정량화 (아래 ablation_studies 참조)",
+          "Experiment 5 (유사 클래스 분석): 최종 모델의 confusion matrix를 분석하여 SE 모듈 유무에 따른 유사 클래스 쌍(Shirt/T-shirt/Pullover/Coat) 정확도 변화를 정량 비교"
+        ],
+        "ablation_studies": [
+          "Ablation 1 — SE 모듈 제거: 하이브리드 블록에서 SE만 제거 → 채널 어텐션의 정확도 기여도 측정",
+          "Ablation 2 — Skip Connection 제거: 하이브리드 블록에서 잔차 연결만 제거 → 학습 안정성 및 정확도 영향 측정",
+          "Ablation 3 — DW-Sep → Standard Conv 교체: 동일 채널 구성에서 depthwise-separable을 표준 3×3으로 교체 (파라미터 초과 시 채널 축소) → 파라미터 효율 vs 표현력 트레이드오프 측정",
+          "Ablation 4 — SE Reduction Ratio: r=4 vs r=8 vs r=16 비교 → 최적 어텐션 압축비 탐색",
+          "Ablation 5 — 블록 깊이: 2블록 vs 3블록 vs 4블록 비교 → 최적 깊이 탐색"
+        ],
+        "related_papers": [
+          {
+            "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+            "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+            "venue": "N/A",
+            "relevance": "파라미터 효율적 CNN 분류 모델의 성능 벤치마크 및 동일 파라미터 수 대비 정확도 비교 방법론 참고"
+          },
+          {
+            "paper_id": "c136d64092bc8b88a5d2eb4ccb0c99820f74bf9a",
+            "title": "HMSA-SegNet: A Parameter-Efficient Architecture with Hierarchical Multi-Scale Attention for Medical Image Segmentation",
+            "venue": "N/A",
+            "relevance": "계층적 어텐션 메커니즘의 파라미터 효율성과 정확도 간 트레이드오프 설계 참고"
+          },
+          {
+            "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+            "title": "LMENet: A lightweight multiscale efficient convolutional neural network for image denoising",
+            "venue": "N/A",
+            "relevance": "경량 다중스케일 CNN 구조 설계 및 파라미터 절감 전략 참고"
+          },
+          {
+            "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+            "title": "Efficient remote sensing image classification using the novel STConvNeXt convolutional network",
+            "venue": "N/A",
+            "relevance": "분할 기반 모바일 컨볼루션을 활용한 경량 분류 모델의 효율성 검증 사례 참고"
+          },
+          {
+            "paper_id": "c0e73428cae1abef512aa55ab77a5f238b4a54e7",
+            "title": "Small-scale image recognition based on Cascaded Convolutional Neural Network",
+            "venue": "N/A",
+            "relevance": "소규모 이미지 인식에서의 CNN 구조 설계 전략 참고"
+          },
+          {
+            "paper_id": "ea086d6c40acde747cbfeb50b7ddb19b59208282",
+            "title": "Data-efficient convolution-free vision transformers for small-scale defective insulator classification using token-based distillation",
+            "venue": "N/A",
+            "relevance": "소규모 데이터셋에서의 데이터 효율적 학습 전략(distillation) 참고, 향후 knowledge distillation 확장 시 활용 가능"
+          }
+        ],
+        "evidence_links": [
+          {
+            "paper_id": "c136d64092bc8b88a5d2eb4ccb0c99820f74bf9a",
+            "supports": [
+              "key_innovation",
+              "expected_mechanism"
+            ]
+          },
+          {
+            "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+            "supports": [
+              "key_innovation"
+            ]
+          },
+          {
+            "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+            "supports": [
+              "architecture"
+            ]
+          },
+          {
+            "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+            "supports": [
+              "key_innovation"
+            ]
+          }
+        ],
+        "confidence": 0.78,
+        "risk_factors": [
+          "SE 모듈의 실질적 기여 불확실성: 28×28 저해상도에서 채널 어텐션의 효과가 고해상도 대비 제한적일 수 있으며, reduction ratio 최적화가 필요",
+          "92.5% 목표의 아키텍처 단독 달성 불확실성: FashionMNIST에서 200K 이하 모델로 92.5%는 도전적이며, 데이터 증강·정규화 전략에 상당 부분 의존할 가능성이 높음",
+          "하이퍼파라미터 민감도: 채널 수·블록 수·SE ratio·학습률 등 탐색 공간이 넓어 2~3회 반복 내에 최적 조합을 찾지 못할 위험",
+          "Evidence Pack과의 간접적 연결: 참조 논문들이 FashionMNIST나 유사 벤치마크를 직접 다루지 않아, 구조적 아이디어의 이전 가능성에 대한 근거가 간접적임",
+          "Depthwise-separable 컨볼루션의 저채널 환경 비효율: 초기 블록(32~48채널)에서는 depthwise 분리의 파라미터 절감 효과가 크지 않고 오히려 표현력 손실이 발생할 수 있음"
+        ]
+      }
+    }
+  ],
+  "pairwise_ranking": {
+    "ranking": [
+      3,
+      1
+    ],
+    "win_count": {
+      "1": 2,
+      "3": 4
+    },
+    "pairwise_results": [
+      {
+        "pair": [
+          1,
+          2
+        ],
+        "winner": 1,
+        "reason": "Depthwise-separable 단일 경로 구조는 200K 이하 파라미터와 빠른 학습·추론 제약 하에서 구현·튜닝이 더 단순하고 재현성이 높아, 병렬 분기 기반 다중 스케일 구조보다 실현 가능성과 검증 가능성이 크다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          1,
+          3
+        ],
+        "winner": 3,
+        "reason": "잔차 블록과 경량 SE 어텐션 조합은 채널 간 상호작용과 혼동 클래스 분리에 직접 기여하면서도 파라미터 증가가 매우 작아, 단순 depthwise-separable CNN보다 목표 정확도와 연구적 영향력 측면에서 우위가 있다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          2,
+          3
+        ],
+        "winner": 3,
+        "reason": "SE가 포함된 컴팩트 잔차 CNN은 구조가 더 단순하고 실험 반복·검증이 용이하며, 멀티스케일 병렬 구조보다 연산 효율과 클래스 분리 측면에서 더 직접적인 이점을 제공한다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          1,
+          2
+        ],
+        "winner": 1,
+        "reason": "가설 1은 28x28 저해상도에서 효과가 불확실한 다중 스케일(가설 2)보다 검증된 기술로 더 빠르고 안정적인 성능 개선 경로를 제공하므로 우수하다.",
+        "evaluator": "Gemini"
+      },
+      {
+        "pair": [
+          1,
+          3
+        ],
+        "winner": 3,
+        "reason": "가설 3은 단순 파라미터 절감(가설 1)을 넘어, 채널 어텐션을 통해 클래스 간 유사성이라는 핵심 문제를 명시적으로 해결하므로 더 높은 성능 달성 가능성을 가진다.",
+        "evaluator": "Gemini"
+      },
+      {
+        "pair": [
+          2,
+          3
+        ],
+        "winner": 3,
+        "reason": "가설 3의 채널 어텐션은 저해상도 이미지에서 효과가 불분명한 다중 스케일(가설 2)보다 더 범용적이고 직접적으로 특징의 중요도를 재보정하여 문제 해결에 유리하다.",
+        "evaluator": "Gemini"
+      }
+    ],
+    "gpt_ranking": [
+      3,
+      1,
+      2
+    ],
+    "gemini_ranking": [
+      3,
+      1,
+      2
+    ]
+  },
+  "debate_summary": {
+    "claude_hypotheses": [
+      "Depthwise-separable 컨볼루션으로 채널을 점진적으로 확장(32→64→128)하고 Global Average Pooling을 적용한 경량 CNN이, 분해된 컨볼루션을 통해 파라미터당 표현력을 극대화함으로써 200K 이하에서 FashionMNIST 검증 정확도 92.5% 이상을 달성할 수 있다.",
+      "공유 병목 압축(shared bottleneck)을 적용한 병렬 1×1, 3×3, 5×5(또는 dilated 3×3) 컨볼루션 기반 경량 다중 스케일 특징 집계 CNN이, FashionMNIST의 클래스 간 형태 모호성을 해결하면서 200K 이하 파라미터를 유지할 수 있다.",
+      "경량 채널 어텐션(SE block, reduction ratio 8)을 결합한 컴팩트 잔차 CNN이, 시각적으로 유사한 FashionMNIST 클래스를 구별하기 위해 특징 응답을 적응적으로 재보정함으로써 200K 이하 파라미터에서 92.5% 이상 정확도를 달성할 수 있다."
+    ],
+    "gpt_critique": "세 가설 모두 공통적으로 (1) 구조적 직관을 곧바로 정량적 성능 목표(Validation Accuracy 92.5% 이상)와 연결시키는 논리 비약이 있으며, Evidence Pack이 제공하는 선행 연구들(효율적 CNN, 멀티스케일, 어텐션 등)이 \"파라미터 효율성\"과 \"정확도 보존\"을 동시에 보장하지 못한다는 점을 충분히 반영하지 못한다. (2) 200K 파라미터 이하, 10분 이내 학습이라는 실질적 제약에 대해 구체적인 레이어 구성·연산량·하드웨어 가정을 명시하지 않아, 시간·자원 측면의 주장은 대부분 검증 불가능하다. (3) Evidence Pack과의 연결 역시 피상적이다. 논문들이 다루는 도메인(의료, 원격탐사, 노이즈 제거, 분할/탐지)은 FashionMNIST 분류와 상당히 다름에도, 구조적 키워드(멀티스케일, 경량, 어텐션 등)만을 가져와 \"우리도 비슷한 아이디어를 쓰므로 잘 될 것\"이라고 추론하는 식이다. 선행연구의 구체적인 수치, 실패 사례, 스케일 의존성 등을 비판적으로 활용하지 못하고, 결국 '경량 구조 → 효율적일 것 → 목표 정확도도 가능할 것'이라는 단선적인 서사에 머무른다.",
+    "gpt_best_id": 3,
+    "pairwise_winner": 3,
+    "pairwise_win_count": {
+      "1": 2,
+      "3": 4
+    },
+    "gemini_synthesis": "컴팩트 잔차 블록 내부에 Depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 안정적인 그래디언트 흐름을 보장하면서 유사 클래스 구분을 위한 채널별 판별 특징을 효율적으로 포착함으로써 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다.",
+    "final": "컴팩트 잔차 블록 내부에 depthwise-separable 컨볼루션을 적용하고 Squeeze-and-Excitation(SE) 모듈로 보강한 하이브리드 경량 CNN은, 파라미터 효율적인 공간 특징 추출·안정적인 그래디언트 흐름·유사 클래스 구분을 위한 적응적 채널별 판별 특징 재보정의 시너지를 통해, 200K 이하 파라미터로 FashionMNIST 검증 정확도 92.5% 이상을 달성할 것이다."
+  }
+}

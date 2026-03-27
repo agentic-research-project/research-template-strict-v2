@@ -1,0 +1,193 @@
+{
+  "research_question": "How can a lightweight CNN with fewer than 200K parameters achieve over 92.5% validation accuracy on FashionMNIST while maintaining fast training and inference speed?",
+  "background": "FashionMNIST is a widely-used benchmark consisting of 28×28 grayscale images across 10 clothing categories, designed as a more challenging drop-in replacement for MNIST. Lightweight model design is critical for rapid experimental iteration in automated pipelines and resource-constrained deployment scenarios. Achieving high accuracy under strict parameter budgets requires careful architectural choices such as depthwise separable convolutions, efficient channel allocation, and appropriate regularization strategies.",
+  "image_analysis": {
+    "input_characteristics": "28×28 single-channel grayscale images with centered clothing items on uniform backgrounds; low spatial resolution limits fine-grained texture information",
+    "target_characteristics": "10-class categorical label (T-shirt, Trouser, Pullover, Dress, Coat, Sandal, Shirt, Sneaker, Bag, Ankle boot)",
+    "visual_gap": "Inter-class similarity is high for upper-body garments (T-shirt vs Shirt vs Pullover vs Coat) while intra-class variation exists in shape and style; low resolution compresses discriminative details",
+    "domain_type": "natural"
+  },
+  "problem_analysis": {
+    "core_problem": "Designing a CNN architecture that maximizes classification accuracy on FashionMNIST under a strict 200K parameter budget with minimal training time",
+    "current_limitations": [
+      "Simple shallow CNNs plateau around 90-91% accuracy due to insufficient representational capacity for visually similar classes",
+      "Standard efficient architectures (MobileNet, ShuffleNet) are over-parameterized for 28×28 input and waste capacity on unnecessary downsampling stages",
+      "Naively reducing model width or depth to meet parameter budgets leads to information bottlenecks and accuracy degradation",
+      "Regularization and data augmentation strategies optimized for large-scale datasets may not transfer well to small grayscale images"
+    ],
+    "why_difficult": "FashionMNIST contains visually ambiguous classes (e.g., Shirt vs T-shirt vs Pullover) where discriminative features are subtle and localized, yet the strict parameter budget limits the model's capacity to learn rich hierarchical representations; balancing expressiveness with efficiency at such small scale is a non-trivial architectural design challenge."
+  },
+  "scope": {
+    "in_scope": [
+      "Custom lightweight CNN architecture design (≤200K parameters)",
+      "Depthwise separable convolutions and channel-efficient building blocks",
+      "Data augmentation strategies for 28×28 grayscale images",
+      "Regularization techniques (dropout, weight decay, label smoothing)",
+      "Learning rate scheduling and training recipe optimization",
+      "Ablation study across 2-3 iterative design refinements",
+      "Single-GPU training with short epoch budget"
+    ],
+    "out_scope": [
+      "Large pretrained backbones (ResNet-50, EfficientNet-B3+, ViT-Base, etc.)",
+      "Knowledge distillation from large teacher models",
+      "Neural architecture search (NAS) requiring massive compute",
+      "Multi-GPU or distributed training setups",
+      "Non-CNN approaches (pure Transformer, MLP-Mixer) unless extremely lightweight",
+      "Post-training quantization or pruning as primary accuracy strategy"
+    ]
+  },
+  "search_keywords": {
+    "primary": [
+      "lightweight CNN FashionMNIST classification",
+      "parameter-efficient convolutional network small-scale image",
+      "depthwise separable convolution low-parameter image classification",
+      "compact CNN architecture grayscale clothing recognition",
+      "efficient small CNN design sub-200K parameters"
+    ],
+    "secondary": [
+      "FashionMNIST accuracy benchmark comparison",
+      "channel shuffle inverted residual lightweight block",
+      "data augmentation low-resolution grayscale images",
+      "fast training convergence small dataset CNN",
+      "MobileNet ShuffleNet micro-architecture adaptation",
+      "budget single 환경에서"
+    ],
+    "venues": [
+      "NeurIPS",
+      "CVPR",
+      "ECCV",
+      "ICLR",
+      "ICML",
+      "AAAI",
+      "BMVC"
+    ]
+  },
+  "success_criteria": {
+    "quantitative": [
+      "Validation Accuracy ≥ 92.5%",
+      "Total model parameters ≤ 200K",
+      "Training completes within ~10 minutes on a single GPU",
+      "Progressive accuracy improvement across 2-3 experimental iterations"
+    ],
+    "qualitative": [
+      "Model architecture is clean, modular, and easily reproducible",
+      "Design decisions are justified through ablation or empirical comparison",
+      "Training pipeline is compatible with automated GitHub-based experiment loops",
+      "Inference latency remains at lightweight CNN level without special hardware"
+    ]
+  },
+  "constraints": [
+    "Parameter budget ≤ 200K (0.2M)",
+    "Single GPU execution environment",
+    "Short training time (rapid iteration friendly)",
+    "No large or complex pretrained backbones",
+    "Inference speed must remain at lightweight CNN level",
+    "All code must be generalizable and modular (no hardcoding)"
+  ],
+  "target_metrics": [
+    "Top-1 Accuracy (primary)",
+    "Parameter count",
+    "Training wall-clock time",
+    "FLOPs or MACs (secondary efficiency measure)",
+    "Per-class accuracy for confusable categories (Shirt/T-shirt/Pullover/Coat)"
+  ],
+  "expected_challenges": [
+    "Discriminating visually similar upper-body garment classes (Shirt, T-shirt, Pullover, Coat) with limited model capacity — may require targeted architectural choices like attention or multi-scale feature fusion within the parameter budget",
+    "Finding the optimal depth-width trade-off under the 200K parameter ceiling — too shallow loses hierarchical features while too narrow creates information bottlenecks at 28×28 resolution",
+    "Preventing overfitting on the relatively small and low-resolution training set (60K samples) when the model is tuned aggressively for accuracy — requires careful regularization and augmentation without excessive training overhead"
+  ],
+  "input": {
+    "topic": "FashionMNIST 28x28 grayscale 이미지 분류를 위한 경량 CNN 모델 설계",
+    "details": "작은 파라미터 수와 빠른 추론 속도를 유지하면서도 높은 분류 정확도를 달성하는 경량 CNN 모델을 설계한다.",
+    "problem_definition": "작은 모델은 표현력이 부족해서 정확도가 쉽게 떨어지며, FashionMNIST는 MNIST보다 클래스 간 형태가 비슷해 단순한 구조로는 성능 한계가 있다. GitHub 기반 자동 실험 루프에서 빠르게 반복 가능한 문제여야 하므로 학습 시간이 짧아야 한다.",
+    "desired_outcome": "Validation Accuracy 92.5% 이상을 달성하는 경량 분류 모델을 얻고 싶다. 모델은 빠르게 학습되고 추론 가능해야 하며, 2~3회의 실험 수정(Path A)을 거쳐 성능이 점진적으로 개선되는 것이 바람직하다.",
+    "constraints": "parameter budget 0.2M 이하, single GPU 환경에서 실행 가능, 학습 시간은 짧아야 함, 추론 속도는 가벼운 CNN 수준으로 유지, 과도하게 복잡한 backbone이나 대형 pretrained model 사용 금지",
+    "target_metric": "Accuracy",
+    "data_path": ""
+  },
+  "constraints_structured": {
+    "single_gpu": true,
+    "lightweight": true
+  },
+  "retrieval_plan": {
+    "task_type": "FashionMNIST 28x28 grayscale 이미지 분류를 위한 경량 CNN 모델 설계",
+    "domain_type": "natural",
+    "must_cover": [
+      "key_innovation",
+      "expected_mechanism",
+      "closest_prior_art",
+      "baseline_models",
+      "evaluation_metrics",
+      "constraints",
+      "falsification_criteria",
+      "failure_modes",
+      "deployment_constraints"
+    ],
+    "query_families": [
+      {
+        "type": "task-core",
+        "queries": [
+          "lightweight CNN FashionMNIST classification",
+          "parameter-efficient convolutional network small-scale image",
+          "depthwise separable convolution low-parameter image classification",
+          "표현력이 부족해서 정확도가 떨어지며"
+        ]
+      },
+      {
+        "type": "constraint-aware",
+        "queries": [
+          "FashionMNIST 28x28 parameter budget single",
+          "channel shuffle inverted residual lightweight block",
+          "fast training convergence small dataset CNN"
+        ]
+      },
+      {
+        "type": "metric-aware",
+        "queries": [
+          "FashionMNIST 28x28 Accuracy"
+        ]
+      },
+      {
+        "type": "baseline-aware",
+        "queries": [
+          "state-of-the-art Validation Accuracy 달성하는",
+          "benchmark lightweight CNN FashionMNIST classification"
+        ]
+      },
+      {
+        "type": "mechanism-seeking",
+        "queries": [
+          "FashionMNIST 28x28 mechanism",
+          "FashionMNIST 28x28 how it works"
+        ]
+      },
+      {
+        "type": "closest-prior-art-seeking",
+        "queries": [
+          "FashionMNIST 28x28 prior work",
+          "FashionMNIST 28x28 previous approach"
+        ]
+      },
+      {
+        "type": "falsification-seeking",
+        "queries": [
+          "FashionMNIST 28x28 limitation failure",
+          "FashionMNIST 28x28 does not work"
+        ]
+      },
+      {
+        "type": "failure-mode-seeking",
+        "queries": [
+          "FashionMNIST 28x28 failure mode",
+          "FashionMNIST 28x28 common pitfalls"
+        ]
+      },
+      {
+        "type": "deployment-constraint-seeking",
+        "queries": [
+          "FashionMNIST 28x28 deployment parameter budget"
+        ]
+      }
+    ]
+  }
+}

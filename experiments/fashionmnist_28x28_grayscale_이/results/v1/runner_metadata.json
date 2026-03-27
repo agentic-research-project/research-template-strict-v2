@@ -1,0 +1,14 @@
+{
+  "runner": "github",
+  "job_id": "",
+  "pipeline_id": "",
+  "dispatch_id": "smoke_8d9dcf5dacb7",
+  "duration_s": 0.0,
+  "artifact_uri": "",
+  "job_url": "",
+  "git_sha": "",
+  "git_branch": "",
+  "experiment_pkg": "experiments/fashionmnist_28x28_grayscale_이/runs/v1",
+  "started_at": "",
+  "finished_at": ""
+}

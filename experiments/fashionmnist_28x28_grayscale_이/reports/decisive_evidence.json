@@ -1,0 +1,75 @@
+{
+  "decisive_evidence": {
+    "support": [
+      {
+        "paper_id": "99903a4279a40c6036b65adb8b8df57e1c0286e0",
+        "title": "LMENet: A lightweight multiscale efficient convolutional neural network for image denoising",
+        "reason": "경량 멀티스케일 CNN 설계와 파라미터 절감 전략을 제시하여, 제한된 파라미터 예산 하에서 효율적 CNN 구조 설계의 메커니즘적 근거를 제공한다.",
+        "importance_score": 0.5275,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "1a63d33539cd14ee73f8c04acbc1425fec9f52ea",
+        "title": "Efficient remote sensing image classification using the novel STConvNeXt convolutional network",
+        "reason": "경량 컨볼루션 네트워크에서 split-based 모바일 컨볼루션과 계층적 구조를 제안하여, 경량 CNN 분류 모델의 효율적 특징 추출 메커니즘에 참고가 된다.",
+        "importance_score": 0.475,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "ea086d6c40acde747cbfeb50b7ddb19b59208282",
+        "title": "Data-efficient convolution-free vision transformers for small-scale defective insulator classification using token-based distillation",
+        "reason": "소규모 데이터에서 토큰 기반 증류를 활용한 데이터 효율적 분류 접근으로, CNN 대비 ViT 기반 대안적 경량 분류 전략의 비교 기준이 된다.",
+        "importance_score": 0.4075,
+        "supports_dimension": "novelty"
+      }
+    ],
+    "contra": [
+      {
+        "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+        "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+        "reason": "극소 파라미터 CNN과 동일 파라미터 수 비교를 수행하여, 0.2M 이하 경량 CNN 분류 모델 설계의 직접적 선행 연구에 해당한다.",
+        "importance_score": 0.5825,
+        "threatens_dimension": "novelty"
+      },
+      {
+        "paper_id": "c0e73428cae1abef512aa55ab77a5f238b4a54e7",
+        "title": "Small-scale image recognition based on Cascaded Convolutional Neural Network",
+        "reason": "소규모 이미지 인식을 위한 Cascaded CNN을 설계하여, 작은 해상도 이미지 분류에 대한 CNN 아키텍처 설계의 가장 유사한 선행 연구이다.",
+        "importance_score": 0.5425,
+        "threatens_dimension": "novelty"
+      }
+    ],
+    "swing": [
+      {
+        "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+        "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->reject",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This is a designated contra paper and closest prior art on parameter-efficient image classification using spiking CNNs. If its claims about strong parameter/energy efficiency and performance are confirmed, they would substantially undercut the novelty or necessity of the hypothesized approach, pushing the overall verdict from a tentative revise (needs adjustment vs. existing work) to reject (insufficient incremental contribution). Conversely, if this paper were shown to be wrong or non-replicable, the main competing prior-art constraint would weaken, making it easier to maintain or strengthen the current hypothesis verdict.",
+        "gemini_reason": "",
+        "final_reason": "[strong] This is a designated contra paper and closest prior art on parameter-efficient image classification using spiking CNNs. If its claims about strong parameter/energy efficiency and performance are confirmed, they would substantially undercut the novelty or necessity of the hypothesized approach, pushing the overall verdict from a tentative revise (needs adjustment vs. existing work) to reject (insufficient incremental contribution). Conversely, if this paper were shown to be wrong or non-replicable, the main competing prior-art constraint would weaken, making it easier to maintain or strengthen the current hypothesis verdict.",
+        "consensus_level": "strong",
+        "importance_score": 0.5825,
+        "confidence": 0.6
+      },
+      {
+        "paper_id": "c0e73428cae1abef512aa55ab77a5f238b4a54e7",
+        "title": "Small-scale image recognition based on Cascaded Convolutional Neural Network",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->reject",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This is another designated contra paper and closest prior art on small-scale image recognition using a cascaded CNN. Its role is to challenge the hypothesis on both baseline strength and architectural novelty. If its performance and efficiency claims are confirmed, they would likely show that strong, simpler cascaded CNN baselines already solve the target problem under similar constraints, undermining the need for the proposed method and pushing the verdict from revise (adjust to differentiate from prior work) to reject (insufficient advantage). If instead this paper’s results fail to hold, the hypothesized method’s relative value and novelty would increase, supporting a more favorable verdict.",
+        "gemini_reason": "",
+        "final_reason": "[strong] This is another designated contra paper and closest prior art on small-scale image recognition using a cascaded CNN. Its role is to challenge the hypothesis on both baseline strength and architectural novelty. If its performance and efficiency claims are confirmed, they would likely show that strong, simpler cascaded CNN baselines already solve the target problem under similar constraints, undermining the need for the proposed method and pushing the verdict from revise (adjust to differentiate from prior work) to reject (insufficient advantage). If instead this paper’s results fail to hold, the hypothesized method’s relative value and novelty would increase, supporting a more favorable verdict.",
+        "consensus_level": "strong",
+        "importance_score": 0.5425,
+        "confidence": 0.575
+      }
+    ],
+    "decision_pressure": {
+      "primary_dimension": "validity",
+      "reason": "Uncovered slots: closest_prior_art, falsification_criteria, failure_modes"
+    }
+  }
+}
