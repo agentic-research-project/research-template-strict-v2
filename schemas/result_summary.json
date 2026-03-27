@@ -148,12 +148,50 @@
       "items": { "type": "string" },
       "description": "metrics_parse_error 시 stdout 마지막 50줄"
     },
+    "hypothesis_implementation": {
+      "type": "object",
+      "description": "가설 구현 감사(hypothesis implementation audit) 결과",
+      "properties": {
+        "mechanism_audit": {
+          "type": "object",
+          "properties": {
+            "implemented":      { "type": "boolean" },
+            "evidence":         { "type": "array", "items": { "type": "string" } },
+            "missing_links":    { "type": "array", "items": { "type": "string" } },
+            "risk_level":       { "type": "string", "enum": ["low", "medium", "high"] },
+            "mechanism_mapping":{ "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        "metric_audit": {
+          "type": "object",
+          "properties": {
+            "implemented":             { "type": "boolean" },
+            "primary_metric_expected": { "type": "string" },
+            "primary_metric_found":    { "type": "boolean" },
+            "required_keys_expected":  { "type": "array", "items": { "type": "string" } },
+            "required_keys_found":     { "type": "array", "items": { "type": "string" } },
+            "stdout_contract_ok":      { "type": "boolean" }
+          }
+        },
+        "constraints_audit": {
+          "type": "object",
+          "properties": {
+            "implemented":              { "type": "boolean" },
+            "constraints_raw":          { "type": "string" },
+            "recognized_constraints":   { "type": "array", "items": { "type": "string" } },
+            "violations":               { "type": "array", "items": { "type": "string" } },
+            "config_alignment":         { "type": "object" },
+            "architecture_alignment":   { "type": "object" }
+          }
+        }
+      }
+    },
     "runner_metadata": {
       "type": "object",
-      "description": "실행 환경 메타데이터 — local 또는 GitLab CI",
+      "description": "실행 환경 메타데이터 — local 또는 github",
       "required": ["runner", "duration_s"],
       "properties": {
-        "runner":        { "type": "string", "description": "local | gitlab" },
+        "runner":        { "type": "string", "description": "local | github" },
         "job_id":        { "type": "string" },
         "duration_s":    { "type": "number" },
         "artifact_uri":  { "type": "string" },

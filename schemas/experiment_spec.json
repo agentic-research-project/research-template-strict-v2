@@ -141,6 +141,16 @@
         }
       }
     },
+    "hypothesis_contract": {
+      "type": "object",
+      "description": "가설 핵심 항목의 코드 구현 추적 계약",
+      "properties": {
+        "mechanism":        { "type": "string", "description": "가설의 expected_mechanism (핵심 작동 원리)" },
+        "target_metric_raw":{ "type": "string", "description": "topic input의 target_metric 원문" },
+        "constraints_raw":  { "type": "string", "description": "topic input의 constraints 원문" },
+        "architecture_hint":{ "type": "string", "description": "가설의 architecture 제안" }
+      }
+    },
     "data_config": {
       "type": "object",
       "properties": {

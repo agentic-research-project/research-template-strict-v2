@@ -230,6 +230,138 @@ GitHub 실행 실패 시 아래 상황을 구분한다:
 
 자동 마이그레이션은 제공하지 않는다. 구 구조 발견 시 새 구조로 직접 재생성한다.
 
+## Hypothesis Implementation Audit (가설 구현 감사)
+
+코드 생성(model_generator) 단계에서 `hypothesis.json`의 핵심 항목이 실제 코드에 구현되었는지 자동으로 감사한다.
+
+### hypothesis_contract (experiment_spec.json 내)
+```json
+{
+  "hypothesis_contract": {
+    "mechanism": "가설의 expected_mechanism (핵심 작동 원리)",
+    "target_metric_raw": "topic input의 target_metric 원문",
+    "constraints_raw": "topic input의 constraints 원문",
+    "architecture_hint": "가설의 architecture 제안"
+  }
+}
+```
+
+### 3가지 감사 함수
+
+| 감사 | 방식 | 판정 기준 |
+|---|---|---|
+| `mechanism_audit` | Claude 기반 | mechanism이 코드의 아키텍처/학습/데이터 처리 요소에 구현되었는가 |
+| `metric_audit` | 순수 코드 검사 | primary_metric, required_keys가 spec/code/METRICS stdout에 일관되게 존재하는가 |
+| `constraints_audit` | 키워드 + 코드 검사 | param budget, single GPU, pretrained 금지 등 제약이 config/코드에 반영되었는가 |
+
+### 감사 결과 저장
+- `artifacts/mechanism_audit.json`
+- `artifacts/metric_audit.json`
+- `artifacts/constraints_audit.json`
+
+### validation gate 확장 (hard / soft gate)
+- 기존 syntax/smoke/forward 검증 이후 3가지 감사 실행
+- **hard gate** (차단): metric 미구현, constraints 위반, mechanism 미구현(명시된 경우)
+- **soft gate** (warning만): mapping 모호, optional metric 불완전, 제약 해석 애매
+- `ok = syntax_ok and smoke_ok and hard_audit_ok`
+- hard audit 실패 시 repair 1회 → 재검증 → 여전히 실패 시 패키지 차단
+- `failure_detail`, `hard_failures` 필드로 구조적 실패 사유 기록
+
+### result_summary.json 연동
+- `hypothesis_implementation` 필드로 3가지 감사 결과 포함
+- research_loop의 Path 결정 시 mechanism 구현 여부 반영:
+  - mechanism 미구현 → Path A 우선 (구현 문제)
+  - mechanism 구현 + 반복 반박 → Path B/C 검토 가능
+  - mechanism 미구현 상태에서 Path C 절대 금지
+
+## Stage 7: Patch Ballot + 2-of-3 Merge
+
+코드 생성(model_generator) 단계에서 GPT 패치 채택을 **Claude 단독 결정이 아닌 3자 투표**로 결정한다.
+
+### 흐름
+
+```mermaid
+flowchart LR
+    G[GPT 패치 제안] --> GB[Gemini Ballot]
+    G --> CB[Claude Ballot]
+    GB --> D{2-of-3 Decision}
+    CB --> D
+    G --> D
+    D -->|accept| M[Claude Merge 집행]
+    D -->|reject| X[제외]
+    D -->|ambiguous| T[Claude Tie-break]
+    T --> M
+```
+
+### 투표 규칙
+
+| 투표 결과 | 조건 | 결정 |
+|---|---|---|
+| accept ≥ 2 | GPT(implicit accept) + Gemini/Claude 중 1개 accept | **accept** |
+| reject ≥ 2 | Gemini + Claude 모두 reject | **reject** |
+| comparability_risk=high | 누구든 1명이라도 high | **reject** (hard rule) |
+| 그 외 | 명확한 다수 없음 | **ambiguous** → Claude tie-break |
+
+### Claude Merge 제한
+- reject된 패치는 merge prompt에서 제외
+- Claude는 새 아이디어 추가 시 `pseudo-patch`로 기록
+- merge_log에 각 패치의 투표 결과 포함
+
+### 산출물 (proposals/)
+- `gpt_patch_*.json` — GPT 패치 제안
+- `gemini_patch_ballot_*.json` — Gemini 패치별 투표
+- `claude_patch_ballot_*.json` — Claude 패치별 투표
+- `merge_decision_*.json` — 2-of-3 최종 결정
+- `gemini_review_*.json` — Gemini 설계 리뷰 (기존 유지)
+
+## Stage 8: Consensus-Locked Path + Override Reviewer
+
+실험 결과 분석에서 **합의 레이어가 기본 path를 확정**하고, Claude는 **예외적 override만** 수행한다.
+
+### 흐름
+
+```mermaid
+flowchart LR
+    R[실험 결과] --> G[GPT 해석]
+    G --> GD[Gemini 진단]
+    GD --> C[합의 레이어]
+    C -->|candidate_path| CL{Claude Override?}
+    CL -->|유지| P[Postcheck]
+    CL -->|escalation| P
+    P -->|ok| F[최종 path]
+    P -->|fail| RV[candidate로 복귀]
+```
+
+### Claude Override 규칙
+
+| override | 허용 조건 |
+|---|---|
+| A → B | GPT B/C 제안 + agreement≥medium + n_runs≥2 |
+| B → C | agreement=strong + evidence=high + n_runs≥3 + escalation_risk≠blocked |
+| A → C | **금지** (skip 불가) |
+| B → A, C → A/B | **금지** (downgrade 불가) |
+| done → any | **금지** |
+
+### Postcheck (Override 최종 허가자)
+- Claude override를 deterministic하게 재검증
+- override 조건 미충족 시 candidate_path로 자동 복귀
+- mechanism 미구현 시 Path C 절대 금지 (유지)
+
+### Decision Payload 구조
+```json
+{
+  "candidate_path": "A",
+  "candidate_source": "consensus_layer",
+  "claude_override": false,
+  "final_path": "A",
+  "accepted_patch_indexes": [0, 1],
+  "accepted_patch_source": "stage7_ballot",
+  "override_rule_check": { "postcheck_ok": true },
+  "decision_reason": "...",
+  "justification": "..."
+}
+```
+
 ## 전체 Lifecycle 예시 (topic 하나)
 
 ```text

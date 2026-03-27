@@ -42,8 +42,8 @@ flowchart LR
 | hypothesis_validator.py | OpenAI + Gemini 검증 | hypothesis | `{slug}/reports/validation.json` |
 | user_approval.py | PDF 보고서 생성 + 승인 CLI | topic + hypothesis + papers | `{slug}/reports/approval.json`, `report.pdf` |
 | code_analyzer.py | GitHub 코드 분석 | topic + hypothesis | `{slug}/reports/code_analysis.json` |
-| model_generator.py | Fabric 실험 패키지 생성 | topic + hypothesis + code_analysis | `{slug}/runs/vN/` (Fabric 패키지) |
-| research_loop.py | 실험 실행 + Path A/B/C revision 루프 | pkg_dir + topic + hypothesis + code_analysis | `{slug}/results/vN/result_summary.json`, `{slug}/results/previous_results.jsonl`, `{slug}/reports/revision_request_vN.json` |
+| model_generator.py | Fabric 실험 패키지 생성 (patch ballot + 2-of-3 merge) | topic + hypothesis + code_analysis | `{slug}/runs/vN/` (Fabric 패키지) |
+| research_loop.py | 실험 실행 + consensus-locked Path + override reviewer | pkg_dir + topic + hypothesis + code_analysis | `{slug}/results/vN/result_summary.json`, `{slug}/results/previous_results.jsonl`, `{slug}/reports/revision_request_vN.json` |
 
 > `{slug}` = `experiments/{topic_slug}`
 

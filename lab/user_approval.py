@@ -1213,6 +1213,51 @@ def _build_analysis(run_history: list, final_summary: dict, primary_name: str,
                 result = "자동 검증 불가"
             lines.append(f"  [{status}] {fc_text} → {result}")
 
+    # ── 7) Hypothesis Implementation Audit ──
+    hyp_impl = final_summary.get("hypothesis_implementation", {})
+    if hyp_impl:
+        lines.append("가설 구현 감사 (Hypothesis Implementation Audit):")
+
+        mech = hyp_impl.get("mechanism_audit", {})
+        if mech:
+            status = "PASS" if mech.get("implemented") else "FAIL"
+            risk = mech.get("risk_level", "")
+            lines.append(f"  [Mechanism {status}] risk={risk}")
+            for ev in mech.get("evidence", [])[:3]:
+                lines.append(f"    근거: {ev}")
+            for ml in mech.get("missing_links", [])[:3]:
+                lines.append(f"    누락: {ml}")
+            mapping = mech.get("mechanism_mapping", {})
+            if mapping:
+                for concept, impl in list(mapping.items())[:4]:
+                    lines.append(f"    {concept} → {impl}")
+
+        metr = hyp_impl.get("metric_audit", {})
+        if metr:
+            status = "PASS" if metr.get("implemented") else "FAIL"
+            lines.append(
+                f"  [Metric {status}] primary={metr.get('primary_metric_expected', '?')}, "
+                f"found={metr.get('primary_metric_found', '?')}, "
+                f"stdout_ok={metr.get('stdout_contract_ok', '?')}"
+            )
+            expected = metr.get("required_keys_expected", [])
+            found = metr.get("required_keys_found", [])
+            if expected:
+                missing_keys = [k for k in expected if k not in found]
+                if missing_keys:
+                    lines.append(f"    누락 키: {', '.join(missing_keys)}")
+
+        cons = hyp_impl.get("constraints_audit", {})
+        if cons:
+            status = "PASS" if cons.get("implemented") else "FAIL"
+            recognized = cons.get("recognized_constraints", [])
+            violations = cons.get("violations", [])
+            lines.append(
+                f"  [Constraints {status}] 인식={len(recognized)}개, 위반={len(violations)}개"
+            )
+            for v in violations[:3]:
+                lines.append(f"    위반: {v}")
+
     return lines
 
 

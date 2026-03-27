@@ -23,6 +23,10 @@ experiments/CLAUDE.md    ← 현재 파일 (코딩 규칙)
 ```
 
 - `hypothesis.json`의 mechanism, target_metric, constraints를 코드가 명시적으로 구현해야 한다.
+  - mechanism은 코드에서 대응되는 설계 요소(아키텍처/학습/데이터 처리)를 가져야 한다
+  - target_metric은 validation 계산 및 METRICS stdout 출력으로 이어져야 한다
+  - constraints는 config와 아키텍처 제한으로 구현되어야 한다
+- `experiment_spec.json`의 `hypothesis_contract` 섹션이 위 3가지를 추적한다.
 - `code_analysis.json`은 참고용이며 직접 복사·붙여넣기 금지.
 - 이전 결과(`previous_results.jsonl`)는 개선 방향을 알려주지만 실험 설계를 덮어쓰지 않는다.
 
@@ -57,8 +61,13 @@ experiments/{topic_slug}/runs/v{N}/
 - Claude writes: train.py, module.py, model.py, data.py, configs/, scripts/, tests/, README.md
 - GPT may propose patches (Path A 한정): model.py, module.py, configs/default.yaml
 - GPT must NOT write: train.py, data.py, hypothesis.json, experiment_plan.json
-- Gemini (model_generator): 설계 리뷰만 → proposals/gemini_review_{timestamp}.json
+- Gemini (model_generator): 설계 리뷰 + 패치 투표 → proposals/gemini_review_*.json, gemini_patch_ballot_*.json
 - Gemini (research_loop): 2차 진단만 → proposals/gemini_diagnosis_{timestamp}.json
+
+**패치 채택 규칙 (2-of-3 Merge):**
+- GPT 패치 제안 후 Gemini·Claude가 독립 투표 → 2-of-3 합의로 채택/기각
+- Claude는 merge 집행자 — reject된 패치 적용 금지
+- 산출물: gpt_patch_*.json, gemini_patch_ballot_*.json, claude_patch_ballot_*.json, merge_decision_*.json
 - 모든 제안은 proposals/ 에 저장 후 Claude가 검토·병합
 
 ---
@@ -255,6 +264,31 @@ METRICS:{"psnr": 28.5, "ssim": 0.82, "params_M": 3.1, "inference_ms": 12.4}
 - 필수 파일 존재 여부 (train.py, model.py, module.py, data.py, configs/, scripts/)
 - `METRICS:` stdout 패턴 존재 여부 (output_contract)
 - metric 키 계약 준수 여부 (experiment_spec의 `required_keys`)
+- **hypothesis implementation audit** (mechanism / metric / constraints 구현 감사)
+
+### Hypothesis Implementation Audit
+
+validation gate의 마지막 단계로 3가지 감사를 실행한다:
+
+| 감사 | 검사 대상 | 결과 저장 |
+|---|---|---|
+| `mechanism_audit` | mechanism이 model.py/module.py/data.py/default.yaml에 구현되었는가 | `artifacts/mechanism_audit.json` |
+| `metric_audit` | primary_metric, required_keys가 spec/code/METRICS stdout에 일관 존재하는가 | `artifacts/metric_audit.json` |
+| `constraints_audit` | constraints가 config/architecture에 위반 없이 반영되었는가 | `artifacts/constraints_audit.json` |
+
+validation 결과에 추가되는 필드:
+- `hypothesis_implementation_ok`: 3가지 감사 모두 통과 여부
+- `mechanism_ok`: mechanism 구현 여부
+- `metric_ok`: metric 키 일관성 여부
+- `constraints_ok`: constraints 위반 없음 여부
+
+**감사 실패 처리 (hard / soft gate):**
+- **hard gate** (차단): metric 미구현, constraints 명백 위반, mechanism 미구현(명시된 경우)
+- **soft gate** (warning만): mapping 모호, optional metric 불완전
+- `ok = syntax_ok and smoke_ok and hard_audit_ok`
+- hard audit 실패 → repair 1회 → 재검증 → 여전히 실패 시 패키지 차단
+- `failure_detail`, `hard_failures` 필드로 구조적 실패 사유 기록
+- `result_summary.json`의 `hypothesis_implementation` 필드에 감사 결과 기록
 
 **검증 실패 시:**
 - `finalized=False`, `validation_failed=True` 반환

@@ -110,6 +110,12 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
 3. 실현 가능성 (Feasibility): 현재 기술로 구현 가능한가?
 4. 영향력 (Impact): 성공 시 해당 분야에 의미 있는 기여를 하는가?
 {scoring_caps}
+5. 구현 가능성 (Implementation Readiness): 높은 점수의 가설은 후속 코드 단계에서
+   mechanism / metric / constraints가 구현 가능해야 한다.
+   - mechanism이 코드 구현 가능한 구체적 설계 요소인가?
+   - target_metric이 자동화된 evaluation으로 측정 가능한가?
+   - constraints가 config/architecture 수준에서 반영 가능한가?
+
 각 기준을 고려하여 10점 만점으로 채점하세요 (9-10: 탁월, 7-8: 양호, 5-6: 보통, <5: 부족).
 통과 기준: 평균 ≥ {SCORE_THRESHOLD}, 각 항목 ≥ 8.0.
 {extra_instruction}
@@ -126,7 +132,12 @@ def _build_validation_prompt(hyp_content: dict, validation_packet: dict | None =
   "strengths": ["강점1", "강점2"],
   "weaknesses": ["약점1 (구체적으로)", "약점2 (구체적으로)"],
   "suggestions": ["개선안1 (실행 가능한 수준으로)", "개선안2"],
-  "verdict": "approve/revise/reject"
+  "verdict": "approve/revise/reject",
+  "implementation_expectations": {{
+    "must_implement_mechanism": "mechanism이 코드에서 구현되어야 하는 구체적 요소",
+    "must_satisfy_constraints": "constraints가 config/architecture에 반영되어야 하는 항목",
+    "must_measure_metrics": "evaluation에서 측정해야 하는 metric 목록"
+  }}
 }}"""
 
 

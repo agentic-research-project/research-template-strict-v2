@@ -114,11 +114,14 @@ experiments/{topic_slug}/runs/v{N}/
 
 ## 4. MODEL_ROLE_SPLIT
 
-### Claude — Architect, Final Merger & Final Decision Maker
+### Claude — Architect, Merge Executor & Override Reviewer
 - Generates experiment_spec.json (spec-first 방식)
 - Writes initial train.py, module.py, model.py, data.py, configs/default.yaml
-- Reviews GPT patches and Gemini design reviews; performs final merge
-- **최종 결정자**: GPT 해석 + Gemini 진단 + consensus 통합 후 Path A/B/C/done 결정
+- **Stage 7**: 패치별 독립 투표(`claude_patch_ballot`) → 2-of-3 합의 결과를 merge로 집행
+  - reject된 패치 적용 금지, ambiguous만 tie-break 허용
+- **Stage 8**: consensus_path_candidate가 기본 path → Claude는 escalation override만 가능
+  - A→B, B→C만 허용 (조건 충족 시), downgrade/skip 금지
+  - postcheck가 override 최종 허가
 - Owns experiments/claude.md
 
 ### GPT — Result Interpreter (primary) + Path A Patch Proposer
