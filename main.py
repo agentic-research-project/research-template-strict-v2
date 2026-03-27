@@ -250,7 +250,7 @@ def parse_todo(todo_path: str) -> dict:
 
 출력 형식 (JSON만, 설명 없이):
 {{
-  "topic": "한 줄 연구 주제 (영어 또는 한국어)",
+  "topic": "한 줄 연구 주제 (반드시 영어로 작성. 한국어 입력이면 영어로 번역)",
   "details": "구체적 내용 요약 (1~2문장)",
   "problem_definition": "문제 정의 (2~3문장)",
   "desired_outcome": "원하는 결과 (2~3문장)",

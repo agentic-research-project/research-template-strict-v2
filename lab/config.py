@@ -203,8 +203,44 @@ def validate_stage_preconditions(stage: int, slug: str) -> list[str]:
 # ──────────────────────────────────────────────────────────
 
 def topic_slug(topic: str) -> str:
-    """연구 주제 문자열 → 파일 경로에 사용 가능한 slug."""
-    return re.sub(r"\W+", "_", topic.lower())[:30]
+    """연구 주제 문자열 → 파일 경로에 사용 가능한 slug (ASCII only).
+
+    한글 등 비ASCII 문자는 romanize하여 보존한다.
+    """
+    # 1단계: 한글 → 로마자 변환 (간이 초성 매핑)
+    _KO_INITIALS = {
+        "ㄱ":"g","ㄲ":"kk","ㄴ":"n","ㄷ":"d","ㄸ":"tt","ㄹ":"r","ㅁ":"m",
+        "ㅂ":"b","ㅃ":"pp","ㅅ":"s","ㅆ":"ss","ㅇ":"","ㅈ":"j","ㅉ":"jj",
+        "ㅊ":"ch","ㅋ":"k","ㅌ":"t","ㅍ":"p","ㅎ":"h",
+    }
+    _KO_VOWELS = {
+        "ㅏ":"a","ㅐ":"ae","ㅑ":"ya","ㅒ":"yae","ㅓ":"eo","ㅔ":"e","ㅕ":"yeo",
+        "ㅖ":"ye","ㅗ":"o","ㅘ":"wa","ㅙ":"wae","ㅚ":"oe","ㅛ":"yo","ㅜ":"u",
+        "ㅝ":"wo","ㅞ":"we","ㅟ":"wi","ㅠ":"yu","ㅡ":"eu","ㅢ":"ui","ㅣ":"i",
+    }
+    _KO_FINALS = {
+        0:"",1:"g",2:"kk",3:"gs",4:"n",5:"nj",6:"nh",7:"d",8:"r",9:"rg",
+        10:"rm",11:"rb",12:"rs",13:"rt",14:"rp",15:"rh",16:"m",17:"b",18:"bs",
+        19:"s",20:"ss",21:"ng",22:"j",23:"ch",24:"k",25:"t",26:"p",27:"h",
+    }
+    result = []
+    for ch in topic:
+        cp = ord(ch)
+        if 0xAC00 <= cp <= 0xD7A3:
+            offset = cp - 0xAC00
+            initial = offset // (21 * 28)
+            vowel = (offset % (21 * 28)) // 28
+            final = offset % 28
+            initials = list(_KO_INITIALS.values())
+            vowels = list(_KO_VOWELS.values())
+            result.append(initials[initial] + vowels[vowel] + _KO_FINALS.get(final, ""))
+        else:
+            result.append(ch)
+    romanized = "".join(result)
+
+    # 2단계: ASCII 영숫자만 남기고 slug 생성
+    slug = re.sub(r"[^a-z0-9]+", "_", romanized.lower()).strip("_")
+    return slug[:30] if slug else "untitled"
 
 def workspace(slug: str) -> Path:
     """experiments/{slug}/"""
