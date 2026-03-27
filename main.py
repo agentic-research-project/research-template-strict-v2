@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, AssistantMessage
-from lab.config import query_claude, parse_json, validate_stage_preconditions
+from lab.config import query_claude, parse_json, validate_stage_preconditions, SCORE_THRESHOLD as PDF_SCORE_THRESHOLD
 
 
 # ──────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ workspace  = "experiments/{topic_slug}"
 모든 파일은 experiments/{topic_slug}/ workspace 아래에 저장됩니다.
 
 3단계는 반드시 --mode collaborative 옵션으로 실행하세요.
-4단계는 반드시 --refine --target-score 8.5 옵션으로 실행하세요.
+4단계는 반드시 --refine --target-score {PDF_SCORE_THRESHOLD} 옵션으로 실행하세요.
 5단계 PDF는 점수 무관 항상 생성됩니다.
 
 데이터 경로 규칙:
@@ -377,7 +377,7 @@ workspace  = "experiments/{topic_slug}"
     async for message in query(
         prompt=user_prompt,
         options=ClaudeAgentOptions(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=SYSTEM_PROMPT.replace("8.5", str(PDF_SCORE_THRESHOLD)),
             allowed_tools=allowed_tools,
             cwd=str(Path(__file__).parent),
             max_turns=120,
@@ -419,7 +419,7 @@ def _print_header(topic: str, image_paths: list[str] | None = None) -> None:
         "1. 주제 분석",
         "2. 논문 검색 (최신 2년 우선)",
         "3. 협업 가설 수립 (5라운드 토론)",
-        "4. LLM 검증 + 자동 개선 (목표 8.5점)",
+        f"4. LLM 검증 + 자동 개선 (목표 {PDF_SCORE_THRESHOLD}점)",
         "5. 사용자 승인 + PDF 보고서",
         "6. GitHub 코드 분석",
         "7. PyTorch 모델 생성",

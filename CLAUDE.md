@@ -278,6 +278,10 @@ GitHub 실행 실패 시 아래 상황을 구분한다:
 
 코드 생성(model_generator) 단계에서 GPT 패치 채택을 **Claude 단독 결정이 아닌 3자 투표**로 결정한다.
 
+> **참고**: `hypothesis_contract`(mechanism, target_metric_raw, constraints_raw, architecture_hint)는
+> 위 "Hypothesis Implementation Audit" 섹션에서 정의되며, Stage 7 코드 생성 시 experiment_spec.json에
+> 포함되어 모든 LLM 프롬프트에 관통 전달된다.
+
 ### 흐름
 
 ```mermaid

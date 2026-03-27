@@ -1358,15 +1358,164 @@ def _mechanism_audit(mechanism: str, code_files: dict, architecture_summary: str
         result.setdefault("missing_links", [])
         result.setdefault("risk_level", "high")
         result.setdefault("mechanism_mapping", {})
-        return result
     except Exception as e:
-        return {
+        result = {
             "implemented": False,
             "evidence": [],
             "missing_links": [f"mechanism audit failed: {e}"],
             "risk_level": "high",
             "mechanism_mapping": {},
         }
+
+    # AST 교차 검증: Claude 판단과 정적 분석 결과를 비교
+    model_code = code_files.get("model.py", "") or code_files.get("model_py", "")
+    mech_keywords = _extract_mechanism_keywords(mechanism)
+    ast_result = _ast_forward_check(model_code, mech_keywords)
+    result["ast_check"] = ast_result
+
+    if ast_result["forward_found"]:
+        if ast_result["ast_verified"]:
+            result["evidence"].append(
+                f"[AST] forward()에서 mechanism 키워드 확인: {ast_result['mechanism_hits']}"
+            )
+        else:
+            # AST에서 미발견 but Claude says implemented → 경고
+            if result.get("implemented"):
+                result["evidence"].append(
+                    f"[AST 경고] Claude는 구현 판단했으나 forward()에서 "
+                    f"mechanism 키워드 미발견: searched={mech_keywords}, "
+                    f"forward_calls={ast_result['calls_in_forward'][:10]}"
+                )
+                result["risk_level"] = "medium" if result["risk_level"] == "low" else result["risk_level"]
+            else:
+                result["missing_links"].append(
+                    f"[AST] forward()에서 mechanism 미발견: {ast_result['mechanism_missing']}"
+                )
+    else:
+        result["evidence"].append("[AST] forward() 메서드를 찾을 수 없음 — AST 검증 생략")
+
+    return result
+
+
+def _ast_forward_check(model_code: str, mechanism_keywords: list[str]) -> dict:
+    """AST 정적 분석: model.py의 forward() 메서드 내 호출 그래프에서
+    mechanism 키워드가 실제로 참여하는지 검증한다.
+
+    Returns:
+        {
+            "forward_found": bool,
+            "calls_in_forward": [str],
+            "mechanism_hits": [str],
+            "mechanism_missing": [str],
+            "ast_verified": bool,
+        }
+    """
+    import ast
+
+    result = {
+        "forward_found": False,
+        "calls_in_forward": [],
+        "mechanism_hits": [],
+        "mechanism_missing": list(mechanism_keywords),
+        "ast_verified": False,
+    }
+
+    if not model_code or not model_code.strip():
+        return result
+
+    try:
+        tree = ast.parse(model_code)
+    except SyntaxError:
+        return result
+
+    # forward() 메서드 찾기 (클래스 내부)
+    forward_nodes = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name == "forward":
+                forward_nodes.append(node)
+
+    if not forward_nodes:
+        return result
+
+    result["forward_found"] = True
+
+    # forward() 내부의 모든 호출 이름 수집
+    calls: set[str] = set()
+    for fwd in forward_nodes:
+        for child in ast.walk(fwd):
+            if isinstance(child, ast.Call):
+                # self.xxx() → xxx
+                if isinstance(child.func, ast.Attribute):
+                    calls.add(child.func.attr.lower())
+                # xxx() → xxx
+                elif isinstance(child.func, ast.Name):
+                    calls.add(child.func.id.lower())
+
+    # 클래스 __init__에서 self.xxx = Module() 패턴의 모듈명도 수집
+    init_modules: dict[str, str] = {}  # attr_name → class_name
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "__init__":
+            for child in ast.walk(node):
+                if isinstance(child, ast.Assign):
+                    for target in child.targets:
+                        if (isinstance(target, ast.Attribute)
+                                and isinstance(target.value, ast.Name)
+                                and target.value.id == "self"
+                                and isinstance(child.value, ast.Call)):
+                            class_name = ""
+                            if isinstance(child.value.func, ast.Name):
+                                class_name = child.value.func.id
+                            elif isinstance(child.value.func, ast.Attribute):
+                                class_name = child.value.func.attr
+                            if class_name:
+                                init_modules[target.attr.lower()] = class_name.lower()
+
+    # forward에서 호출된 self.xxx의 실제 클래스명으로 확장
+    expanded_calls: set[str] = set(calls)
+    for call_name in calls:
+        if call_name in init_modules:
+            expanded_calls.add(init_modules[call_name])
+
+    result["calls_in_forward"] = sorted(expanded_calls)
+
+    # mechanism 키워드 매칭
+    hits = []
+    missing = []
+    for kw in mechanism_keywords:
+        kw_lower = kw.lower().replace("-", "").replace("_", "")
+        found = any(
+            kw_lower in c.replace("-", "").replace("_", "")
+            for c in expanded_calls
+        )
+        if found:
+            hits.append(kw)
+        else:
+            missing.append(kw)
+
+    result["mechanism_hits"] = hits
+    result["mechanism_missing"] = missing
+    result["ast_verified"] = len(hits) > 0
+
+    return result
+
+
+def _extract_mechanism_keywords(mechanism: str) -> list[str]:
+    """mechanism 문자열에서 코드 매칭 가능한 키워드를 추출한다."""
+    import re
+    # 기술 용어 패턴: CamelCase, 약어, 하이픈 연결어
+    tokens = re.findall(r"[A-Z][a-z]+(?:[A-Z][a-z]+)*|[A-Z]{2,}|[a-z]+(?:[-_][a-z]+)+", mechanism)
+    # 일반적인 단어 필터링
+    _GENERIC = {"the", "and", "for", "with", "via", "use", "using", "based", "model",
+                "method", "approach", "technique", "module", "layer", "block", "network",
+                "learning", "training", "deep"}
+    keywords = [t for t in tokens if t.lower() not in _GENERIC and len(t) >= 3]
+    # 소문자 토큰도 추가
+    words = re.findall(r"\b[a-z]{4,}\b", mechanism.lower())
+    for w in words:
+        if w not in _GENERIC and w not in [k.lower() for k in keywords]:
+            keywords.append(w)
+    return keywords[:10]  # 최대 10개
 
 
 def _metric_audit(spec: dict, code_files: dict) -> dict:

@@ -52,6 +52,9 @@ from lab.config import (
     METRIC_VALID_RANGES,
     # LLM stability
     llm_retry, prompt_hash,
+    # Consensus strength
+    CONFIDENCE_LEVEL_MAP, PATH_DISTANCE,
+    CONSENSUS_STRENGTH_PATH_B, CONSENSUS_STRENGTH_PATH_C,
 )
 from lab.model_generator import generate_experiment_package, _save_proposal, _archive_proposal
 from lab.runners import BaseRunner, create_runner
@@ -869,7 +872,7 @@ def _validate_metric_values(metrics: dict, primary_name: str) -> list[str]:
 # Patch family classification keywords
 _PATCH_FAMILY_KEYWORDS: dict[str, list[str]] = {
     "augmentation":    ["augment", "transform", "flip", "crop", "noise", "jitter", "mixup", "cutout", "cutmix"],
-    "capacity":        ["channel", "depth", "width", "layer", "block", "head", "hidden", "dim", "expand"],
+    "capacity":        ["channel", "depth", "width", "num_layer", "n_layer", "more layer", "fewer layer", "block", "head", "hidden", "dim", "expand", "embed"],
     "optimizer":       ["optimizer", "lr", "learning_rate", "momentum", "weight_decay", "adam", "sgd", "scheduler", "warmup", "cosine"],
     "regularization":  ["dropout", "drop_path", "regulariz", "l2", "l1", "label_smooth"],
     "normalization":   ["norm", "batch_norm", "layer_norm", "group_norm", "instance_norm"],
@@ -997,6 +1000,98 @@ def _infer_ablation_findings(
             "confidence": round(confidence_val, 2),
             "metric_delta": round(delta, 4),
             "relative_delta": round(rel_delta, 4),
+        })
+
+    # ── 인과 추론: 개별 패치 효과 분리 ──
+    # 1단계: 단일 변경 관측에서 클린 효과 수집
+    clean_effects: dict[str, list[float]] = {}  # family → [rel_delta, ...]
+    for f in findings:
+        if not f["confounded"] and len(f["change_family"]) == 1:
+            fam = f["change_family"][0]
+            clean_effects.setdefault(fam, []).append(f["relative_delta"])
+
+    # 2단계: confounded 묶음에서 차분 귀인 시도
+    for f in findings:
+        if not f["confounded"]:
+            continue
+        families = f["change_family"]
+        total_delta = f["relative_delta"]
+
+        known_sum = 0.0
+        known_families: list[str] = []
+        unknown_families: list[str] = []
+
+        for fam in families:
+            if fam in clean_effects:
+                avg_effect = sum(clean_effects[fam]) / len(clean_effects[fam])
+                known_sum += avg_effect
+                known_families.append(fam)
+            else:
+                unknown_families.append(fam)
+
+        # 알려진 효과를 빼서 나머지 효과 추정
+        if known_families and unknown_families:
+            residual = total_delta - known_sum
+            n_unknown = len(unknown_families)
+            per_unknown = residual / n_unknown if n_unknown else 0
+
+            f["causal_attribution"] = {
+                "method": "differential",
+                "known_effects": {fam: round(sum(clean_effects[fam]) / len(clean_effects[fam]), 4)
+                                  for fam in known_families},
+                "residual_effect": round(residual, 4),
+                "estimated_per_unknown": round(per_unknown, 4),
+                "unknown_families": unknown_families,
+                "attribution_confidence": round(
+                    min(0.6, 0.3 + 0.1 * len(known_families)), 2
+                ),
+            }
+            f["likely_effect"] += (
+                f" [DIFFERENTIAL: known={known_families} ({known_sum:+.1%}), "
+                f"residual for {unknown_families}={residual:+.1%}]"
+            )
+            # 차분 귀인이 가능하면 신뢰도 일부 회복
+            f["confidence"] = round(min(f["confidence"] * 1.3, 0.7), 2)
+        elif not unknown_families and known_families:
+            # 모든 family의 클린 효과를 알고 있음 → 합산 vs 실제 비교
+            synergy = total_delta - known_sum
+            f["causal_attribution"] = {
+                "method": "additive_check",
+                "known_effects": {fam: round(sum(clean_effects[fam]) / len(clean_effects[fam]), 4)
+                                  for fam in known_families},
+                "expected_sum": round(known_sum, 4),
+                "actual_total": round(total_delta, 4),
+                "synergy_or_interference": round(synergy, 4),
+                "attribution_confidence": 0.5,
+            }
+            if abs(synergy) > ABLATION_EFFECT_THRESHOLD:
+                f["likely_effect"] += (
+                    f" [SYNERGY: expected sum={known_sum:+.1%}, "
+                    f"actual={total_delta:+.1%}, interaction={synergy:+.1%}]"
+                )
+
+    # 3단계: 클린 효과 요약을 findings에 추가
+    if clean_effects:
+        summary_lines = []
+        for fam, effects in sorted(clean_effects.items()):
+            avg = sum(effects) / len(effects)
+            n = len(effects)
+            summary_lines.append(f"{fam}: avg={avg:+.1%} (n={n})")
+        findings.append({
+            "change_family": ["_summary"],
+            "likely_effect": "Clean single-change effects: " + ", ".join(summary_lines),
+            "effect_magnitude": "summary",
+            "confounded": False,
+            "n_changes": 0,
+            "supporting_runs": [],
+            "confidence": 0.0,
+            "metric_delta": 0.0,
+            "relative_delta": 0.0,
+            "causal_attribution": {
+                "method": "clean_observation_summary",
+                "family_effects": {fam: round(sum(effs) / len(effs), 4)
+                                   for fam, effs in clean_effects.items()},
+            },
         })
 
     return findings
@@ -1396,10 +1491,26 @@ def _build_consensus(
     gpt_path  = gpt_interpretation.get("suggested_path", "A")
     gem_path  = gemini_diagnosis.get("suggested_path", "A")
     gpt_ev    = gpt_interpretation.get("evidence_strength", "low")
+    gpt_conf  = gpt_interpretation.get("confidence", "medium")
+    gem_conf  = gemini_diagnosis.get("confidence", "medium")
     gem_agree = gemini_diagnosis.get("agreement_with_gpt", "agree")
     n_runs    = len(run_history)
 
-    # 합의 수준 계산
+    # confidence 수치 변환
+    gpt_conf_val = CONFIDENCE_LEVEL_MAP.get(gpt_conf, 0.5)
+    gem_conf_val = CONFIDENCE_LEVEL_MAP.get(gem_conf, 0.5)
+
+    # path 거리 (동일=0, 인접=0.5, 2단계=1.0)
+    path_dist = PATH_DISTANCE.get((gpt_path, gem_path), 0.75)
+
+    # consensus_strength: confidence 가중 합의 점수
+    # = 평균 confidence × (1 - path 거리)
+    # 동일 path + high confidence → ~0.9, 다른 path + low confidence → ~0.09
+    consensus_strength = round(
+        (gpt_conf_val + gem_conf_val) / 2 * (1 - path_dist), 4
+    )
+
+    # 합의 수준 계산 (기존 호환 유지 + consensus_strength 반영)
     if gpt_path == gem_path and gem_agree == "agree":
         agreement_level = "strong"
     elif gpt_path == gem_path or gem_agree in ("agree", "partial"):
@@ -1408,22 +1519,23 @@ def _build_consensus(
         agreement_level = "weak"
 
     # Path B 명시적 허용 조건 (모두 충족해야 B 허용)
-    # 1. GPT가 B 또는 C를 제안해야 함 (A를 제안하면 B 불가)
+    # 1. GPT가 B 또는 C를 제안해야 함
     # 2. Gemini가 강한 반대(disagree)가 아니어야 함
-    # 3. 합의 수준이 최소 medium이어야 함
-    # 4. 실행 횟수 ≥ 2 (smoke/runtime 단일 실패 시 B 불가)
+    # 3. consensus_strength ≥ 임계값 (confidence 가중)
+    # 4. 실행 횟수 ≥ 2
     def _path_b_allowed() -> bool:
         return (
             gpt_path in ("B", "C")
             and gem_agree != "disagree"
-            and agreement_level in ("medium", "strong")
+            and consensus_strength >= CONSENSUS_STRENGTH_PATH_B
             and n_runs >= 2
         )
 
     # 합의 경로 후보 — 과도한 에스컬레이션 방지
     if primary["met"]:
         consensus_path = "done"
-    elif gpt_path == "C" and (n_runs < 3 or gpt_ev != "high" or agreement_level != "strong"):
+    elif gpt_path == "C" and (n_runs < 3 or gpt_ev != "high" or agreement_level != "strong"
+                              or consensus_strength < CONSENSUS_STRENGTH_PATH_C):
         # Path C 요건 미충족 → B 시도, B 요건도 미충족 시 A로 하향
         consensus_path = "B" if _path_b_allowed() else "A"
     elif gpt_path == "B" and not _path_b_allowed():
@@ -1470,6 +1582,9 @@ def _build_consensus(
     return {
         "consensus_path_candidate": consensus_path,
         "agreement_level":          agreement_level,
+        "consensus_strength":       consensus_strength,
+        "gpt_confidence":           gpt_conf,
+        "gemini_confidence":        gem_conf,
         "major_disagreements":      major_disagreements,
         "escalation_risk":          escalation_risk,
         "notes_for_claude":         " | ".join(notes) if notes else "none",

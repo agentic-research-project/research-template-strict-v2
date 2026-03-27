@@ -62,7 +62,24 @@ PATH_B_CONSECUTIVE_PLATEAUS = 2
 PATH_C_MIN_CONTRADICTIONS = 3
 PATH_C_MIN_RUNS = 3
 
+# Consensus strength — confidence 가중 합의 점수
+# LLM confidence를 수치로 변환하여 path 일치도와 결합
+CONFIDENCE_LEVEL_MAP = {"low": 0.3, "medium": 0.6, "high": 0.9}
+# path 간 거리: 동일=0, 인접(A↔B, B↔C)=0.5, 2단계(A↔C)=1.0
+PATH_DISTANCE = {
+    ("A", "A"): 0, ("B", "B"): 0, ("C", "C"): 0, ("done", "done"): 0,
+    ("A", "B"): 0.5, ("B", "A"): 0.5,
+    ("B", "C"): 0.5, ("C", "B"): 0.5,
+    ("A", "C"): 1.0, ("C", "A"): 1.0,
+}
+# consensus_strength 임계값
+CONSENSUS_STRENGTH_PATH_B = 0.35   # Path B 허용 최소 합의 강도
+CONSENSUS_STRENGTH_PATH_C = 0.55   # Path C 허용 최소 합의 강도
+
 # A-5: Confidence model weights
+# Rationale: metric이 목표 달성 여부를 직접 반영하므로 최대 가중(40%).
+#            stability/implementation/trend는 보조 신호로 각 20% 균등 배분.
+#            합계 = 1.0. 도메인별 조정이 필요하면 이 비율을 변경한다.
 CONFIDENCE_WEIGHTS = {
     "metric":         0.4,
     "stability":      0.2,
@@ -140,7 +157,7 @@ COVERAGE_GROUPS = {
 # LLM Query 안정성
 # ──────────────────────────────────────────────────────────
 
-LLM_QUERY_TIMEOUT = 300  # 초 (5분). LLM API 응답 대기 최대 시간
+LLM_QUERY_TIMEOUT = 900  # 초 (15분). Thinking 모델(o1, gemini-2.5-pro 등) 대응
 LLM_QUERY_MAX_RETRIES = 2  # 실패 시 재시도 횟수
 
 # ──────────────────────────────────────────────────────────

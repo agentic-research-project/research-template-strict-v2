@@ -38,9 +38,11 @@ MAX_SECTION_CHARS = 2000  # 섹션당 최대 문자 수 (introduction/method/exp
 # 섹션 헤더 인식 키워드 (대소문자 무관)
 _SECTION_PATTERNS = {
     "introduction": re.compile(r"(?i)\b(introduction|background|motivation)\b"),
+    "related_work": re.compile(r"(?i)\b(related\s+work|prior\s+work|literature)\b"),
     "method":       re.compile(r"(?i)\b(method(?:ology)?|approach|model|architecture|framework|proposed)\b"),
-    "experiment":   re.compile(r"(?i)\b(experiment|evaluation|result|benchmark|ablation)\b"),
-    "limitation":   re.compile(r"(?i)\b(limitation|discussion|future\s+work)\b"),
+    "experiment":   re.compile(r"(?i)\b(experiment|evaluation|benchmark|ablation|setup)\b"),
+    "results":      re.compile(r"(?i)\b(result|finding|performance|comparison)\b"),
+    "limitation":   re.compile(r"(?i)\b(limitation|discussion|future\s+work|conclusion)\b"),
 }
 
 
@@ -424,8 +426,69 @@ def fetch_foundational_papers(
     return results
 
 
+def _extract_tables_from_html(html: str) -> list[str]:
+    """HTML에서 <table> 태그를 파싱하여 텍스트 테이블로 변환한다.
+
+    각 테이블은 "| col1 | col2 | ..." 형식의 문자열로 반환.
+    최대 5개 테이블, 테이블당 최대 500자.
+    """
+    tables: list[str] = []
+    table_pattern = re.compile(r"<table[^>]*>(.*?)</table>", re.DOTALL | re.IGNORECASE)
+
+    for match in table_pattern.finditer(html):
+        table_html = match.group(1)
+        rows: list[str] = []
+        for row_match in re.finditer(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL | re.IGNORECASE):
+            cells = re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row_match.group(1), re.DOTALL | re.IGNORECASE)
+            cleaned = [re.sub(r"<[^>]+>", "", c).strip() for c in cells]
+            cleaned = [re.sub(r"\s+", " ", c) for c in cleaned if c]
+            if cleaned:
+                rows.append(" | ".join(cleaned))
+        if rows:
+            table_text = "\n".join(rows)[:500]
+            tables.append(table_text)
+        if len(tables) >= 5:
+            break
+    return tables
+
+
+def _extract_quantitative_results(text: str) -> list[str]:
+    """텍스트에서 수치 결과를 추출한다.
+
+    "accuracy 95.2%", "PSNR 30.5dB", "F1-score of 0.87" 등의 패턴을 감지.
+    최대 10개 결과.
+    """
+    patterns = [
+        # "accuracy of 95.2%" or "accuracy: 95.2%"
+        re.compile(r"((?:accuracy|precision|recall|f1|psnr|ssim|auc|iou|dice|map|bleu|rouge|mse|mae)\s*"
+                   r"(?:of|:|=|is|was|reaches?|achieves?|obtains?)\s*"
+                   r"\d+\.?\d*\s*(?:%|dB)?)", re.IGNORECASE),
+        # "95.2% accuracy"
+        re.compile(r"(\d+\.?\d*\s*(?:%|dB)\s*"
+                   r"(?:accuracy|precision|recall|f1|psnr|ssim|auc|iou|dice|map|bleu|rouge))", re.IGNORECASE),
+        # "outperforms X by 2.3%"
+        re.compile(r"(outperforms?\s+\w+\s+by\s+\d+\.?\d*\s*(?:%|dB|points?))", re.IGNORECASE),
+        # "state-of-the-art ... XX.X"
+        re.compile(r"(state[- ]of[- ]the[- ]art\s+\w+\s+(?:of\s+)?\d+\.?\d*)", re.IGNORECASE),
+    ]
+    results: list[str] = []
+    seen: set[str] = set()
+    for pat in patterns:
+        for m in pat.finditer(text):
+            val = m.group(1).strip()
+            if val not in seen:
+                seen.add(val)
+                results.append(val)
+            if len(results) >= 10:
+                return results
+    return results
+
+
 def fetch_arxiv_sections(arxiv_id: str) -> dict:
-    """arXiv HTML에서 Introduction/Method/Experiment/Limitation 섹션 텍스트를 추출한다.
+    """arXiv HTML에서 섹션 텍스트 + 테이블 + 수치 결과를 추출한다.
+
+    추출 대상: introduction, related_work, method, experiment, results, limitation
+    추가: tables (결과 테이블), quantitative_results (수치 결과 목록)
 
     arXiv HTML 버전이 없거나 파싱에 실패하면 빈 딕셔너리를 반환한다.
     """
@@ -436,6 +499,9 @@ def fetch_arxiv_sections(arxiv_id: str) -> dict:
         html = _http_get(url)
     except Exception:
         return {}
+
+    # 테이블 추출 (HTML 태그 제거 전에 수행)
+    tables = _extract_tables_from_html(html)
 
     # script/style 제거 후 태그 제거 → 순수 텍스트
     text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL)
@@ -460,6 +526,16 @@ def fetch_arxiv_sections(arxiv_id: str) -> dict:
                if idx + 1 < len(found_headers)
                else start + MAX_SECTION_CHARS * 2)
         sections[key] = text[start:end].strip()[:MAX_SECTION_CHARS]
+
+    # 테이블을 sections에 포함
+    if tables:
+        sections["tables"] = "\n---\n".join(tables)[:MAX_SECTION_CHARS]
+
+    # 수치 결과 추출 (experiment + results 섹션에서)
+    quant_text = sections.get("experiment", "") + " " + sections.get("results", "")
+    quant_results = _extract_quantitative_results(quant_text)
+    if quant_results:
+        sections["quantitative_results"] = "; ".join(quant_results)
 
     return sections
 
