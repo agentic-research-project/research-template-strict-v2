@@ -1,0 +1,45 @@
+# EfficientMicroNet Configuration for FashionMNIST Classification
+# Lightweight CNN with margin-based loss and micro-SE attention
+
+# Model Architecture
+num_classes: 10
+in_channels: 1
+se_reduction: 16  # High reduction ratio for micro-SE module
+dropout_rate: 0.3
+param_budget_M: 0.2  # Parameter budget in millions
+
+# Training Configuration
+learning_rate: 0.001
+epochs: 30
+batch_size: 128
+weight_decay: 0.01
+gradient_clip: 1.0
+precision: 'bf16-mixed'  # Mixed precision training
+seed: 42
+
+# Loss Function
+ce_weight: 1.0        # CrossEntropy weight
+margin_weight: 0.1    # Margin penalty weight
+margin_penalty: 0.5   # Margin threshold for similar classes
+
+# Data Configuration
+data_dir: '/data/0_Data/5_OpenSource/1_fashion_mnist'
+val_split: 0.2        # 20% of train set for validation
+num_workers: 2
+
+# Optimizer and Scheduler
+optimizer: 'adamw'
+scheduler: 'cosine'
+
+# Evaluation
+primary_metric: 'validation'  # Target validation accuracy >= 0.925
+secondary_metrics:
+  - 'per'          # Per-class accuracy
+  - 'confusion'    # Confusion matrix
+  - 'total'        # Total samples
+  - 'single'       # Single inference time
+  - 'inference'    # Average inference time
+  - 't'           # Loss value
+
+# Hardware
+device: 'auto'  # auto-detect GPU/CPU
