@@ -157,7 +157,7 @@ COVERAGE_GROUPS = {
 # LLM Query 안정성
 # ──────────────────────────────────────────────────────────
 
-LLM_QUERY_TIMEOUT = 900  # 초 (15분). Thinking 모델(o1, gemini-2.5-pro 등) 대응
+LLM_QUERY_TIMEOUT = 1800  # 초 (30분). Thinking 모델 + 복잡한 multi-round 대응
 LLM_QUERY_MAX_RETRIES = 2  # 실패 시 재시도 횟수
 
 # ──────────────────────────────────────────────────────────

@@ -392,7 +392,7 @@ workspace  = "experiments/{topic_slug}"
             system_prompt=SYSTEM_PROMPT.replace("8.5", str(PDF_SCORE_THRESHOLD)),
             allowed_tools=allowed_tools,
             cwd=str(Path(__file__).parent),
-            max_turns=120,
+            max_turns=500,
         ),
     ):
         # 진행 상황 실시간 출력
