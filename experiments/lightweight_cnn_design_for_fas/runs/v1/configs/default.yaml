@@ -1,0 +1,30 @@
+# Experiment: 3-Stage Non-uniform DSCNN-SE for FashionMNIST
+# Flat config compatible with train.py template
+
+# Model
+num_classes: 10
+
+# Data
+data_dir: "/data/0_Data/5_OpenSource/1_fashion_mnist"
+val_ratio: 0.1
+num_workers: 4
+
+# Training
+epochs: 50
+batch_size: 128
+lr: 0.001
+weight_decay: 0.01
+gradient_clip: 1.0
+seed: 42
+lr_min: 1e-6
+
+# Fabric
+accelerator: "auto"
+precision: "bf16-mixed"
+devices: 1
+
+# Evaluation
+primary_metric: "accuracy"
+
+# Constraints
+max_params_M: 0.2

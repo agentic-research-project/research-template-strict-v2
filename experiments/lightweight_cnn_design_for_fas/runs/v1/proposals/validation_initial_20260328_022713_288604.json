@@ -1,0 +1,23 @@
+{
+  "ok": false,
+  "syntax_ok": true,
+  "smoke_ok": false,
+  "forward_ok": false,
+  "metric_contract_ok": true,
+  "output_contract_ok": true,
+  "hypothesis_implementation_ok": true,
+  "mechanism_ok": true,
+  "metric_ok": true,
+  "constraints_ok": true,
+  "hard_audit_ok": true,
+  "task_family_ok": true,
+  "family_audit": {},
+  "hard_failures": [],
+  "errors": [
+    "smoke_test failed: Traceback (most recent call last):\n  File \"/data/2_workspace/2_darkstar0983/claude/experiments/lightweight_cnn_design_for_fas/runs/v1/scripts/smoke_test.py\", line 36, in run_smoke\n    from model import build_model\nModuleNotFoundError: No module named 'model'\n"
+  ],
+  "warnings": [
+    "test_forward failed (non-blocking): ",
+    "metric contract check skipped (no experiment_spec.json or syntax errors)"
+  ]
+}

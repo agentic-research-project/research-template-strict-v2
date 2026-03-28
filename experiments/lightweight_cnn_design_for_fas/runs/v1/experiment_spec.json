@@ -1,0 +1,221 @@
+{
+  "schema_version": "1.0",
+  "spec_id": "lightweight_cnn_design_for_fas_vlightweight_cnn_design_for_fas_20260328_023119",
+  "hypothesis_id": "01631609",
+  "experiment_version": "lightweight_cnn_design_for_fas",
+  "topic_slug": "lightweight_cnn_design_for_fas",
+  "created_at": "2026-03-28T02:31:19.662135",
+  "revised_from_spec_id": 1,
+  "revision_path": "new",
+  "model_architecture": {
+    "name": "3-Stage 비균일 DSCNN-SE CNN: [Input 1×28×28] → Stage 1: Conv3×3(1→48) + BN + ReLU + 1× DSCNN-SE Block(48ch, SE r=8) → MaxPool 2×2 → Stage 2: 1× DSCNN-SE Block(48→96ch, SE r=4) + 1× DSCNN-SE Block(96ch, SE r=4) → MaxPool 2×2 → Stage 3: 2× DSCNN-SE Block(96→128ch, SE r=4) → Global Average Pooling → FC(128→10). 각 DSCNN-SE Block: Depthwise Conv3×3 → BN → ReLU → Pointwise Conv1×1 → BN → ReLU → SE Module → Residual Connection(채널 불일치 시 1×1 conv projection). 예상 파라미터: ~150K–180K (SE 오버헤드 포함).",
+    "description": "깊이별 분리 합성곱과 Squeeze-and-Excitation을 결합한 DSCNN-SE 블록을 기반으로, 초기 단계에서는 넓고 얕은 구조로 공간 특징 다양성을 확보하고 후기 단계에서는 좁고 깊은 구조로 의미적 추상화를 강화하는 비균일 깊이-너비 스케일링 전략을 적용하면, 200K 파라미터 예산 내에서 2–3회의 반복적 아키텍처 개선을 통해 FashionMNIST에서 92.5% 이상의 분류 정확도를 체계적으로 달성할 수 있다.",
+    "key_components": [],
+    "param_budget_M": 0.2
+  },
+  "training_config": {
+    "epochs": 50,
+    "batch_size": 16,
+    "optimizer": "adamw",
+    "lr": 0.0001,
+    "loss_function": "auto",
+    "seed": 42,
+    "precision": "bf16-mixed",
+    "gradient_clip": 1.0
+  },
+  "evaluation_config": {
+    "primary_metric": "test",
+    "target_value": 0.0,
+    "secondary_metrics": [
+      "validation",
+      "total",
+      "total",
+      "training",
+      "per",
+      "accuracy"
+    ],
+    "metric_units": {
+      "test": "%",
+      "validation": "%",
+      "total": "M",
+      "training": "sec",
+      "per": "",
+      "accuracy": "Δ%p"
+    },
+    "test_set": "val_split",
+    "eval_frequency": 1
+  },
+  "hypothesis_contract": {
+    "mechanism": "Stage 1(초기)에서 넓은 채널(예: 64–96ch)과 얕은 깊이(1–2 블록)로 28×28 입력의 공간적 텍스처·엣지 특징을 다양하게 추출하고, Stage 2(후기)에서 좁은 채널(예: 128–160ch)과 깊은 블록(2–3 블록)으로 의미적 추상화를 수행한다. 각 DSCNN 블록 내 SE 모듈(reduction ratio r=4 또는 8)은 depthwise separable conv에서 약화된 채널 간 상호작용을 동적으로 재조정하여, 유사한 클래스(예: Shirt vs T-shirt, Coat vs Pullover)를 구분하는 판별적 채널을 강화한다. 비균일 스케일링은 균일 분배 대비 초기 단계에 더 많은 파라미터를 할당하여 저해상도 이미지의 정보 손실을 최소화한다.",
+    "target_metric_raw": "Accuracy",
+    "constraints_raw": "parameter budget ≤ 0.2M, single GPU execution, short training time, lightweight CNN-level inference speed, no overly complex backbones or large pretrained models",
+    "architecture_hint": "3-Stage 비균일 DSCNN-SE CNN: [Input 1×28×28] → Stage 1: Conv3×3(1→48) + BN + ReLU + 1× DSCNN-SE Block(48ch, SE r=8) → MaxPool 2×2 → Stage 2: 1× DSCNN-SE Block(48→96ch, SE r=4) + 1× DSCNN-SE Block(96ch, SE r=4) → MaxPool 2×2 → Stage 3: 2× DSCNN-SE Block(96→128ch, SE r=4) → Global Average Pooling → FC(128→10). 각 DSCNN-SE Block: Depthwise Conv3×3 → BN → ReLU → Pointwise Conv1×1 → BN → ReLU → SE Module → Residual Connection(채널 불일치 시 1×1 conv projection). 예상 파라미터: ~150K–180K (SE 오버헤드 포함)."
+  },
+  "constraints_structured": {},
+  "data_config": {
+    "data_path": "/data/0_Data/5_OpenSource/1_fashion_mnist",
+    "dataset_name": "FashionMNIST: 28×28 grayscale, 10 classes, 60K train / 10K test (표준 분할). Train에서 54K/6K로 train/validation 분할하여 모델 선택에 사용하고, 최종 성능은 10K test set에서 보고. 데이터 증강: RandomHorizontalFlip, RandomCrop(28, padding=2), 선택적 RandomRotation(±10°)."
+  },
+  "task_family": "classification",
+  "pattern_candidates": [
+    {
+      "pattern_id": "cls_cnn_lite",
+      "core_blocks": [
+        "conv_block",
+        "fc_head"
+      ],
+      "training_defaults": {
+        "optimizer": "adam",
+        "loss_function": "cross_entropy"
+      },
+      "evaluation_defaults": {
+        "primary_metric": "accuracy"
+      },
+      "strengths": [
+        "simple",
+        "fast training"
+      ],
+      "weaknesses": [
+        "limited capacity"
+      ],
+      "must_not_do": [
+        "oversized backbone under param budget"
+      ],
+      "task_family": "classification",
+      "modality": "image"
+    },
+    {
+      "pattern_id": "cls_residual_small",
+      "core_blocks": [
+        "residual_block",
+        "global_avg_pool",
+        "fc_head"
+      ],
+      "training_defaults": {
+        "optimizer": "adam",
+        "loss_function": "cross_entropy"
+      },
+      "evaluation_defaults": {
+        "primary_metric": "accuracy"
+      },
+      "strengths": [
+        "stable gradient flow",
+        "good baseline"
+      ],
+      "weaknesses": [
+        "may need more depth"
+      ],
+      "must_not_do": [
+        "skip connections without batch norm"
+      ],
+      "task_family": "classification",
+      "modality": "image"
+    }
+  ],
+  "family_contract": {},
+  "generation_prior": {
+    "task_family": "classification",
+    "recommended_patterns": [
+      "cls_cnn_lite",
+      "cls_residual_small"
+    ],
+    "baseline_families": [
+      "simple_cnn_baseline",
+      "residual_cnn_baseline"
+    ],
+    "critical_interfaces": [
+      "forward",
+      "loss_computation",
+      "metric_computation"
+    ],
+    "likely_failure_modes": [
+      "overfitting on small data",
+      "class imbalance"
+    ],
+    "must_not_do": [
+      "oversized backbone under param budget"
+    ]
+  },
+  "literature_code_prior": {},
+  "contract_tests": [
+    "param_budget_test",
+    "dummy_batch_shape_test",
+    "metric_key_sanity_test",
+    "optimizer_loss_wiring_test",
+    "output_contract_completeness_test"
+  ],
+  "starter_skeleton_path": "experiments/template",
+  "must_not_do": [
+    "oversized backbone under param budget"
+  ],
+  "synthesized_baselines": [
+    {
+      "name": "simple_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "weak baseline",
+      "complexity": "low",
+      "task_family": "classification"
+    },
+    {
+      "name": "residual_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "strong baseline",
+      "complexity": "medium",
+      "task_family": "classification"
+    }
+  ],
+  "latest_trends": {
+    "modern_optimizers": [
+      "LoRA / QLoRA — parameter-efficient fine-tuning",
+      "Lion / Sophia optimizer — modern alternatives to AdamW",
+      "Cosine annealing with warm restarts (SGDR)"
+    ],
+    "modern_augmentation": [
+      "TrivialAugment — zero-hyperparameter augmentation",
+      "RandAugment — simplified AutoAugment"
+    ],
+    "modern_architectures": [
+      "State Space Models (Mamba, S4) — linear-time sequence modeling, RNN 대안",
+      "Vision Transformer variants (DINOv2, SigLIP) — self-supervised ViT",
+      "Mixture of Experts (MoE) — conditional computation for scaling"
+    ],
+    "modern_losses": [
+      "Label smoothing cross-entropy",
+      "Focal loss — class imbalance handling",
+      "Poly loss — polynomial cross-entropy"
+    ]
+  },
+  "ablations": [],
+  "baselines": [
+    {
+      "name": "코드를 찾지 못했습니다. 직접 구현이 필요합니다.",
+      "source": "literature"
+    },
+    {
+      "name": "simple_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "weak baseline",
+      "complexity": "low",
+      "task_family": "classification"
+    },
+    {
+      "name": "residual_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "strong baseline",
+      "complexity": "medium",
+      "task_family": "classification"
+    }
+  ],
+  "output_contract": {
+    "stdout_pattern": "^METRICS:\\{.*\\}$",
+    "required_keys": [
+      "test",
+      "validation",
+      "total",
+      "total",
+      "training",
+      "per",
+      "accuracy"
+    ]
+  }
+}
