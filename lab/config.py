@@ -15,7 +15,7 @@ GEMINI_MODEL = "gemini-2.5-pro" #3.1-pro
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN   = (os.getenv("GITHUB_TOKEN") or "").strip()
 S2_API_KEY     = os.getenv("S2_API_KEY", "")
 
 # 검증 통과 기준 (validator + PDF 공용)
@@ -286,7 +286,7 @@ def get_openai_client():
 def get_gemini_model(model_name: str = GEMINI_MODEL):
     """Gemini GenerativeModel을 반환한다."""
     import google.generativeai as genai
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=(GOOGLE_API_KEY or "").strip())
     return genai.GenerativeModel(model_name)
 
 
@@ -317,13 +317,16 @@ def prompt_hash(prompt: str) -> str:
 
 
 def query_claude(prompt: str, image_paths: list[str] | None = None,
-                 timeout: int | None = None) -> str:
+                 timeout: int | None = None, model: str | None = None) -> str:
     """claude_agent_sdk를 통해 Claude에 단일 쿼리를 실행한다 (API 키 불필요).
 
     image_paths를 전달하면 Read 툴을 허용하여 Claude가 이미지를 직접 읽는다.
     timeout: 초 단위 타임아웃 (기본값: LLM_QUERY_TIMEOUT)
+    model: 사용할 모델 (기본값: CLAUDE_MODEL). 코드 생성 등 JSON 출력이
+           필요한 경우 'claude-sonnet-4-20250514'를 사용하면 tool 호출 없이 텍스트로 응답한다.
     """
     _timeout = timeout if timeout is not None else LLM_QUERY_TIMEOUT
+    _model = model or CLAUDE_MODEL
 
     async def _run() -> str:
         import asyncio
@@ -341,7 +344,7 @@ def query_claude(prompt: str, image_paths: list[str] | None = None,
             async for msg in _sdk_query(
                 prompt=full_prompt,
                 options=ClaudeAgentOptions(
-                    model=CLAUDE_MODEL,
+                    model=_model,
                     allowed_tools=tools,
                     max_turns=max_turns,
                 ),

@@ -181,7 +181,11 @@ Claude가 model.py / module.py / data.py / configs/default.yaml을 가설 기반
 ────────────────────────────────────────────────────────
 ## 8단계: 실험 실행 + Revision 루프
 ────────────────────────────────────────────────────────
-Bash로 실행:
+⚠️ 반드시 아래 명령을 **그대로** Bash로 실행하라. train.py를 직접 실행하지 마라.
+⚠️ research_loop가 smoke test → train → METRICS 파싱 → Path A/B/C 판단을 자동으로 수행한다.
+⚠️ result_summary.json을 직접 Write하지 마라 — research_loop만 생성한다.
+
+Bash로 실행 (이 명령을 수정하지 마라):
   python -m lab.research_loop \
     --pkg-dir         experiments/{topic_slug}/runs/v1 \
     --topic-file      experiments/{topic_slug}/reports/topic_analysis.json \
@@ -190,7 +194,12 @@ Bash로 실행:
     --max-rounds 3 \
     --runner-type {{runner_type}}
 
-루프 동작:
+위 명령이 실패하면:
+  1. 에러 메시지를 Read로 확인한다
+  2. 패키지(runs/v1/)에 문제가 있으면 수정 후 재시도한다
+  3. 절대로 train.py를 직접 실행하거나 result_summary.json을 수동 작성하지 마라
+
+루프 동작 (research_loop 내부에서 자동 처리):
   - 각 round: smoke test → train → METRICS 파싱 → result_summary.json 생성
   - 목표 달성: 종료
   - Path A (코드 수정): 자동으로 runs/v{N+1} 패키지 재생성 후 재실행 (최대 3회)

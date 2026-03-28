@@ -5,8 +5,15 @@ scripts/smoke_test.py — forward pass + 2 step 검증
 GitHub Actions smoke stage에서 실행된다.
 """
 import argparse
+import os
 import sys
 import traceback
+
+# Ensure package root (parent of scripts/) is on sys.path for local imports
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PKG_ROOT = os.path.dirname(_SCRIPT_DIR)
+if _PKG_ROOT not in sys.path:
+    sys.path.insert(0, _PKG_ROOT)
 
 import torch
 import yaml
@@ -43,7 +50,12 @@ def run_smoke(config_path: str) -> bool:
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
         module    = TrainingModule(model, cfg)
 
-        train_loader, val_loader = build_dataloaders(cfg)
+        _loaders = build_dataloaders(cfg)
+        if isinstance(_loaders, (list, tuple)):
+            train_loader = _loaders[0]
+            val_loader = _loaders[1] if len(_loaders) > 1 else _loaders[0]
+        else:
+            train_loader = val_loader = _loaders
 
         # ── 학습 2 step ─────────────────────────
         model.train()

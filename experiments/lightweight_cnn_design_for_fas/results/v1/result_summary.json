@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
-  "run_id": "lightweight_cnn_design_for_fas_vlightweight_cnn_design_for_fas_20260328_023142",
-  "spec_id": "lightweight_cnn_design_for_fas_vlightweight_cnn_design_for_fas_20260328_023119",
-  "hypothesis_id": "01631609",
-  "experiment_version": "lightweight_cnn_design_for_fas",
-  "status": "smoke_failed",
+  "run_id": "lightweight_cnn_design_for_fas_v1_20260328_160456",
+  "spec_id": "lightweight_cnn_design_for_fas_v1",
+  "hypothesis_id": "081ff304",
+  "experiment_version": 1,
+  "status": "failed",
   "primary_metric": {
-    "name": "test",
+    "name": "accuracy",
     "value": 0.0,
-    "unit": "%",
+    "unit": "",
     "target": 0.0,
     "met": true
   },
@@ -35,7 +35,7 @@
       "severity": "critical",
       "confidence": 0.95,
       "evidence": [
-        "status=smoke_failed"
+        "status=failed"
       ]
     }
   ],
@@ -70,12 +70,12 @@
     {
       "finding": "Bottleneck: execution failure",
       "impact": "critical",
-      "why_pivotal": "status=smoke_failed",
+      "why_pivotal": "status=failed",
       "action": "resolve_first"
     }
   ],
   "scientific_bet": {
-    "claim": "Target met: test=0.0000",
+    "claim": "Target met: accuracy=0.0000",
     "bet_grade": "C",
     "confidence": 0.7,
     "evidence_for": [
@@ -94,23 +94,27 @@
     "suggested_reframe": ""
   },
   "stderr_tail": [
-    "dispatch 실패 - git push 오류: git push 실패: To https://github.com/YunhyoungNam/agentic_research.git\n ! [rejected]        main -> main (non-fast-forward)\nerror: failed to push some refs to 'https://github.com/YunhyoungNam/agentic_research.git'\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. If you want to integrate the remote changes,\nhint: use 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details."
+    "Traceback (most recent call last):",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/lightweight_cnn_design_for_fas/runs/v1/train.py\", line 163, in <module>",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/lightweight_cnn_design_for_fas/runs/v1/train.py\", line 156, in main",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/lightweight_cnn_design_for_fas/runs/v1/train.py\", line 124, in train",
+    "FileNotFoundError: [Errno 2] No such file or directory: 'artifacts/metrics/per_epoch_metrics.jsonl'"
   ],
   "stdout_tail": [],
   "runner_metadata": {
-    "runner": "github",
+    "runner": "local",
     "job_id": "",
     "pipeline_id": "",
-    "dispatch_id": "smoke_3d9d9e33793f",
-    "duration_s": 0.0,
+    "dispatch_id": "",
+    "duration_s": 920.62,
     "artifact_uri": "",
     "job_url": "",
     "git_sha": "",
     "git_branch": "",
     "experiment_pkg": "experiments/lightweight_cnn_design_for_fas/runs/v1",
-    "started_at": "",
-    "finished_at": ""
+    "started_at": "2026-03-28T15:49:35.696743",
+    "finished_at": "2026-03-28T16:04:56.318606"
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-28T02:31:42.619304"
+  "created_at": "2026-03-28T16:04:56.320360"
 }

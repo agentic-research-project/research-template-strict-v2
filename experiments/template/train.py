@@ -8,8 +8,15 @@ train.py — PyTorch Fabric 학습 진입점 (템플릿)
 """
 import argparse
 import json
+import os
+import sys
 import time
 from pathlib import Path
+
+# Ensure package root is on sys.path for local imports
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
 import torch
 import yaml

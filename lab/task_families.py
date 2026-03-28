@@ -1072,7 +1072,7 @@ _FAMILY_KEYWORDS: dict[str, list[str]] = {
     "few_shot_learning": ["few-shot", "few shot", "meta-learn", "n-way", "k-shot", "episodic"],
     "tabular_prediction": ["tabular", "structured data", "csv", "dataframe"],
     "timeseries_prediction": ["time series", "timeseries", "temporal", "forecasting", "sequence predict"],
-    "classification": ["classif", "recognition", "categoriz"],
+    "classification": ["classif", "recognition", "categoriz", "image classification", "predict class", "predict label", "accuracy"],
     "generation": ["generat", "gan", "vae", "diffusion", "synthesis", "image generat"],
     "meta_learning": ["meta-learn", "meta learn", "maml", "reptile", "learning to learn"],
     "contrastive_learning": ["contrastive", "simclr", "byol", "moco", "self-supervis", "ssl"],
