@@ -77,6 +77,72 @@ def _archive_proposal(path: Path, accepted: bool) -> None:
 
 
 # ──────────────────────────────────────────────────────────
+# Task-family engine helpers
+# ──────────────────────────────────────────────────────────
+
+def _flatten_task_bundle(inp: dict, hyp: dict) -> dict:
+    """task_family_bundle을 experiment_spec top-level에 펼친다."""
+    bundle = _get_task_bundle(inp, hyp)
+    prior = bundle.get("generation_prior", {})
+
+    # 최신 트렌드 참조 (코드 생성 시 반영)
+    from lab.task_families import LATEST_TRENDS
+    trend_hints = {
+        "modern_optimizers": LATEST_TRENDS.get("training_techniques", [])[:3],
+        "modern_augmentation": LATEST_TRENDS.get("augmentation", [])[:2],
+        "modern_architectures": LATEST_TRENDS.get("architectures", [])[:3],
+        "modern_losses": LATEST_TRENDS.get("losses", [])[:3],
+    }
+
+    return {
+        "task_family": bundle["task_family"],
+        "pattern_candidates": bundle.get("pattern_candidates", []),
+        "family_contract": bundle.get("family_contract", {}),
+        "generation_prior": prior,
+        "literature_code_prior": bundle.get("literature_code_prior", {}),
+        "contract_tests": bundle.get("contract_tests", []),
+        "starter_skeleton_path": bundle.get("skeleton_path", ""),
+        "must_not_do": prior.get("must_not_do", []),
+        "synthesized_baselines": bundle.get("synthesized_baselines", []),
+        "latest_trends": trend_hints,
+    }
+
+
+def _get_task_bundle(inp: dict, hyp: dict) -> dict:
+    """topic/hypothesis에서 task_family를 추론하고 bundle을 반환한다."""
+    from lab.task_families import infer_task_family, get_task_family_bundle
+    family = infer_task_family(
+        inp.get("topic", ""),
+        inp.get("target_metric", ""),
+        inp.get("problem_definition", ""),
+    )
+    return get_task_family_bundle(family)
+
+
+def _merge_baselines(code_baseline_str: str, inp: dict, hyp: dict) -> list[dict]:
+    """code_analysis baseline + task-family synthesized baseline을 병합한다."""
+    from lab.task_families import infer_task_family, synthesize_baselines
+    # 1. code_analysis에서 추출
+    lit_baselines = [
+        {"name": b.strip(), "source": "literature"}
+        for b in code_baseline_str.split(",") if b.strip()
+    ]
+    # 2. task-family 내부 prior에서 추가
+    family = infer_task_family(
+        inp.get("topic", ""),
+        inp.get("target_metric", ""),
+        inp.get("problem_definition", ""),
+    )
+    synth = synthesize_baselines(family)
+    # 중복 제거
+    existing_names = {b["name"] for b in lit_baselines}
+    for sb in synth:
+        if sb["name"] not in existing_names:
+            lit_baselines.append(sb)
+    return lit_baselines
+
+
+# ──────────────────────────────────────────────────────────
 # experiment_spec.json 생성
 # ──────────────────────────────────────────────────────────
 
@@ -190,12 +256,13 @@ def _build_experiment_spec(
             "data_path": inp.get("data_path", ""),
             "dataset_name": exp_plan.get("dataset", hyp.get("dataset", "")),
         },
+        # Task-family engine — top-level 승격 (generation prompt가 바로 참조)
+        **_flatten_task_bundle(inp, hyp),
         "ablations": [],
-        "baselines": [
-            {"name": b.strip(), "source": "literature"}
-            for b in code_analysis.get("recommended_baseline", "").split(",")
-            if b.strip()
-        ],
+        "baselines": _merge_baselines(
+            code_analysis.get("recommended_baseline", ""),
+            inp, hyp,
+        ),
         "output_contract": {
             "stdout_pattern": "^METRICS:\\{.*\\}$",
             "required_keys":  [primary_name] + secondary,
@@ -239,11 +306,43 @@ def _claude_generate_base(
     out_ctr   = spec.get("output_contract", {})
     baselines = spec.get("baselines", [])
 
+    # family-first 정보 추출
+    task_family = spec.get("task_family", "classification")
+    family_contract = spec.get("family_contract", {})
+    must_not_do = spec.get("must_not_do", [])
+    gen_prior = spec.get("generation_prior", {})
+    lit_prior = spec.get("literature_code_prior", {})
+    pattern_cands = spec.get("pattern_candidates", [])
+    skeleton_path = spec.get("starter_skeleton_path", "")
+
+    family_section = f"""## [1순위] Task Family Contract — 이 코드는 {task_family} 패키지다
+- task_family: {task_family}
+- family_contract: {json.dumps(family_contract, ensure_ascii=False)[:500]}
+- must_not_do (어기면 실패): {must_not_do}
+- pattern_candidates: {[p.get('pattern_id','') for p in pattern_cands[:3]]}
+- starter_skeleton: {skeleton_path}
+- generation_prior.critical_interfaces: {gen_prior.get('critical_interfaces', [])}
+- generation_prior.likely_failure_modes: {gen_prior.get('likely_failure_modes', [])}
+- literature_hints: arch={lit_prior.get('architecture_hint','')}, loss={lit_prior.get('loss_hint','')}, eval={lit_prior.get('evaluation_hint','')}
+
+⚠️ family_contract를 어기면 validation gate에서 차단됩니다.
+⚠️ must_not_do를 어기면 실패로 판정됩니다.
+⚠️ skeleton이 있으면 skeleton을 기반으로 patch하세요 (from-scratch보다 안정적).
+
+## [참고] Latest Trends (2024-2025 — 적용 가능하면 반영)
+- optimizers: {spec.get('latest_trends', {}).get('modern_optimizers', [])}
+- augmentation: {spec.get('latest_trends', {}).get('modern_augmentation', [])}
+- architectures: {spec.get('latest_trends', {}).get('modern_architectures', [])}
+- losses: {spec.get('latest_trends', {}).get('modern_losses', [])}
+⚠️ 최신 기법은 가설과 constraints에 부합할 때만 적용. 무조건 적용 금지.
+"""
+
     prompt = f"""당신은 PyTorch Fabric 전문 딥러닝 엔지니어이며, 이 실험 패키지의 **유일한 코드 작성자**입니다.
 GPT/Codex는 이후 패치만 제안하고, Gemini는 설계만 리뷰하며, 최종 merge도 당신이 수행합니다.
-코드 생성 결정은 아래 experiment_spec을 최우선 계약으로 따르세요.
+코드 생성 결정은 아래 task family contract → experiment_spec 순서로 따르세요.
 
-## [최우선] 구현 계약 (experiment_spec)
+{family_section}
+## [2순위] 구현 계약 (experiment_spec)
 - spec_id: {spec['spec_id']}
 - model_architecture:
     name: {arch['name']}
@@ -303,8 +402,23 @@ GPT/Codex는 이후 패치만 제안하고, Gemini는 설계만 리뷰하며, �
   "description": "...", "architecture_summary": "...", "param_estimate_M": 0.0
 }}"""
 
-    print("  [Step 1 / Claude] 기반 코드 생성...")
-    return parse_json(query_claude(prompt))
+    print(f"  [Step 1 / Claude] {task_family} 기반 코드 생성...")
+    generated = parse_json(query_claude(prompt))
+
+    # generation metadata 강화
+    code_analysis_strength = "high" if component_info else ("medium" if tips else "low")
+    generated["generation_metadata"] = {
+        "task_family": task_family,
+        "generation_mode": "skeleton_grounded" if skeleton_path else (
+            "reference_grounded" if code_analysis_strength == "high" else "pattern_grounded"),
+        "reference_strength": code_analysis_strength,
+        "used_pattern_ids": [p.get("pattern_id", "") for p in pattern_cands[:3]],
+        "used_baselines": [b.get("name", "") for b in spec.get("synthesized_baselines", [])[:3]],
+        "used_skeleton": skeleton_path,
+        "must_not_do": must_not_do,
+        "family_contract_version": "1.0",
+    }
+    return generated
 
 
 # ──────────────────────────────────────────────────────────
@@ -1872,8 +1986,35 @@ def _validate_generated_package(pkg_dir: Path) -> dict:
     # soft warning을 warnings에 추가
     warnings.extend(soft_warnings)
 
-    # 최종 ok: syntax + smoke + hard audit
-    ok = syntax_ok and smoke_ok and hard_audit_ok
+    # ── 8. Task-family contract audit (hard gate) ──────
+    task_family_ok = True
+    family_audit_result = {}
+    if spec_path.exists() and syntax_ok:
+        try:
+            from lab.task_families import run_family_contract_tests
+            spec_data = json.loads(spec_path.read_text(encoding="utf-8"))
+            tf = spec_data.get("task_family", "classification")
+            code_files = {}
+            for f in ["model.py", "module.py", "data.py"]:
+                fp = pkg_dir / f
+                if fp.exists():
+                    code_files[f] = fp.read_text(encoding="utf-8")
+            yaml_fp = pkg_dir / "configs" / "default.yaml"
+            if yaml_fp.exists():
+                code_files["default.yaml"] = yaml_fp.read_text(encoding="utf-8")
+            family_audit_result = run_family_contract_tests(tf, code_files, spec_data)
+            task_family_ok = family_audit_result.get("task_family_contract_ok", True)
+            if not task_family_ok:
+                for fail_msg in family_audit_result.get("failed", []):
+                    hard_failures.append(f"[family:{tf}] {fail_msg}")
+                print(f"    [family audit] {tf}: FAIL — {family_audit_result.get('failed', [])}")
+            else:
+                print(f"    [family audit] {tf}: PASS ({len(family_audit_result.get('passed', []))} tests)")
+        except Exception as e:
+            warnings.append(f"task_family audit error: {e}")
+
+    # 최종 ok: syntax + smoke + hard audit + family audit
+    ok = syntax_ok and smoke_ok and hard_audit_ok and task_family_ok
 
     return {
         "ok":                  ok,
@@ -1887,6 +2028,8 @@ def _validate_generated_package(pkg_dir: Path) -> dict:
         "metric_ok":           metric_ok,
         "constraints_ok":      constraints_ok,
         "hard_audit_ok":       hard_audit_ok,
+        "task_family_ok":      task_family_ok,
+        "family_audit":        family_audit_result,
         "hard_failures":       hard_failures,
         "errors":              errors,
         "warnings":            warnings,

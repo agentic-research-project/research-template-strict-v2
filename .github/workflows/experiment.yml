@@ -54,8 +54,8 @@ on:
 env:
   EXPERIMENT_PKG:  ${{ inputs.experiment_pkg }}
   CONFIG_FILE:     ${{ inputs.config_file }}
-  CONTAINER_NAME:  nextmi-dev-loki
-  CONDA_ENV_NAME:  yhn
+  CONTAINER_NAME:  ${{ vars.CONTAINER_NAME || 'nextmi-dev-loki' }}
+  CONDA_ENV_NAME:  ${{ vars.CONDA_ENV_NAME || 'yhn' }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ──────────────────────────────────────────────────────────

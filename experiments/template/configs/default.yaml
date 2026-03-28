@@ -7,7 +7,7 @@ seed: 42
 
 # ── Fabric 설정 ──────────────────────────────
 accelerator: "auto"
-precision: "bf16-mixed"
+precision: "32-true"
 devices: 1
 strategy: "auto"
 

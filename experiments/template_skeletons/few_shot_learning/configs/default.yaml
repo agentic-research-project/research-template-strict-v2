@@ -1,0 +1,16 @@
+seed: 42
+epochs: 30
+batch_size: 1
+lr: 0.001
+optimizer: adam
+loss_function: cross_entropy_on_distances
+precision: "32-true"
+channels: 64
+embedding_dim: 64
+in_channels: 1
+num_classes: 20
+n_way: 5
+k_shot: 1
+q_query: 15
+n_episodes: 100
+img_size: 28

@@ -1,0 +1,13 @@
+seed: 42
+epochs: 50
+batch_size: 16
+lr: 0.001
+optimizer: adam
+loss_function: l1
+precision: "32-true"
+channels: 64
+depth: 8
+in_channels: 1
+img_size: 64
+noise_std: 0.1
+n_samples: 1000

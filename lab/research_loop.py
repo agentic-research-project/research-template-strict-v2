@@ -498,6 +498,60 @@ def _infer_bottlenecks(
             "evidence": ["loss not fully converged", "more epochs or lr tuning may help"],
         })
 
+    # ── Family-specific bottleneck ──
+    # experiment_spec에서 task_family를 읽어 family-aware 진단 추가
+    task_family = run_result.get("metadata", {}).get("task_family", "")
+    if not task_family:
+        # spec에서 직접 읽기 시도
+        spec_meta = run_result.get("spec", {})
+        task_family = spec_meta.get("task_family", "")
+
+    _FAMILY_BOTTLENECKS = {
+        "detection": [
+            ("bbox head mismatch", "bbox format or head output mismatch"),
+            ("NMS/postprocess failure", "postprocess pipeline broken or missing"),
+            ("eval contract failure", "mAP/AP50 metric not computed correctly"),
+        ],
+        "representation_learning": [
+            ("embedding collapse", "embeddings converge to single point"),
+            ("projection head mismatch", "projection head missing or misconfigured"),
+            ("probe evaluation missing", "no linear probe evaluation downstream"),
+        ],
+        "few_shot_learning": [
+            ("episodic sampler failure", "non-episodic dataloader used"),
+            ("support/query leakage", "support and query sets overlap"),
+            ("distance metric mismatch", "wrong distance metric for prototype/relation"),
+        ],
+        "generation": [
+            ("mode collapse", "generator produces limited variety"),
+            ("training instability", "GAN oscillation or diffusion divergence"),
+        ],
+        "contrastive_learning": [
+            ("representation collapse", "all embeddings map to same vector"),
+            ("augmentation weakness", "insufficient augmentation diversity"),
+        ],
+        "anomaly_detection": [
+            ("anomaly in training", "training data contaminated with anomalies"),
+            ("score collapse", "anomaly scores not discriminative"),
+        ],
+        "physics_informed": [
+            ("PDE residual not converging", "physics loss not decreasing — check collocation/activation"),
+            ("boundary condition violation", "boundary loss high — insufficient boundary points or wrong BC"),
+            ("spectral bias", "network captures low frequencies only — use Fourier features or SIREN"),
+        ],
+    }
+
+    family_bns = _FAMILY_BOTTLENECKS.get(task_family, [])
+    if family_bns and not met:
+        # family-specific bottleneck을 soft candidate로 추가
+        for bn_name, bn_detail in family_bns[:2]:
+            candidates.append({
+                "name": f"[{task_family}] {bn_name}",
+                "severity": "medium",
+                "confidence": 0.40,
+                "evidence": [bn_detail, f"family-specific risk for {task_family}"],
+            })
+
     # Ensure at least 1 candidate if target not met
     if not candidates and not met:
         candidates.append({

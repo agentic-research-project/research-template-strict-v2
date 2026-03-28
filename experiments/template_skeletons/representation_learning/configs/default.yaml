@@ -1,0 +1,13 @@
+seed: 42
+epochs: 50
+batch_size: 32
+lr: 0.001
+optimizer: adam
+loss_function: ntxent
+precision: "32-true"
+channels: 64
+embedding_dim: 128
+projection_dim: 64
+in_channels: 3
+num_classes: 10
+img_size: 32

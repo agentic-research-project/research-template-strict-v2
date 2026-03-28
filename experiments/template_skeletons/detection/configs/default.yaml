@@ -1,0 +1,11 @@
+seed: 42
+epochs: 30
+batch_size: 8
+lr: 0.01
+optimizer: sgd
+loss_function: focal+giou
+precision: "32-true"
+channels: 64
+in_channels: 3
+num_classes: 10
+img_size: 128

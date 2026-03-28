@@ -1,0 +1,12 @@
+seed: 42
+epochs: 50
+batch_size: 16
+lr: 0.001
+optimizer: adam
+loss_function: l1
+precision: "32-true"
+channels: 64
+depth: 4
+in_channels: 1
+upscale_factor: 4
+hr_size: 64

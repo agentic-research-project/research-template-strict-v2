@@ -693,6 +693,14 @@ def _build_section1(inp: dict, hyp: dict) -> list:
     if stmt:
         items.append(("kv", "Hypothesis", stmt))
 
+    # Task family (자동 추론)
+    from lab.task_families import infer_task_family, get_generation_prior
+    family = infer_task_family(
+        inp.get("topic", ""), inp.get("target_metric", ""), inp.get("problem_definition", ""))
+    if family != "classification":
+        prior = get_generation_prior(family)
+        items.append(("kv", "Task family", f"{family} — risks: {', '.join(prior.get('likely_failure_modes', [])[:2])}"))
+
     innov = hyp.get("key_innovation", "")
     if innov:
         items.append(("kv", "Novelty", innov))
