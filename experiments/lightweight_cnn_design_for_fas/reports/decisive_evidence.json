@@ -1,0 +1,51 @@
+{
+  "decisive_evidence": {
+    "support": [
+      {
+        "paper_id": "9129786065c6c03d5f027d9d82e225b3bfb1077e",
+        "title": "Rice leaf disease classification using depthwise separable convolutional neural network",
+        "reason": "Depthwise Separable Convolution을 활용한 경량 이미지 분류 접근법으로, 파라미터 효율적 CNN 설계의 핵심 메커니즘(DSConv)을 직접 지지.",
+        "importance_score": 0.4875,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "b113133f74693d4b17ef68d88c7ee4b012c485f0",
+        "title": "Vehicle detection in drone aerial views based on lightweight OSD-YOLOv10",
+        "reason": "Online convolutional reparameterization과 경량 특징 추출 구조(SPCC) 등 lightweight CNN 설계 기법이 소형 분류 모델 구조 설계에 참고 가능.",
+        "importance_score": 0.485,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "3dc56003f02cd370c260d38ab309bf851c9df95c",
+        "title": "Brain MRI Analysis Using SqueezeNet for Accurate Medical Image Classification",
+        "reason": "SqueezeNet(경량 CNN)을 의료 영상 분류에 적용하여 높은 정확도와 낮은 계산 복잡도를 달성, lightweight CNN 분류 모델의 baseline 참조로 활용 가능.",
+        "importance_score": 0.45,
+        "supports_dimension": "novelty"
+      }
+    ],
+    "contra": [
+      {
+        "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+        "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+        "reason": "극소 파라미터 CNN과 CSNN을 동일 파라미터 수·깊이로 비교하며 parameter-efficient 이미지 분류를 직접 다루므로, 소형 CNN 설계의 가장 가까운 선행 연구에 해당.",
+        "importance_score": 0.5725,
+        "threatens_dimension": "novelty"
+      }
+    ],
+    "swing": [
+      {
+        "paper_id": "7380168399641960978baeb3b9b4c090a2ac0e26",
+        "title": "Parameter-Efficient Image Classification with Convolutional Spiking Neural Network via Fast Sigmoid Surrogate Gradient Descent",
+        "reason": "극소 파라미터 CNN과 CSNN을 동일 파라미터 수·깊이로 비교하며 parameter-efficient 이미지 분류를 직접 다루므로, 소형 CNN 설계의 가장 가까운 선행 연구에 해당.",
+        "importance_score": 0.5725,
+        "threatens_dimension": "novelty",
+        "if_confirmed_changes": "revise->approve",
+        "swing_reason": "dual role: threatens novelty but supports novelty slots"
+      }
+    ],
+    "decision_pressure": {
+      "primary_dimension": "validity",
+      "reason": "Uncovered slots: closest_prior_art, evaluation_metrics, falsification_criteria, failure_modes"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "runner": "github",
+  "job_id": "",
+  "pipeline_id": "",
+  "dispatch_id": "smoke_3d9d9e33793f",
+  "duration_s": 0.0,
+  "artifact_uri": "",
+  "job_url": "",
+  "git_sha": "",
+  "git_branch": "",
+  "experiment_pkg": "experiments/lightweight_cnn_design_for_fas/runs/v1",
+  "started_at": "",
+  "finished_at": ""
+}
