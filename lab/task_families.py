@@ -50,11 +50,13 @@ TASK_FAMILIES = [
 
 LATEST_TRENDS = {
     "architectures": [
-        "State Space Models (Mamba, S4) — linear-time sequence modeling, RNN 대안",
-        "Vision Transformer variants (DINOv2, SigLIP) — self-supervised ViT",
+        "State Space Models — Mamba/Mamba2 (linear-time), MambaVision (SSM+ViT hybrid), Vim (Vision Mamba)",
+        "DINOv2/DINOv3 — self-supervised ViT, strongest general-purpose vision features",
+        "SigLIP 2 — improved vision-language model, better than CLIP for zero-shot",
+        "ConvNeXt V2 — modernized ConvNet with FCMAE self-supervised pretraining",
+        "SAM 2 — Segment Anything Model 2, improved spatial understanding",
         "Mixture of Experts (MoE) — conditional computation for scaling",
         "KAN (Kolmogorov-Arnold Networks) — learnable activation functions",
-        "ConvNeXt v2 — modernized ConvNet competitive with ViT",
     ],
     "training_techniques": [
         "LoRA / QLoRA — parameter-efficient fine-tuning",
@@ -88,10 +90,12 @@ LATEST_TRENDS = {
         "Fréchet distance variants for distribution matching",
     ],
     "self_supervised": [
-        "DINOv2 — self-supervised ViT with distillation",
+        "DINOv2/DINOv3 — self-supervised ViT with distillation, universal features",
+        "SigLIP 2 — sigmoid loss vision-language, better calibrated than CLIP",
         "MAE (Masked Autoencoder) — mask-then-predict pretraining",
         "I-JEPA — joint embedding predictive architecture",
         "VICReg / Barlow Twins — variance-invariance-covariance",
+        "MambaVision — SSM+Attention hybrid, linear complexity with global context",
     ],
 }
 
@@ -239,11 +243,26 @@ PATTERN_LIBRARY: dict[str, list[dict]] = {
          "evaluation_defaults": {"primary_metric": "fid"},
          "strengths": ["sharp samples"], "weaknesses": ["mode collapse", "training instability"],
          "must_not_do": ["generator without spectral norm under small budget"]},
-        {"pattern_id": "gen_diffusion_lite", "core_blocks": ["unet_denoiser", "noise_scheduler"],
+        {"pattern_id": "gen_diffusion_ddpm", "core_blocks": ["unet_denoiser", "noise_scheduler", "forward_diffusion", "reverse_sampling"],
          "training_defaults": {"optimizer": "adam", "loss_function": "mse_noise_prediction"},
          "evaluation_defaults": {"primary_metric": "fid"},
-         "strengths": ["high quality", "stable training"], "weaknesses": ["slow sampling"],
+         "strengths": ["high quality", "stable training", "principled"], "weaknesses": ["slow sampling (1000 steps)"],
          "must_not_do": ["diffusion without noise schedule contract"]},
+        {"pattern_id": "gen_diffusion_ddim", "core_blocks": ["unet_denoiser", "noise_scheduler", "deterministic_sampling"],
+         "training_defaults": {"optimizer": "adam", "loss_function": "mse_noise_prediction"},
+         "evaluation_defaults": {"primary_metric": "fid"},
+         "strengths": ["fast deterministic sampling (50 steps)", "same training as DDPM"], "weaknesses": ["slightly lower quality than DDPM"],
+         "must_not_do": ["non-deterministic sampling claiming DDIM"]},
+        {"pattern_id": "gen_latent_diffusion", "core_blocks": ["vae_encoder", "vae_decoder", "unet_denoiser", "latent_noise_scheduler"],
+         "training_defaults": {"optimizer": "adam", "loss_function": "mse_latent_noise"},
+         "evaluation_defaults": {"primary_metric": "fid"},
+         "strengths": ["efficient (diffusion in latent space)", "high-res capable"], "weaknesses": ["VAE quality bottleneck"],
+         "must_not_do": ["diffusion in pixel space for high-res (use latent)"]},
+        {"pattern_id": "gen_conditional_diffusion", "core_blocks": ["unet_denoiser", "conditioning_module", "noise_scheduler", "classifier_free_guidance"],
+         "training_defaults": {"optimizer": "adam", "loss_function": "mse_noise_prediction + cfg"},
+         "evaluation_defaults": {"primary_metric": "fid"},
+         "strengths": ["controllable generation", "text/class/image conditioning"], "weaknesses": ["needs conditioning data"],
+         "must_not_do": ["classifier-free guidance without dropout on condition"]},
     ],
     "meta_learning": [
         {"pattern_id": "meta_maml_lite", "core_blocks": ["base_learner", "meta_optimizer", "inner_loop"],
@@ -280,11 +299,46 @@ PATTERN_LIBRARY: dict[str, list[dict]] = {
          "evaluation_defaults": {"primary_metric": "auroc"},
          "strengths": ["unsupervised", "simple"], "weaknesses": ["may reconstruct anomalies too"],
          "must_not_do": ["training on anomalous data"]},
-        {"pattern_id": "ad_one_class_svm_deep", "core_blocks": ["encoder", "hypersphere_center"],
-         "training_defaults": {"optimizer": "adam", "loss_function": "deep_svdd"},
+        {"pattern_id": "ad_patchcore", "core_blocks": ["pretrained_feature_extractor", "memory_bank", "knn_scorer", "multi_scale_patches"],
+         "training_defaults": {"optimizer": "none", "loss_function": "none (memory bank — no gradient)"},
          "evaluation_defaults": {"primary_metric": "auroc"},
-         "strengths": ["compact representation"], "weaknesses": ["center collapse risk"],
-         "must_not_do": ["bias in final encoder layer (causes collapse)"]},
+         "compatible_backbones": ["wide_resnet50_2", "dinov2_vitb14", "clip_vitb16", "swin_small", "efficientnet_b4"],
+         "strengths": ["no training needed", "SOTA localization", "multi-scale patch inference", "any frozen backbone"],
+         "weaknesses": ["memory bank scales with data", "inference slower"],
+         "must_not_do": ["fine-tuning feature extractor end-to-end", "single-scale only"]},
+        {"pattern_id": "ad_padim", "core_blocks": ["pretrained_feature_extractor", "gaussian_modeling", "mahalanobis_distance", "multi_scale_features"],
+         "training_defaults": {"optimizer": "none", "loss_function": "none (statistical modeling)"},
+         "evaluation_defaults": {"primary_metric": "auroc"},
+         "strengths": ["fast inference", "probabilistic score", "multi-scale"],
+         "weaknesses": ["Gaussian assumption may not hold"],
+         "must_not_do": ["fitting on anomalous data", "ignoring covariance regularization"]},
+        {"pattern_id": "ad_reference_matching", "core_blocks": ["pretrained_encoder", "reference_feature_bank", "cosine_similarity_scorer", "style_invariant_features"],
+         "training_defaults": {"optimizer": "none", "loss_function": "none (feature matching)"},
+         "evaluation_defaults": {"primary_metric": "auroc"},
+         "compatible_backbones": ["dinov2_vitb14", "clip_vitb16", "clip_vitl14", "sam_vit_b"],
+         "strengths": ["reference-based", "domain-agnostic", "robust to style/domain shift", "CLIP enables text-guided anomaly"],
+         "weaknesses": ["reference set quality critical"],
+         "must_not_do": ["reference set containing anomalies", "raw pixel comparison"]},
+        {"pattern_id": "ad_efficientad", "core_blocks": ["teacher_encoder", "student_encoder", "autoencoder", "knowledge_distillation"],
+         "training_defaults": {"optimizer": "adam", "loss_function": "mse_distillation"},
+         "evaluation_defaults": {"primary_metric": "auroc"},
+         "strengths": ["fast inference", "lightweight", "teacher-student asymmetry"],
+         "weaknesses": ["teacher quality dependent"],
+         "must_not_do": ["student matching teacher perfectly"]},
+        {"pattern_id": "ad_diffusion", "core_blocks": ["unet_denoiser", "noise_scheduler", "reconstruction_score", "normal_only_training"],
+         "training_defaults": {"optimizer": "adam", "loss_function": "mse_noise_prediction"},
+         "evaluation_defaults": {"primary_metric": "auroc"},
+         "compatible_backbones": ["unet_custom", "stable_diffusion_unet"],
+         "strengths": ["strong reconstruction", "density estimation via score", "localization via reconstruction error"],
+         "weaknesses": ["slow inference (multi-step denoising)", "heavy model"],
+         "must_not_do": ["training on anomalous data", "single-step reconstruction (need multi-step)"]},
+        {"pattern_id": "ad_stable_diffusion_features", "core_blocks": ["sd_vae_encoder", "sd_unet_features", "feature_matching", "multi_scale_extraction"],
+         "training_defaults": {"optimizer": "none", "loss_function": "none (feature extraction only)"},
+         "evaluation_defaults": {"primary_metric": "auroc"},
+         "compatible_backbones": ["stable_diffusion_v1_5", "stable_diffusion_v2_1", "sdxl"],
+         "strengths": ["rich semantic features from SD", "no training needed", "strong generalization"],
+         "weaknesses": ["heavy model", "slow feature extraction"],
+         "must_not_do": ["fine-tuning SD end-to-end for AD", "ignoring multi-scale features"]},
         {"pattern_id": "ad_flow_based", "core_blocks": ["normalizing_flow", "log_likelihood"],
          "training_defaults": {"optimizer": "adam", "loss_function": "nll"},
          "evaluation_defaults": {"primary_metric": "auroc"},
@@ -428,7 +482,9 @@ BASELINE_LIBRARY: dict[str, list[dict]] = {
     ],
     "anomaly_detection": [
         {"name": "autoencoder_ad_baseline", "source": "internal_prior", "expected_role": "simple baseline", "complexity": "low"},
-        {"name": "deep_svdd_baseline", "source": "internal_prior", "expected_role": "strong baseline", "complexity": "medium"},
+        {"name": "patchcore_baseline", "source": "internal_prior", "expected_role": "SOTA baseline (memory bank)", "complexity": "medium"},
+        {"name": "padim_baseline", "source": "internal_prior", "expected_role": "statistical baseline (Gaussian)", "complexity": "medium"},
+        {"name": "efficientad_baseline", "source": "internal_prior", "expected_role": "lightweight teacher-student baseline", "complexity": "medium"},
     ],
     "similarity_measure": [
         {"name": "siamese_baseline", "source": "internal_prior", "expected_role": "strong baseline", "complexity": "medium"},
@@ -477,7 +533,7 @@ FAMILY_LAYOUTS: dict[str, list[str]] = {
     "generation":               ["generator.py", "discriminator.py", "module.py", "data.py", "eval_generation.py", "configs/default.yaml"],
     "meta_learning":            ["model.py", "module.py", "data.py", "meta_learner.py", "eval_meta.py", "configs/default.yaml"],
     "contrastive_learning":     ["encoder.py", "module.py", "data.py", "augmentation.py", "probe.py", "configs/default.yaml"],
-    "anomaly_detection":        ["encoder.py", "module.py", "data.py", "anomaly_scorer.py", "eval_anomaly.py", "configs/default.yaml"],
+    "anomaly_detection":        ["feature_extractor.py", "memory_bank.py", "anomaly_scorer.py", "module.py", "data.py", "eval_anomaly.py", "configs/default.yaml"],
     "similarity_measure":       ["encoder.py", "module.py", "data.py", "mining.py", "eval_retrieval.py", "configs/default.yaml"],
     "image_manipulation":       ["model.py", "module.py", "data.py", "configs/default.yaml"],
     "zero_shot_learning":       ["encoder.py", "module.py", "data.py", "semantic_embed.py", "eval_zsl.py", "configs/default.yaml"],
@@ -558,9 +614,57 @@ FAMILY_CONTRACTS: dict[str, dict] = {
     },
     "anomaly_detection": {
         "normal_only_training_contract": {"required": True},
-        "anomaly_score_contract": {"required": True, "score_type": "reconstruction_error|distance|likelihood"},
+        "anomaly_score_contract": {"required": True, "score_type": "reconstruction_error|distance|likelihood|feature_distance"},
+        "feature_extractor_contract": {
+            "type": "pretrained|self_supervised|frozen|light_tuning",
+            "backbone_options": {
+                "cnn": ["resnet18", "resnet50", "wide_resnet50_2", "efficientnet_b0", "efficientnet_b4",
+                        "convnext_tiny", "convnext_small", "convnextv2_tiny", "convnextv2_base"],
+                "vit_self_supervised": ["dino_vits16", "dino_vitb16",
+                                        "dinov2_vits14", "dinov2_vitb14", "dinov2_vitl14", "dinov2_vitg14",
+                                        "dinov3_vitb14", "dinov3_vitl14"],
+                "vit_vision_language": ["clip_vitb32", "clip_vitb16", "clip_vitl14",
+                                        "siglip_vitb16", "siglip2_vitb16", "siglip2_so400m"],
+                "swin": ["swin_tiny", "swin_small", "swin_base", "swinv2_tiny", "swinv2_base"],
+                "sam": ["sam_vit_b", "sam_vit_l", "sam2_vit_b", "sam2_vit_l"],
+                "mae": ["mae_vitb16", "mae_vitl16"],
+                "ssm_hybrid": ["mambavision_tiny", "mambavision_small", "mambavision_base",
+                               "vim_small", "vmamba_tiny"],
+                "diffusion_backbone": ["stable_diffusion_v1_5", "stable_diffusion_v2_1", "sdxl"],
+            },
+            "selection_guide": {
+                "industrial_texture": "dinov2_vitb14 or wide_resnet50_2 (strong texture features)",
+                "fine_grained_defect": "dinov2_vitl14 or dinov3_vitl14 (highest feature quality)",
+                "domain_shift_robust": "siglip2_vitb16 or dinov2 (vision-language or self-supervised)",
+                "lightweight_fast": "resnet18 or efficientnet_b0 or dino_vits16 or mambavision_tiny (SSM: linear complexity)",
+                "multi_modal_context": "siglip2_vitb16 or clip_vitb16 (text-guided anomaly definition)",
+                "long_range_dependency": "mambavision_small or swinv2_base (global context with efficiency)",
+                "highest_quality": "dinov3_vitl14 or dinov2_vitg14 (largest self-supervised ViT)",
+            },
+            "multi_scale_layers": True,
+            "freeze_policy": "frozen|light_tuning_last_block|adapter_tuning",
+        },
+        "memory_bank_contract": {
+            "required_for": ["patchcore", "padim", "reference_matching"],
+            "patch_level": True,
+            "coreset_sampling": "greedy|random",
+        },
+        "anomaly_localization_contract": {
+            "pixel_level_score": True,
+            "score_aggregation": "max|mean|weighted",
+            "multi_scale_inference": True,
+        },
+        "domain_robustness_contract": {
+            "style_invariant_features": True,
+            "score_stability_under_perturbation": True,
+        },
         "threshold_contract": {"method": "percentile", "default_percentile": 95},
-        "ad_eval_contract": {"primary_metric": "auroc", "required_keys": ["auroc", "f1"]},
+        "ad_eval_contract": {
+            "primary_metric": "auroc",
+            "required_keys": ["auroc", "f1", "fpr_at_normal", "false_alarm_per_image"],
+            "optional_keys": ["anomalous_area_ratio", "score_stability", "threshold_robustness",
+                              "inference_time_ms", "peak_memory_mb", "throughput_fps"],
+        },
     },
     "similarity_measure": {
         "embedding_contract": {"required": True, "embedding_dim": 128, "l2_normalized": True},
@@ -654,9 +758,32 @@ GENERATION_PRIORS: dict[str, dict] = {
         "must_not_do": ["contrastive without augmentation", "no projection head", "no linear probe"],
     },
     "anomaly_detection": {
-        "critical_interfaces": ["encoder_forward", "anomaly_score_computation", "threshold_selection", "ad_eval"],
-        "likely_failure_modes": ["training on anomalies", "score collapse", "threshold sensitivity"],
-        "must_not_do": ["training set containing anomalies", "no anomaly score output"],
+        "critical_interfaces": [
+            "feature_extractor_forward (pretrained, frozen/light-tuning)",
+            "memory_bank_construction (normal features only)",
+            "multi_scale_patch_extraction",
+            "anomaly_score_computation (kNN/Mahalanobis/cosine)",
+            "score_aggregation (patch→image level)",
+            "anomaly_localization_map",
+            "threshold_selection",
+            "robustness_evaluation (style/noise perturbation)",
+        ],
+        "likely_failure_modes": [
+            "training on anomalies (data contamination)",
+            "feature extractor domain gap (ImageNet features on industrial data)",
+            "memory bank too large (OOM) or too small (underfitting)",
+            "score collapse (all scores identical)",
+            "threshold sensitivity (small threshold change → large FPR change)",
+            "domain shift between normal training and test conditions",
+            "single-scale inference missing fine-grained anomalies",
+        ],
+        "must_not_do": [
+            "training set containing anomalies",
+            "fine-tuning pretrained backbone end-to-end without freezing",
+            "single-scale patch inference only",
+            "raw pixel comparison instead of feature-space comparison",
+            "no anomaly localization output",
+        ],
     },
     "similarity_measure": {
         "critical_interfaces": ["encoder_forward", "distance_computation", "pair_mining", "retrieval_eval"],
@@ -761,11 +888,45 @@ LITERATURE_CODE_PRIORS: dict[str, dict] = {
         "forbidden_patterns": ["contrastive without strong augmentation", "evaluate without linear probe"],
     },
     "anomaly_detection": {
-        "architecture_hint": "autoencoder or deep SVDD encoder; train on normal data only",
-        "loss_hint": "reconstruction error (AE) or hypersphere distance (SVDD)",
-        "training_hint": "ensure training set is clean (no anomalies); normalize inputs",
-        "evaluation_hint": "AUROC on mixed test set (normal + anomaly)",
-        "forbidden_patterns": ["training on anomalous samples", "no anomaly score computation"],
+        "architecture_hint": (
+            "Backbone selection: "
+            "CNN (ResNet/WideResNet/EfficientNet) — fast, proven for texture anomaly. "
+            "DINOv2 (ViT) — self-supervised, strongest general features, best for domain shift. "
+            "CLIP (ViT) — vision-language aligned, enables text-guided anomaly definition. "
+            "Swin Transformer — hierarchical ViT, good multi-scale features. "
+            "SAM (ViT) — segment-anything features, strong spatial understanding. "
+            "MAE (ViT) — masked autoencoder features, good for reconstruction-based AD. "
+            "PatchCore/PaDiM: frozen backbone + multi-scale patch features + memory bank. "
+            "EfficientAD: teacher-student distillation with lightweight student. "
+            "Reference matching: feature bank from reference normal images + cosine/kNN. "
+            "All approaches: freeze backbone or light-tune last block only."
+        ),
+        "loss_hint": (
+            "Memory bank methods: no loss (feature caching only). "
+            "Teacher-student: MSE distillation loss. "
+            "Flow-based: negative log-likelihood. "
+            "Score: kNN distance / Mahalanobis distance / cosine similarity."
+        ),
+        "training_hint": (
+            "Ensure training set is 100% normal (no anomalies). "
+            "Use pretrained ImageNet features as starting point. "
+            "Freeze backbone or light-tune last block only. "
+            "Multi-scale patch extraction (layers 2-3 of backbone). "
+            "Coreset sampling for memory bank efficiency."
+        ),
+        "evaluation_hint": (
+            "Image-level: AUROC, F1, FPR on normal images, false alarm per image. "
+            "Pixel-level: per-pixel AUROC, anomalous area ratio on normals. "
+            "Robustness: score stability under style/noise perturbation. "
+            "Efficiency: inference time, peak memory, throughput."
+        ),
+        "forbidden_patterns": [
+            "training on anomalous samples",
+            "fine-tuning pretrained backbone end-to-end",
+            "single-scale feature extraction only",
+            "no anomaly localization map",
+            "raw pixel distance instead of feature distance",
+        ],
     },
     "similarity_measure": {
         "architecture_hint": "shared encoder with distance/similarity head; triplet or contrastive loss",
