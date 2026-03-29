@@ -1,0 +1,12 @@
+{
+  "primary_metric_expected": "pixel_auroc",
+  "primary_metric_found": true,
+  "required_keys_expected": [
+    "pixel_auroc"
+  ],
+  "required_keys_found": [
+    "pixel_auroc"
+  ],
+  "stdout_contract_ok": true,
+  "implemented": true
+}

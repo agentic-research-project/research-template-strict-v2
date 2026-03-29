@@ -1,0 +1,14 @@
+{
+  "runner": "github",
+  "job_id": "",
+  "pipeline_id": "",
+  "dispatch_id": "smoke_1aa17196dc3c",
+  "duration_s": 0.0,
+  "artifact_uri": "",
+  "job_url": "",
+  "git_sha": "",
+  "git_branch": "",
+  "experiment_pkg": "experiments/ai_based_defect_detection_in_h/runs/v1",
+  "started_at": "",
+  "finished_at": ""
+}

@@ -1,0 +1,9 @@
+{
+  "implemented": true,
+  "evidence": [
+    "mechanism 필드가 비어 있어 감사 생략"
+  ],
+  "missing_links": [],
+  "risk_level": "low",
+  "mechanism_mapping": {}
+}

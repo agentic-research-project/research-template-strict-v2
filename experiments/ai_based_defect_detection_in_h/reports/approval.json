@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-03-29T18:41:36.887917",
+  "topic": "AI-based defect detection in high-resolution grayscale semiconductor images using normal-only reference patches",
+  "decision": "approve",
+  "comment": "auto-approved (CI/CD mode)",
+  "pdf_report": "experiments/ai_based_defect_detection_in_h/reports/report.pdf",
+  "hypothesis_file": "experiments/ai_based_defect_detection_in_h/reports/hypothesis.json",
+  "validation_summary": {
+    "average_score": 7.8,
+    "avg_breakdown": {
+      "novelty": 8.8,
+      "validity": 7.0,
+      "feasibility": 8.2,
+      "impact": 7.0
+    },
+    "score_diff": 0.5,
+    "passed_criteria": false,
+    "overall_verdict": "revise",
+    "lint_warning_count": 6,
+    "all_strengths": [
+      "선행연구의 한계를 잘 겨냥했다: reconstruction blur/hallucination, reference mismatch FP, domain shift, inference budget 문제를 각각 다른 모듈로 대응하려는 설계가 명확하다.",
+      "Phase I / Phase II 점증 구조와 상세한 ablation, baseline, falsification criteria가 있어 실패 원인 분리가 비교적 잘 되도록 설계되었다.",
+      "single GPU, 60초, 16GB, retraining-light 등 실제 반도체 검사 제약이 명시적으로 반영되어 연구-배포 간 간극이 작다.",
+      "normal-only / few-shot 적응이라는 현업 수요와 잘 맞고, reference swap만으로 lot/equipment 적응을 노린다는 점은 영향력이 크다.",
+      "Phase I과 Phase II를 명확히 분리하여 모듈별 성능 기여도와 실패 원인을 독립적으로 검증할 수 있는 점진적 아키텍처를 도입하여 과학적 타당성을 크게 높임",
+      "단순 합성 결함 성능에 의존하지 않고, 실제 미세결함(Held-out real micro-defect) 검출률과의 Pearson 상관계수(r≥0.7)를 반증 조건으로 설정하여 논리적 비약을 제거함",
+      "Registration 단계에서의 Peak-to-Sidelobe Ratio(PSR) 기반 Fallback 도입 및 Uncertainty-aware routing으로 위상 정합 오류 및 미세 결함 누락 리스크를 구조적으로 방어함"
+    ],
+    "all_weaknesses": [
+      "가설의 핵심 메커니즘이 너무 많아 상호작용 불확실성이 여전히 크다. 특히 registration, Top-K retrieval, AdaIN, adaptive wavelet, HF gate, cascade routing이 서로 얽혀 성능 향상의 주원인을 명확히 분리하기 어렵다.",
+      "도메인 불변성 주장의 근거가 아직 약하다. LB-only AdaIN과 entropy-conditioned cut-off가 스타일/노이즈 변화에는 도움될 수 있지만 장비별 imaging physics 차이까지 흡수한다는 보장은 없다.",
+      "HF gate의 실제 일반화 검증이 약하다. held-out real micro-defect ≥10장은 지나치게 작아 상관 분석(Pearson r)과 recall 보존 주장을 뒷받침하기 어렵다.",
+      "FPR 목표와 반증 조건이 다소 불일치한다. 성공 기준은 FPR ≤1%인데 전체 시스템 반증 조건은 FPR >3%로 완화되어 있어 주장 대비 검증 기준이 느슨하다.",
+      "시간 예산이 빡빡하다. Stage 2에서 300-430 patches × K=5 참조 처리, registration, residual scoring, merge를 모두 포함하면 45-55초 추정은 최적 조건일 가능성이 높다.",
+      "patch-level thresholding과 image-level FPR 산정의 연결이 불명확하다. μ+3σ가 lot/equipment별 score drift를 안정적으로 흡수하지 못하면 normal acceptance 목표를 깨기 쉽다.",
+      "적응적 3-band 웨이블릿 분해 과정에서 패치별 공간주파수 엔트로피 연산이 오버헤드를 발생시켜 Stage 2 추론 시간에 병목이 될 위험이 존재함",
+      "FAISS Top-K 검색 시 대칭/회전 패턴을 위한 보조 특징(Circular harmonic pooling)이 제안되었으나, 극단적인 각도 변이 발생 시 원본 특징과의 거리를 병합하는 기준이 모호해 검색 신뢰도가 저하될 수 있음"
+    ],
+    "all_suggestions": [
+      "주장을 두 단계로 분리하라: 1차 논문 목표는 Phase I만으로 FPR/시간 제약을 달성하는 것, 2차 확장으로 Phase II의 micro-defect recall 개선을 검증하는 것이 더 안전하다.",
+      "반증 조건 1을 성공 기준과 정렬해 '주요 claim 기각: FPR >1.5% 또는 FAR/image >0.5'와 '약한 claim 기각: FPR >3%'의 2단계로 재정의하라.",
+      "held-out real micro-defect set을 최소 30-50 patches 이상으로 늘리고, Pearson 상관 대신 defect-size-stratified recall difference의 bootstrap CI를 주지표로 삼아라.",
+      "Stage 1의 false negative를 반드시 직접 측정하라. coarse screening 통과율만이 아니라 Stage 1 누락으로 인해 전체 탐지가 불가능해진 defect 비율을 별도 보고해야 한다.",
+      "registration 성공 여부를 PSR 하나에만 의존하지 말고, translation-only와 rotation+translation 두 경로 중 residual이 더 작은 경로를 선택하는 dual hypothesis fallback을 추가하라.",
+      "adaptive 3-band의 학습 가능 파라미터 수를 엄격히 제한하고, 완전 학습형보다 'few-parameter calibrated wavelet'로 축소해 과적합과 구현 복잡도를 낮춰라.",
+      "thresholding은 전역 μ+3σ 단일 방식 외에 lot-conditional calibration, EVT tail modeling, FDR control을 함께 비교하라. FP ≤1% 목표에는 tail calibration이 더 적합할 수 있다.",
+      "runtime 검증은 반드시 worst-case 조건으로 수행하라. Stage 2 라우팅 비율 35% 이상, K=5, 가장 느린 GPU(A5000), cold-start FAISS, full-size image 기준이 필요하다.",
+      "패치별 공간주파수 엔트로피 연산을 별도의 모듈로 구성하지 말고, Frozen EfficientViT-M4의 초기 레이어(Low-level) Feature Map 통계(Activation variance 등)를 재활용하여 연산 오버헤드를 0에 가깝게 최적화하는 방안 적용",
+      "회전 불변 보조 특징 적용 시, 단순 특징 결합(Concatenation)이 아닌 검색 공간 자체를 분리(Hierarchical FAISS or Two-stage querying)하여 정방향 패치와 회전 패치의 매칭 충돌을 방지하는 로직 추가"
+    ]
+  }
+}

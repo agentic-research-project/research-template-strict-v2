@@ -1,0 +1,82 @@
+{
+  "patches": [
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture",
+      "rationale": "Smoke-failure with pixel_auroc=0.0 is consistent with degenerate or mis-scaled feature extraction. ResNet18 pretrained weights expect ImageNet normalization; feeding raw tensors often collapses retrieval distances and downstream anomaly maps. Adding fixed input normalization is a minimal implementation patch that preserves the current hypothesis/components while restoring encoder feature semantics.",
+      "hypothesis_alignment_check": "Does not change the LF/HF, frozen encoder, retrieval, consensus, or scoring hypothesis; it only makes the frozen encoder operate in its intended input domain.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 6,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "class EfficientViTEncoder(nn.Module):\n    def __init__(self, frozen=True):\n        super().__init__()\n        # Use ResNet18 as lightweight alternative to EfficientViT-M4\n        self.backbone = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)\n        self.backbone = nn.Sequential(*list(self.backbone.children())[:-2])  # Remove avgpool and fc\n        \n        if frozen:\n            for param in self.backbone.parameters():\n                param.requires_grad = False\n        \n    def forward(self, x):\n        if x.shape[1] == 1:\n            x = x.repeat(1, 3, 1, 1)\n        # Extract multi-scale features\n        features = []\n        for i, layer in enumerate(self.backbone):\n            x = layer(x)\n            if i in [5, 6, 7]:  # layer2, layer3, layer4 outputs\n                features.append(x)\n        return features",
+          "new": "class EfficientViTEncoder(nn.Module):\n    def __init__(self, frozen=True):\n        super().__init__()\n        # Use ResNet18 as lightweight alternative to EfficientViT-M4\n        self.backbone = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)\n        self.backbone = nn.Sequential(*list(self.backbone.children())[:-2])  # Remove avgpool and fc\n        self.register_buffer('pixel_mean', torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))\n        self.register_buffer('pixel_std', torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))\n\n        if frozen:\n            for param in self.backbone.parameters():\n                param.requires_grad = False\n        \n    def forward(self, x):\n        if x.shape[1] == 1:\n            x = x.repeat(1, 3, 1, 1)\n        x = x.float()\n        x = (x - self.pixel_mean) / self.pixel_std\n        # Extract multi-scale features\n        features = []\n        for i, layer in enumerate(self.backbone):\n            x = layer(x)\n            if i in [5, 6, 7]:  # layer2, layer3, layer4 outputs\n                features.append(x)\n        return features"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture",
+      "rationale": "A common cause of all-zero/constant anomaly maps is border-artifact contamination from zero-padded Gaussian blur, especially when patch-based reconstruction is later merged back to image space. Switching the LF extraction to reflect padding is a minimal fix that improves LF/HF decomposition stability without altering the intended mechanism.",
+      "hypothesis_alignment_check": "Preserves the Gaussian LF/HF decomposition design; only corrects convolution boundary handling to avoid artificial high-frequency edges.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 3,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        kernel_2d = torch.outer(kernel_1d, kernel_1d)\n        kernel_2d = kernel_2d.view(1, 1, kernel_size, kernel_size)\n        kernel_2d = kernel_2d.repeat(x.shape[1], 1, 1, 1)\n        return F.conv2d(x, kernel_2d, padding=radius, groups=x.shape[1])",
+          "new": "        kernel_2d = torch.outer(kernel_1d, kernel_1d)\n        kernel_2d = kernel_2d.view(1, 1, kernel_size, kernel_size)\n        kernel_2d = kernel_2d.repeat(x.shape[1], 1, 1, 1)\n        x = F.pad(x, (radius, radius, radius, radius), mode='reflect')\n        return F.conv2d(x, kernel_2d, padding=0, groups=x.shape[1])"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "evaluation_config",
+      "rationale": "AUROC=0.0 frequently comes from score-direction inversion rather than true model collapse. L2/cosine-style residual distances should be computed on normalized embeddings; otherwise magnitude drift across scales can dominate and invert ranking. Normalizing extracted feature maps before downstream use is a minimal, targeted safeguard against retrieval/scoring degeneracy.",
+      "hypothesis_alignment_check": "Keeps the same frozen-feature retrieval and consensus hypothesis; only standardizes feature scale so distance-based anomaly scoring remains meaningful.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 3,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "            if i in [5, 6, 7]:  # layer2, layer3, layer4 outputs\n                features.append(x)",
+          "new": "            if i in [5, 6, 7]:  # layer2, layer3, layer4 outputs\n                features.append(F.normalize(x, p=2, dim=1))"
+        }
+      ]
+    },
+    {
+      "target_file": "configs/default.yaml",
+      "spec_field": "training_config",
+      "rationale": "For a smoke-failed run, faster and denser evaluation is more valuable than long training cycles because it exposes whether the pipeline ever produces non-degenerate pixel scores. Increasing eval frequency is a minimal config-only patch that improves observability without changing the model hypothesis.",
+      "hypothesis_alignment_check": "No change to architecture or objective; only evaluation cadence for earlier detection of score collapse and metric-direction issues.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 1,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "eval_frequency: 5",
+          "new": "eval_frequency: 1"
+        }
+      ]
+    },
+    {
+      "target_file": "configs/default.yaml",
+      "spec_field": "training_config",
+      "rationale": "Patch overlap is currently low relative to patch size (256/192), which increases the chance that reconstruction/merge misalignment produces sparse or empty anomaly maps. Reducing stride to 128 is a minimal patch that improves spatial coverage and robustness of overlap merge while staying within the same patch-based design.",
+      "hypothesis_alignment_check": "Preserves the patch-based anomaly localization hypothesis and only adjusts overlap density to reduce coordinate/merge brittleness.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 1,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "stride: 192",
+          "new": "stride: 128"
+        }
+      ]
+    }
+  ],
+  "expected_improvement": "Highest-probability gain is recovery from smoke failure to a non-degenerate anomaly map and non-zero pixel AUROC by fixing encoder input scaling, stabilizing LF/HF decomposition at patch borders, and making distance-based features comparable across scales. The stride/eval changes should improve localization robustness and expose failures earlier, but the main expected effect is restoring meaningful score variation rather than guaranteed target-level performance in one step.",
+  "confidence": "medium",
+  "_prompt_hash": "09d28fdad833"
+}

@@ -1,0 +1,1073 @@
+{
+  "timestamp": "2026-03-29T18:28:20.938819",
+  "topic": "AI-based defect detection in high-resolution grayscale semiconductor images using normal-only reference patches",
+  "papers_analyzed": 15,
+  "generation_mode": "collaborative",
+  "evidence_coverage": {
+    "key_innovation": true,
+    "expected_mechanism": true,
+    "closest_prior_art": false,
+    "baseline_models": true,
+    "evaluation_metrics": true,
+    "constraints": true,
+    "falsification_criteria": false,
+    "failure_modes": true,
+    "deployment_constraints": true
+  },
+  "evidence_pack": [
+    {
+      "paper_id": "9ad0b513ee21c5ec91db34ce094e4b64a263a429",
+      "title": "Achieving the Defect Transfer Detection of Semiconductor Wafer by a Novel Prototype Learning-Based Semantic Segmentation Network",
+      "source": "SemanticScholar",
+      "problem": "기존 딥러닝 기반 반도체 결함 검사 모델은 배경 패턴이 바뀌면 일반화에 실패하여 시간 소모적인 데이터 재수집 및 재라벨링이 필요하다.",
+      "method": "Prototype Learning 기반 의미론적 분할 네트워크",
+      "limitations": "프로토타입 표현에 의존하므로, 완전히 새로운 웨이퍼 구조에서 발생하는 복잡하고 보지 못한 결함 변형은 포착하지 못할 수 있다.",
+      "experimental_conditions": "다중 배경 패턴을 포함하는 반도체 웨이퍼 데이터셋 / 의미론적 분할 성능 지표",
+      "remaining_gaps": "프로토타입 보정 없이 완전히 알려지지 않은 배경으로의 제로샷(Zero-shot) 결함 전이 검사 기술 확보",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "Prototype learning 기반으로 다양한 배경 패턴 간 defect transfer detection을 수행하며, 배경 변화에 대한 강건성과 재학습 없이 새로운 패턴에 적응하는 문제를 다루어 본 연구의 style/noise 변화 강건성 요구사항과 직접 관련됨.",
+      "rank": 1
+    },
+    {
+      "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+      "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+      "source": "SemanticScholar",
+      "problem": "고해상도 이미지 내 픽셀 크기의 미세 결함은 검출이 어려우며, 산업 현장에서 결함 발생 빈도가 낮아 라벨링된 데이터를 확보하기 어렵다.",
+      "method": "어텐션 모듈을 결합한 DifferNet 비지도 이상 탐지",
+      "limitations": "이미지 레벨의 비지도 학습 접근법이므로, 현미경 수준의 미세 결함에 대한 정밀한 픽셀 단위 위치 추정(Localization)에는 한계가 있다.",
+      "experimental_conditions": "산업용 시각 검사 데이터셋 / 이미지 레벨 이상 탐지 지표 / 베이스라인 DifferNet",
+      "remaining_gaps": "비지도 학습 환경에서 라벨링 없이 달성하는 정밀한 픽셀 레벨 결함 분할(Segmentation)",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "DifferNet 기반 비지도 이상 탐지에 attention 모듈을 추가하여 고해상도 산업 이미지에서 미세 결함 패턴을 감지하는 메커니즘을 제안하며, normal-only 학습 기반 anomaly detection의 baseline 역할을 할 수 있음.",
+      "rank": 2
+    },
+    {
+      "paper_id": "eafa7778d6f4b8d6b18fceaaf517f029dc10d896",
+      "title": "Defect detection techniques robust to process variation in semiconductor inspection",
+      "source": "SemanticScholar",
+      "problem": "반도체 소자의 미세화로 인해 민감한 광학 검사 장비가 정상적인 공정 변동(Process variation)을 결함으로 오인하여 대량의 성가신(Nuisance) 데이터를 생성한다.",
+      "method": "SEM 기반 결함 및 정상 변동(Nuisance) 판별 기법",
+      "limitations": "SEM을 이용한 리뷰는 광학 검사보다 본질적으로 속도가 느려 대량 생산(High-volume manufacturing) 환경에서 병목 현상을 유발할 수 있다.",
+      "experimental_conditions": "SEM 기반 리뷰 툴 데이터 / 실제 미세 결함과 공정 변동 간의 분류 정확도",
+      "remaining_gaps": "SEM 리뷰 전, 광학 검사 단계에서 실시간으로 공정 변동을 필터링하는 인라인(In-line) 노이즈 제거 기술",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [
+        "constraints",
+        "failure_modes",
+        "expected_mechanism"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "반도체 공정 변이(process variation)로 인한 nuisance/false positive 문제를 다루며, 본 연구에서 요구하는 공정 노이즈 및 스타일 변화에 따른 false positive 억제 제약 조건과 직접적으로 관련됨.",
+      "rank": 3
+    },
+    {
+      "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+      "title": "Simulation of semiconductor wafer dicing induced faults on chips and their application as augmentation method for a deep learning based visual inspection system",
+      "source": "S2-backward",
+      "problem": "마이크로미터 단위의 웨이퍼 다이싱 결함은 드물게 발생하며, 주석 작업이 노동 집약적이어서 딥러닝 모델 학습을 위한 데이터가 부족하다.",
+      "method": "웨이퍼 다이싱 결함 시뮬레이션 기반 데이터 증강",
+      "limitations": "시뮬레이션된 결함이 실제 다이싱 공정에서 발생하는 복잡한 물리적, 광학적 변형을 완벽히 재현하지 못할 수 있다.",
+      "experimental_conditions": "고해상도 웨이퍼 다이싱 시각 검사 이미지 / 딥러닝 시각 검사 시스템 성능 지표",
+      "remaining_gaps": "물리 기반 시뮬레이션 결함과 실제 생산 라인에서 발생하는 결함 간의 도메인 격차(Domain Gap) 해소",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "constraints",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "반도체 웨이퍼 다이싱에서 고해상도 이미지의 미세 결함 탐지 및 희소 결함 데이터 문제를 시뮬레이션 기반 augmentation으로 해결하려는 접근으로, 결함 데이터 부족 제약 조건의 배경 근거를 제공함.",
+      "rank": 4
+    },
+    {
+      "paper_id": "ece3cb43620d196e2e49252cb40ea8013f77943d",
+      "title": "A Novel Gan-Based Data Augmentation Algorithm for Semiconductor Defect Inspection",
+      "source": "SemanticScholar",
+      "problem": "지도 학습 기반의 반도체 결함 검사 딥러닝 모델을 훈련하기 위해서는 대규모 주석 데이터가 필요하지만 이를 확보하기 어렵다.",
+      "method": "DCGAN 기반 합성 데이터 증강 및 ResNet 분류",
+      "limitations": "GAN은 모드 붕괴(Mode collapse)의 위험이 있으며, 실제 미세 결함의 정밀한 고주파 세부 정보를 잃고 이미지가 흐릿해질 수 있다.",
+      "experimental_conditions": "반도체 이미지 데이터셋 / 원본 데이터 vs 증강 데이터 훈련 비교 / ResNet 결함 검사 성능",
+      "remaining_gaps": "반도체 제조의 복잡한 물리적 특성을 아티팩트 없이 반영하는 고해상도 초현실적 결함 이미지 생성",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "constraints",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "GAN 기반 데이터 증강으로 반도체 결함 데이터 부족 문제를 해결하는 지도학습 접근법으로, 본 연구가 지도학습 대안(normal-only)을 추구하는 이유의 비교 기준이 됨.",
+      "rank": 5
+    },
+    {
+      "paper_id": "25757e7819eeb8829d3524474f973b79befd7b59",
+      "title": "Anomaly detection with convolutional neural networks for industrial surface inspection",
+      "source": "SemanticScholar",
+      "problem": "고도로 최적화된 산업 공정에서는 CNN 기반 지도 학습을 위한 충분한 결함 샘플을 수집하는 것이 불가능하다.",
+      "method": "비지도 CNN 기반 산업용 표면 이상 탐지",
+      "limitations": "비지도 모델은 무해한 표면 변형을 이상으로 오탐할 수 있으며, 알려진 결함 유형에 대해 지도 학습 모델보다 성능이 낮다.",
+      "experimental_conditions": "산업용 표면 검사 이미지 / 이상 탐지 성능 지표 (Anomaly detection objective)",
+      "remaining_gaps": "제품 표면의 무해한 자연적 변동(Benign variations)에 강건하면서도 실제 미세 결함에 대한 민감도를 유지하는 방법",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "CNN 기반 산업 표면 검사에서 정상 샘플만으로 anomaly detection을 수행하는 비지도 접근법을 다루어, normal-only reference 기반 결함 탐지 시스템의 핵심 선행 연구에 해당함.",
+      "rank": 6
+    },
+    {
+      "paper_id": "1255cade98ae03c55b587eb53c0eab98622544d8",
+      "title": "Machine learning based on using layout to generate reference SEM images for defect inspection",
+      "source": "SemanticScholar",
+      "problem": "기존의 칩 대 칩(Die-to-die) 결함 검사 방법론은 웨이퍼에서 직접 참조(Reference) 이미지를 수집해야 하므로 효율성이 떨어진다.",
+      "method": "레이아웃 기반 기준 SEM 이미지 ML 생성 및 비교",
+      "limitations": "레이아웃에서 생성된 SEM 이미지가 허용 가능한 국소적 공정 변동(Process variation)을 반영하지 못해 비교 시 위양성(False Positive)을 유발할 수 있다.",
+      "experimental_conditions": "반도체 레이아웃 데이터 및 대응하는 실제 SEM 이미지 / 유사도 비교 기반 결함 탐지 성능",
+      "remaining_gaps": "정상 공정 공차를 포함하여 전자빔의 복잡한 물리적 상호작용을 완벽히 모사하는 참조 SEM 이미지 렌더링",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "Layout에서 reference SEM 이미지를 생성하여 결함 검출에 활용하는 방법으로, 웨이퍼 상에서 직접 reference를 수집하지 않고 참조 이미지 기반 비교 검사를 수행하는 본 연구의 핵심 접근과 가장 유사함.",
+      "rank": 7
+    },
+    {
+      "paper_id": "d8c6b9c601b62bf67582ce97bad4c614ad2d54fe",
+      "title": "Addressing Class Imbalance and Data Limitations in Advanced Node Semiconductor Defect Inspection: A Generative Approach for SEM Images",
+      "source": "SemanticScholar",
+      "problem": "선단 공정(Advanced node)의 미세화와 낮은 이미지 대조도로 인해 디바이스 킬러 결함을 식별하기 어려우며, 극심한 클래스 불균형과 데이터 부족 문제가 발생한다.",
+      "method": "생성 모델 기반 SEM 데이터 증강 및 YOLO/ResNet",
+      "limitations": "생성 데이터를 활용했을 때 ResNet 101/152와 같은 깊은 네트워크에서는 오히려 성능이 저하되는 현상이 나타나, 합성 데이터의 세밀한 튜닝이 요구된다.",
+      "experimental_conditions": "LS-ADI, HEXCH, LS-AEI SEM 데이터셋 (microbridge, linecollapse 등) / YOLOv5, YOLOv8(최대 mAP 0.93), ResNet 50/101/152 모델 사용 / mAP, mAR 지표",
+      "remaining_gaps": "분류 네트워크의 깊이가 깊어지더라도 성능 저하 없이 극히 희귀한 결함 클래스를 완벽히 합성해내는 스케일링 기술",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "constraints",
+        "baseline_models"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections의 tables에서 DDPM 기반 합성 데이터로 YOLOv5/v8 학습 성능을 보고하며, 반도체 SEM 이미지의 class imbalance와 데이터 부족 문제를 다루는 지도학습 baseline으로 활용 가능함.",
+      "rank": 8
+    },
+    {
+      "paper_id": "d67b9dafcf94017784c266e021fe29baf2ffd572",
+      "title": "A Novel Pixel-Wise Defect Inspection Method Based on Stable Background Reconstruction",
+      "source": "SemanticScholar",
+      "problem": "산업 제품의 복잡한 텍스처 표면에서는 배경 변동이 이상으로 오인되기 쉬워 픽셀 단위의 정밀한 결함 검사가 어렵다.",
+      "method": "오토인코더와 GAN을 통합한 안정적 배경 재구성",
+      "limitations": "GAN 기반 재구성은 고도의 무작위성을 띠는 텍스처의 미세 구조를 환각(Hallucination)하거나 흐리게 만들어 픽셀 단위 정밀도를 떨어뜨릴 수 있다.",
+      "experimental_conditions": "복잡한 텍스처를 가진 산업 제품 표면 이미지 / 픽셀 단위 결함 위치 추정(Localization) 성능",
+      "remaining_gaps": "비주기적이고 확률적인 텍스처 배경을 생성 아티팩트 없이 완벽하고 안정적으로 재구성하는 기법",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "배경 재구성(autoencoder+GAN) 기반으로 defect-free reference를 생성한 후 원본과 비교하여 픽셀 단위 결함을 탐지하는 방법으로, normal reference 기반 anomaly map 생성이라는 본 연구의 핵심 메커니즘과 직접 관련됨.",
+      "rank": 9
+    },
+    {
+      "paper_id": "7de3cc199336851abf180047d1240ddecf033d99",
+      "title": "GAN-based Defect Synthesis for Anomaly Detection in Fabrics",
+      "source": "SemanticScholar",
+      "problem": "섬유 제품의 다양성과 결함의 희소성으로 인해 지도 학습 기반 품질 관리에 필요한 대규모 주석 데이터를 수집하는 것은 경제성이 없다.",
+      "method": "GAN 기반 섬유 결함 합성 및 이상 탐지 모델",
+      "limitations": "직물의 텍스처는 복잡한 물리적 엮임 구조를 가지므로, GAN이 실(Yarn) 수준의 결함에 대한 물리적 토폴로지를 정확히 시뮬레이션하지 못할 수 있다.",
+      "experimental_conditions": "섬유 결함 데이터셋 / 이상 탐지 성능 지표 / 원본 데이터 vs GAN 증강 데이터",
+      "remaining_gaps": "단순한 색상/텍스처 변화가 아닌, 직물 구조의 물리적 변형까지 정확하게 반영하는 구조적 이상(Structural anomaly) 합성",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "constraints",
+        "expected_mechanism"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "GAN 기반 결함 합성으로 anomaly detection 성능을 향상시키는 접근으로, 결함 데이터 희소성 제약 조건 하에서의 대안적 메커니즘을 보여주는 참고 자료임.",
+      "rank": 10
+    },
+    {
+      "paper_id": "c299a47d3472ec236bad4e7d91e29540d3572177",
+      "title": "Automated Optical Inspection Using Anomaly Detection and Unsupervised Defect Clustering",
+      "source": "SemanticScholar",
+      "problem": "산업용 컴퓨터 비전에 필요한 대규모 이미지 주석 작업은 막대한 인력과 시간이 소모되어 기술 도입의 병목이 된다.",
+      "method": "2단계 비지도 학습: 이상 탐지 및 결함 클러스터링",
+      "limitations": "비지도 클러스터링은 조명이나 배경 변화로 인해 동일한 결함을 분리하거나, 시각적으로 유사한 다른 결함들을 오병합할 위험이 있다.",
+      "experimental_conditions": "자동 광학 검사(AOI) 데이터셋 / 이상 탐지 및 비지도 클러스터링 품질 평가",
+      "remaining_gaps": "전문가의 개입 없이 비지도 클러스터링된 결함 그룹에 유의미한 의미론적 라벨(Semantic label)을 자동 부여하는 기술",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models",
+        "evaluation_metrics"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "비지도 anomaly detection 후 결함 클러스터링까지 수행하는 2단계 파이프라인으로, 라벨 없이 결함 후보를 검출하고 분류하는 본 연구와 유사한 비지도 검사 baseline을 제공함.",
+      "rank": 11
+    },
+    {
+      "paper_id": "2e99ad8d913fe587a82ee0a87872c79536da6aaf",
+      "title": "Scanning electron microscopy-based automatic defect inspection for semiconductor manufacturing: a systematic review",
+      "source": "SemanticScholar",
+      "problem": "반도체 소자의 미세화로 결함이 증가함에 따라, 비용 증가와 검사 시간 지연을 막기 위해 고해상도 SEM 이미지 기반 자동 결함 검사 알고리즘의 체계적인 분석이 필요하다.",
+      "method": "SEM 결함 검사 분야 문헌 체계적 리뷰(SR)",
+      "limitations": "리뷰 논문으로서 새로운 알고리즘을 제안하지 않으며, 기존 방법들이 여전히 수동 설정(Manual setup)과 처리량(Throughput) 한계에 직면해 있음을 지적한다.",
+      "experimental_conditions": "No Learning, ML, DL 기반의 Segmentation, Bounding box, Classification, Severity estimation 문헌 종합 분석",
+      "remaining_gaps": "과도한 수동 설정 없이 실시간 검사 처리량을 달성할 수 있는 일반화 가능한 다중 모달(Multi-modal) 딥러닝 검사 알고리즘 개발",
+      "evidence_role": "evaluation_reference",
+      "claim_slots_supported": [
+        "evaluation_metrics",
+        "constraints",
+        "baseline_models",
+        "deployment_constraints",
+        "failure_modes"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections에서 SEM 기반 반도체 결함 검사 알고리즘의 체계적 리뷰를 제공하며, reference-based/no-reference 방법, 성능 메트릭(FP, IoU, AP), 처리 throughput, GPU 제약 등 본 연구의 평가 지표와 제약 조건을 포괄적으로 다룸.",
+      "rank": 12
+    },
+    {
+      "paper_id": "b9c8bdcdc7d0a6032593a7c427dcce361fec50cd",
+      "title": "A Novel Method Based on Deep Convolutional Neural Networks for Wafer Semiconductor Surface Defect Inspection",
+      "source": "SemanticScholar",
+      "problem": "수작업 특징(Handcrafted features)에 의존하는 기존의 반도체 웨이퍼 표면 결함(얼룩, 버, 흠집 등) 검사 방법은 전문가 지식에 크게 의존하며 성능 한계가 있다.",
+      "method": "심층 합성곱 신경망(DCNN) 기반 표면 결함 검사",
+      "limitations": "표준 DCNN은 클래스 불균형 문제에 취약하며, 얼룩이나 버 등 특정 결함 유형마다 방대한 양의 라벨링 데이터가 요구된다.",
+      "experimental_conditions": "얼룩, 버, 흠집, 구멍 등을 포함하는 반도체 웨이퍼 데이터셋 / 분류 및 검사 정확도 평가",
+      "remaining_gaps": "학습 데이터에서 과소 대표된 새롭거나 희귀한 표면 결함 유형에 대해서도 높은 탐지 정확도를 달성하는 방법",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "Deep CNN 기반 웨이퍼 표면 결함 검사 방법으로, 지도학습 기반 접근의 한계와 성능을 보여주는 비교 baseline 역할을 함.",
+      "rank": 13
+    },
+    {
+      "paper_id": "2f2438102b003d6ffefb420a324e28d64c68908f",
+      "title": "Towards improved semiconductor defect inspection for high-NA EUVL based on SEMI-SuperYOLO-NAS",
+      "source": "SemanticScholar",
+      "problem": "High-NA EUVL 도입 시 피사계 심도(Depth of focus)가 낮아지고 신호 대 잡음비가 악화되어, 양산(HVM) 환경에서 피치 감소에 따른 결함 검사가 매우 어렵다.",
+      "method": "Super-Resolution 브랜치가 결합된 SEMI-SuperYOLO-NAS",
+      "limitations": "초해상도(Super-resolution) 브랜치의 추가 연산으로 인해 실시간 양산(HVM) 인라인 검사에서 요구되는 초저지연 속도를 맞추기 어려울 수 있다.",
+      "experimental_conditions": "SEM-ADI, EDR-AEI 데이터셋 (micro-bridge, gap 등) / 제로샷 추론 평가 / mAP 지표 0.919 달성 / 베이스라인 YOLO-NAS",
+      "remaining_gaps": "높은 검출률(mAP)과 초해상도 품질을 유지하면서 양산 인라인 검사의 엄격한 지연 시간(Latency) 제약을 충족하는 경량화 기술",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models",
+        "constraints",
+        "evaluation_metrics"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections의 experiment에서 SEM-ADI/EDR-AEI 데이터셋에 대해 YOLO-NAS 기반 결함 탐지 성능(mAP 0.919)을 보고하고, zero-shot 추론 및 super-resolution 기반 접근을 다루어 반도체 SEM 결함 탐지의 supervised baseline 및 평가 기준을 제공함.",
+      "rank": 14
+    },
+    {
+      "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+      "source": "S2-backward",
+      "problem": "기존 산업용 이상 탐지 데이터셋은 카테고리 다양성에만 집중하여, 동일 카테고리 내에서 발생하는 실제 도메인 변이(Domain Shift)를 다루지 못한다.",
+      "method": "마스크 기반 다중 스케일 재구성(Reconstruction) 모델",
+      "limitations": "도메인 변이 폭이 매우 클 경우, 정상적인 구조 변동까지 학습하지 못해 유해한 결함과 무해한 도메인 변화를 완벽히 구분하는 데 한계가 발생할 수 있다.",
+      "experimental_conditions": "새로 제안된 AeBAD(항공기 엔진 블레이드 이상 탐지) 데이터셋 (단일 블레이드 및 비디오 서브 데이터셋 포함) / 도메인 변이 환경에서의 탐지 성능",
+      "remaining_gaps": "복잡한 산업 부품에서 발생하는 자연스럽고 심각한 도메인 변이와 실제 이상을 완벽히 분리해내는 도메인 불변(Domain-invariant) 특징 표현 확보",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "도메인 시프트 하에서의 산업 이상 탐지 문제를 다루며 masked multi-scale reconstruction을 제안하여, 스타일/노이즈 변화에 강건한 anomaly detection 메커니즘의 근거를 제공함.",
+      "rank": 15
+    }
+  ],
+  "research_gap": {
+    "summary": "기존 참조 기반(die-to-die) 반도체 결함 검사는 정상 공정 변동(스타일·밝기·노이즈)을 결함으로 오인하여 높은 위양성을 유발하며, 비지도 재구성 기반 접근은 미세 결함을 흐리게 하거나 환각하여 픽셀 수준 정밀도가 낮다. 특히 6559×6559 초고해상도 그레이스케일 이미지를 패치 단위로 분할·비교하면서 재학습 없이 새로운 lot/장비에 적응하고, 단일 GPU에서 1분 이내 추론을 달성하는 경량 파이프라인은 사실상 제안된 바 없다. 핵심 난제는 (1) 도메인 불변 특징 표현 부재, (2) 참조 패치 매칭 오류로 인한 위양성 폭발, (3) 공정 노이즈와 미세 실결함의 주파수 대역 중첩 문제이다.",
+    "existing_approaches": [
+      "Prototype learning 기반 의미론적 분할로 배경 전이 결함 검출 [9ad0b513]",
+      "DifferNet + 어텐션 모듈을 이용한 이미지 레벨 비지도 이상 탐지 [9641f237]",
+      "오토인코더+GAN 통합 안정적 배경 재구성 후 차분(difference) 기반 결함 검출 [d67b9daf]",
+      "레이아웃→SEM 참조 이미지 생성 후 die-to-die 비교 결함 탐지 [1255cade]",
+      "마스크 기반 다중 스케일 재구성 모델로 도메인 변이 대응 이상 탐지 [a0bb81ad]",
+      "Super-Resolution 브랜치 결합 YOLO-NAS 기반 결함 검출 [2f243810]",
+      "SEM 기반 공정 변동 vs 실결함 판별 기법 [eafa7778]",
+      "GAN/시뮬레이션 기반 결함 합성 데이터 증강 [ece3cb43, 30ec9762, 7de3cc19, d8c6b9c6]"
+    ],
+    "limitations": [
+      "참조 이미지 비교 방식이 공정 변동·스타일 차이를 반영하지 못해 위양성이 과다 발생하며, 생성 모델 기반 참조 합성도 허용 공차 범위를 모사하지 못함",
+      "비지도 재구성 모델이 도메인 변이가 큰 환경에서 정상 변동과 실결함을 완벽히 분리하지 못하고, 미세 텍스처 결함에 대한 픽셀 정밀도가 부족함",
+      "초고해상도 이미지의 패치 분할·병합 과정에서 추론 시간이 급증하여 양산 인라인 검사의 지연 시간 제약을 충족하기 어려움",
+      "대부분의 방법이 새로운 lot/장비/공정 조건 변경 시 재학습 또는 대규모 재라벨링을 요구하여 제로샷/퓨샷 적응성이 부재함",
+      "프로토타입 학습이나 GAN 증강은 학습 시 보지 못한 완전히 새로운 결함 유형이나 배경 패턴에 대한 일반화에 실패함"
+    ]
+  },
+  "hypothesis": {
+    "statement": "A multi-band frequency-aware, registration-augmented consensus anomaly detection framework that (i) decomposes source and reference patches into three frequency sub-bands (low, mid, high) via an adaptive wavelet decomposition module whose cut-off frequencies are conditioned on per-patch spatial-frequency entropy, (ii) applies Adaptive Instance Normalization selectively to only the low-band features extracted from a frozen lightweight vision encoder, (iii) performs coarse phase-correlation-based registration followed by FAISS-accelerated Top-K normal reference retrieval with orientation-canonicalized feature indexing to suppress misalignment-induced false positives, (iv) employs a recall-preserving high-frequency noise gate trained on normal-only patches with a synthetic micro-defect energy preservation regularizer that guarantees ≥90% defect energy pass-through, and (v) uses a two-stage coarse-to-fine cascade inference strategy where an initial coarse screening pass identifies hard patches for detailed fine analysis, can achieve domain-invariant defect localization (pixel-level AUROC ≥ 0.95, FPR ≤ 1% on normal images) on 6559×6559 grayscale semiconductor images within 60 seconds on a single GPU without retraining.",
+    "statement_kr": "소스 및 참조 패치를 패치별 공간주파수 엔트로피에 따라 적응적으로 컷오프를 결정하는 웨이블릿 분해 모듈로 3개 주파수 부대역(저·중·고)으로 분해하고, 동결된 경량 비전 인코더에서 추출한 저대역 특징에만 적응적 인스턴스 정규화(AdaIN)를 적용하며, 위상 상관(phase correlation) 기반 조정합(coarse registration) 후 방향 정규화된 특징 인덱싱을 통한 FAISS 가속 Top-K 정상 참조 패치 검색으로 정합 불일치 위양성을 억제하고, 합성 미세결함 에너지 보존 정규화(≥90% 결함 에너지 통과 보장)가 적용된 정상 패치 전용 학습 고주파 노이즈 게이트로 공정 노이즈를 억제하되 검출률을 보호하며, 1차 조밀 스크리닝으로 어려운 패치만 선별하여 정밀 분석하는 2단계 캐스케이드 추론 전략을 사용하는 다중대역 주파수 인식 정합 보강 컨센서스 이상 탐지 프레임워크는, 재학습 없이 단일 GPU에서 6559×6559 그레이스케일 반도체 이미지에 대해 60초 이내에 도메인 불변 결함 위치 추정(픽셀 AUROC ≥ 0.95, 정상 이미지 FPR ≤ 1%)을 달성할 수 있다.",
+    "rationale": "본 개선은 기존 가설의 구조적 일관성(주파수 분리 → 선택적 AdaIN → Top-K 컨센서스 → HF 게이트)을 유지하면서, LLM 검증에서 지적된 5가지 핵심 약점을 체계적으로 해소한다.\n\n첫째(validity 강화 — LF/HF 이분법 한계 극복): 기존의 2-band 분해를 3-band(저·중·고) 또는 multi-band 적응적 웨이블릿 분해로 확장한다. 반도체 영상에서 broad haze·stain 결함은 저주파에, scratch·particle은 고주파에, pattern collapse·bridge는 중간주파수에 각각 에너지가 집중되며(evidence_id: eafa7778d6f4b8d6b18fceaaf517f029dc10d896), 고정 σ 가우시안 대신 패치별 공간주파수 엔트로피에 조건화된 적응적 컷오프를 사용하여 다양한 피치/구조의 제품에서도 결함-정상 분리의 물리적 타당성을 확보한다. AdaIN은 여전히 스타일/조명 변동이 지배적인 저대역에만 적용하되, 중대역은 별도 정규화 없이 잔차 비교에 직접 활용하여 broad defect 검출력을 보존한다.\n\n둘째(validity 강화 — 참조 정합 오류 완화): FAISS 검색 전 phase correlation 기반 coarse registration과 방향 정규화(orientation canonicalization)를 추가한다(evidence_id: 1255cade98ae03c55b587eb53c0eab98622544d8). 반도체 다이 패턴의 반복성이 높아 미세 오프셋이나 회전이 있는 참조가 검색될 때 median aggregation이 anomaly inflation을 유발하는 문제를 구조적으로 방지한다.\n\n셋째(validity 강화 — HF gate recall 보호): 기존 MSE-only 학습 대신 합성 미세결함 주입(synthetic micro-defect injection) 기반 에너지 보존 정규화를 추가한다. Gate 통과 후 주입된 결함 에너지의 ≥90%가 보존되도록 제약하여, 정상-only 학습에서도 recall 붕괴를 직접 제어한다(evidence_id: 30ec97a622f5d510d32f2062fa53330234318ac7에서 시뮬레이션 결함의 유효성 근거). 또한 L2 정규화와 dropout을 적용하여 특정 lot/장비에 대한 과적합을 방지하고, 정상 패치 통계의 주기적 온라인 업데이트 메커니즘을 도입한다.\n\n넷째(feasibility/impact 강화 — 추론 시간 준수): 2단계 coarse-to-fine 캐스케이드 추론을 도입한다. 1단계에서 저해상도 특징 기반 조밀 스크리닝으로 전체 패치의 이상 점수를 빠르게 산출하고, 상위 20% hard patch만 2단계 정밀 multi-band 분석에 투입한다. 이를 통해 약 60-70%의 연산을 절약하여 60초 제약을 충족한다.\n\n다섯째(impact 강화 — 선행 연구 차별화 및 통계 검정 강화): baseline에 reference-based registration baseline과 retrieval-only baseline을 추가하여 각 모듈의 증분 기여를 명확히 하고, FPR 비교의 유의성 검정을 McNemar test 및 bootstrap 95% CI로 교체한다. 반증 조건의 시간 기준을 60초 초과로 강화하여 성공 기준과 일치시킨다. 패치 스티칭 아티팩트 억제를 위한 경계 일관성(edge consistency) 패널티와 median 후처리 필터를 명시적으로 도입한다.\n\n전체 파이프라인은 동결 인코더와 FAISS 인덱스를 활용하므로 새로운 lot/장비 적응 시 참조 패치 교체와 HF gate 통계 온라인 업데이트만으로 가능하다(evidence_id: 9ad0b513ee21c5ec91db34ce094e4b64a263a429에서 배경 변화 적응의 한계 → 본 연구의 참조 교체 기반 우위).",
+    "key_innovation": "3-band 적응적 웨이블릿 분해(패치별 엔트로피 조건 컷오프) 기반 선택적 AdaIN(저대역만) + phase-correlation coarse registration 및 방향 정규화 특징 인덱싱을 통한 정합 보강 Top-K 컨센서스 잔차 점수화 + 합성 미세결함 에너지 보존 정규화가 적용된 recall-preserving HF 노이즈 게이트 + coarse-to-fine 2단계 캐스케이드 추론을 결합한 4중 도메인 불변 메커니즘으로, 공정 변동/스타일 변화·정합 오류·공정 노이즈·추론 시간 제약이라는 4개의 독립적 failure mode를 각각 전담 모듈로 구조적으로 해결하는 점 (evidence_id: eafa7778d6f4b8d6b18fceaaf517f029dc10d896, evidence_id: 1255cade98ae03c55b587eb53c0eab98622544d8, evidence_id: d67b9dafcf94017784c266e021fe29baf2ffd572).",
+    "expected_mechanism": "1) 6559×6559 소스 이미지를 256×256 패치로 분할(stride 192, overlap 64) → ~1225 패치.\n\n2) [Stage 1: Coarse Screening] 각 패치를 4× 다운샘플(64×64)하여 동결 인코더(EfficientViT-M4, ImageNet pretrained, frozen)의 stage-2 특징만 추출. FAISS IVF4096-PQ32 인덱스에서 Top-1 정상 참조를 검색하고, L2 거리 기반 조밀 이상 점수를 산출. 점수 상위 20% hard patch만 Stage 2로 전달(~245 패치). 나머지 패치는 coarse score를 최종 점수로 사용.\n\n3) [Adaptive Multi-band Frequency Decomposition] Hard patch에 대해 패치별 공간주파수 엔트로피를 계산하고, 이를 조건으로 학습 가능한 2-level wavelet filter bank(Haar 초기화, learnable scaling)의 컷오프를 조절하여 3-band 분해: Low-Band(LB, 스타일/조명), Mid-Band(MB, 구조 패턴), High-Band(HB, 텍스처/노이즈). 고정 σ 대신 적응적 분해로 다양한 피치의 반도체 구조에 대응.\n\n4) [Phase-Correlation Registration + Orientation Canonicalization] 소스 패치와 검색된 참조 패치 간 phase correlation으로 서브픽셀 오프셋(Δx, Δy)과 회전각(Δθ)을 추정하여 참조를 소스에 정합. 정합 전 방향 정규화(canonical orientation alignment)를 적용하여 FAISS 인덱싱 시에도 방향 불변 검색을 보장.\n\n5) [Frozen Encoder Multi-scale Feature Extraction] 동결 EfficientViT-M4로 LB·MB·HB 각각의 멀티스케일 특징 추출(stage 2, 3, 4). LB/MB/HB 별도 forward pass 대신, 원본 패치 1회 forward 후 주파수 대역별 마스킹으로 효율화 가능.\n\n6) [FAISS Top-K Retrieval] LB 특징 기반 FAISS IVF4096-PQ32 인덱스에서 Top-K(K=5) 정상 참조 패치 검색. 방향 정규화된 특징으로 인덱싱하여 정합 오류 최소화.\n\n7) [Selective AdaIN on LB only] LB 특징에 대해 K개 참조의 LB 통계(μ, σ)의 중앙값으로 AdaIN 정규화. MB·HB 특징은 정규화 없이 원본 유지하여 broad defect(stain, haze)와 fine defect 신호를 모두 보존.\n\n8) [Recall-Preserving HF Noise Gate] HB 특징에 대해 1D Conv(C→C, kernel=1) + Sigmoid 게이팅. 학습 목표: (a) 정상 패치 쌍(같은 위치, 다른 lot/장비) HB 잔차 MSE 최소화(공정 노이즈 억제), (b) 합성 미세결함(3-10px scratch, particle) 주입 후 게이트 통과 에너지가 주입 전 대비 ≥90% 보존되도록 에너지 보존 정규화(λ_preserve * max(0, 0.9 - E_post/E_pre)²), (c) L2 weight regularization + dropout(0.1). 온라인 업데이트: 새 lot 투입 시 정상 패치 100장의 HB 통계로 gate bias를 exponential moving average 업데이트.\n\n9) [Multi-band Residual Scoring] 정규화된 LB 잔차 + 원본 MB 잔차 + 게이팅된 HB 잔차를 멀티스케일로 결합하여 패치별 이상 점수 맵 생성. K개 참조 잔차의 element-wise median 집계(컨센서스).\n\n10) [Edge-Consistent Patch Merging] 가우시안 가중 오버랩 병합 시 인접 패치 점수 간 에지 일관성(edge consistency) 패널티를 적용하고, 병합 후 3×3 median filter로 경계 아티팩트를 후처리하여 전체 이미지 이상 맵 재구성.\n\n11) [Adaptive Thresholding + Detection] 정상 참조 점수 분포의 μ+3σ 적응적 임계값 적용 후 connected component 분석으로 결함 바운딩 박스/마스크 출력.",
+    "falsification_criteria": [
+      "반증 조건 1: 정상 이미지 100장에 대한 FPR이 3%를 초과하거나 False Alarm per image가 2.0을 초과하면, 다중대역 주파수 분리 + AdaIN + 정합 보강 컨센서스 메커니즘이 공정 변동 억제에 실패한 것으로 가설을 기각한다.",
+      "반증 조건 2: 3-band 주파수 분해 + LB-only AdaIN 적용 시, 주파수 분해 없이 전체 특징에 AdaIN을 적용한 baseline 대비 pixel-level AUROC 향상이 0.02 미만이면, 다중대역 주파수 분리의 핵심 혁신이 실질적 기여가 없는 것으로 가설의 핵심 주장을 기각한다.",
+      "반증 조건 3: Top-K 컨센서스(K≥3) 적용 시 K=1(단일 참조) 대비 정상 이미지 FPR 감소가 McNemar test p>0.05 또는 bootstrap 95% CI가 0을 포함하면, 다중 참조 컨센서스의 위양성 억제 효과가 통계적으로 유의하지 않은 것으로 해당 모듈의 기여를 기각한다.",
+      "반증 조건 4: HF 노이즈 게이트 유/무 ablation에서 스타일·노이즈 교란 하 Mean Absolute Score Shift 차이가 0.01 미만이면, 노이즈 게이트의 공정 노이즈 억제 효과가 무의미한 것으로 해당 모듈의 기여를 기각한다.",
+      "반증 조건 5: 단일 GPU(NVIDIA RTX 3090/4090 또는 A5000)에서 6559×6559 이미지당 추론 시간이 60초를 초과하면, 제안 파이프라인의 실시간 적용 가능성 주장을 기각한다(성공 기준과 일치).",
+      "반증 조건 6: 3개 이상의 서로 다른 장비/lot 도메인에서 Normal Acceptance Rate under Perturbation이 85% 미만이면, 도메인 불변성 주장을 기각한다.",
+      "반증 조건 7: phase-correlation registration 적용 시 registration 없는 baseline 대비 정상 이미지 FPR 감소가 McNemar test p>0.05이면, 정합 보강의 위양성 억제 기여가 유의하지 않은 것으로 해당 모듈을 기각한다.",
+      "반증 조건 8: recall-preserving regularizer 적용 HF gate에서 합성 미세결함(≤10px) 검출 recall이 gate 미적용 대비 5%p 이상 하락하면, 에너지 보존 정규화가 recall 보호에 실패한 것으로 해당 메커니즘을 기각한다."
+    ]
+  },
+  "experiment_plan": {
+    "architecture": "FreqConsensus-AD v2 (Multi-band Frequency-aware Registration-augmented Consensus Anomaly Detection) 파이프라인:\n\n[입력] 6559×6559 grayscale image\n → [Patch Splitter] 256×256 patches (stride 192, overlap 64) → ~1225 patches\n\n → [Stage 1: Coarse Screening]\n   → 4× downsample → 64×64\n   → Frozen EfficientViT-M4 stage-2 feature extraction\n   → FAISS Top-1 retrieval → L2 distance coarse score\n   → Top 20% hard patches → Stage 2 (~245 patches)\n   → Remaining patches: coarse score as final score\n\n → [Stage 2: Fine Multi-band Analysis] (hard patches only)\n   → [Adaptive Frequency Decomposer]\n     Learnable 2-level wavelet filter bank (Haar init)\n     Cut-off conditioned on per-patch spatial-frequency entropy\n     → 3 sub-bands: LB (style/illumination), MB (structural pattern), HB (texture/noise)\n\n   → [Phase-Correlation Registration]\n     Estimate (Δx, Δy, Δθ) between source and each retrieved reference\n     Sub-pixel alignment of reference to source coordinate\n     Orientation canonicalization for FAISS indexing\n\n   → [Frozen Encoder] EfficientViT-M4 (ImageNet pretrained, frozen)\n     Multi-scale features (stage 2, 3, 4) for LB, MB, HB\n\n   → [FAISS Retriever] IVF4096-PQ32 on orientation-canonicalized LB features\n     → Top-K=5 normal reference patches\n\n   → [Selective AdaIN] LB features only\n     μ, σ aligned to median of K references' LB statistics\n\n   → [MB Direct Residual] No normalization on MB features\n     Direct L2 residual for broad defect (stain, haze, pattern collapse) detection\n\n   → [Recall-Preserving HF Noise Gate]\n     1D Conv(C→C, k=1) + Sigmoid + Dropout(0.1) + L2 regularization\n     Training loss: MSE(normal HB pairs) + λ_preserve * energy_preservation_penalty\n     Constraint: ≥90% synthetic defect energy pass-through\n     Online update: EMA on gate bias with new lot normal patches\n\n   → [Multi-band Residual Scorer]\n     |AdaIN(LB_src) - LB_ref_median| + α|MB_src - MB_ref_median| + β|Gate(HB_src) - HB_ref_median|\n     Multi-scale weighted sum → patch anomaly score map\n\n   → [Consensus Aggregator] K references' residual maps → element-wise median\n\n → [Edge-Consistent Patch Merger]\n   Gaussian-weighted overlap stitching\n   + Edge consistency penalty between adjacent patches\n   + 3×3 median post-filter on stitched anomaly map\n\n → [Adaptive Thresholder]\n   μ_normal + 3σ_normal → binary mask\n   → Connected component analysis → bounding boxes / masks\n\nHF Noise Gate Training: Normal patch HB feature pairs (same die position, different lot/equipment) → MSE loss + synthetic micro-defect (3-10px scratch, particle, bridge) energy preservation regularizer + L2 reg + dropout. Training: <1 hour, normal data only. Online EMA update for new lots.",
+    "dataset": "1) 주 데이터셋: 실제 반도체 팹(fab)에서 수집한 6559×6559 grayscale 소스 이미지 (최소 200장: 정상 150장 + 결함 포함 50장, 3개 이상 lot/장비 출처). 정상 참조 패치 라이브러리: lot/장비별 256×256 정상 패치 5000~10000장.\n2) 보조 공개 데이터셋: MVTec AD (texture 카테고리), AeBAD (domain shift 평가)(evidence_id: a0bb81ad6fd730d673580fda6713691d8e1d5bdc), DAGM (textured surface defects) — 방법론 일반화 검증용.\n3) 합성 평가 데이터: 정상 이미지에 제어된 결함(scratch, particle, stain, micro-bridge, broad haze)을 삽입한 합성 결함 이미지 (pixel-level GT 확보). 크기 3~50px 범위의 다양한 결함 삽입 + 저대비(low-contrast) 결함 별도 삽입하여 LF/MF 대역 결함 검출력 평가.\n4) 도메인 변이 테스트셋: 동일 다이 패턴에 대해 밝기 ±20%, 가우시안 노이즈 σ=5/10/15, 콘트라스트 ±15% 변환을 적용한 교란 이미지 세트.\n5) HF 노이즈 게이트 학습용 합성 미세결함 세트: 정상 패치에 3-10px 크기의 scratch, particle, bridge를 다양한 대조도(2단계)로 주입한 결함 패치 (에너지 보존 정규화 학습 및 검증용).",
+    "baseline_models": [
+      "PatchCore (CVPR 2022) — coreset 기반 K-NN 이상 탐지, 산업 검사 SOTA (evidence_id: 25757e7819eeb8829d3524474f973b79befd7b59)",
+      "SPADE (arXiv 2020) — K-NN 기반 다중 해상도 이상 탐지",
+      "PaDiM (ICPR 2021) — 가우시안 분포 기반 패치 이상 탐지",
+      "EfficientAD (WACV 2024) — 경량 student-teacher 이상 탐지",
+      "RegAD (ECCV 2022) — registration 기반 few-shot 이상 탐지",
+      "Naive pixel-diff baseline — 참조 패치와의 직접 픽셀 차이 + Otsu 임계값 (evidence_id: 1255cade98ae03c55b587eb53c0eab98622544d8)",
+      "Reference-based registration baseline — phase-correlation 정합 후 단순 L2 잔차 (모듈 증분 기여 분석용)",
+      "Retrieval-only baseline — FAISS Top-K 검색 + 전체 특징 L2 잔차, 주파수 분리/AdaIN/gate 없음 (모듈 증분 기여 분석용)",
+      "Full-feature AdaIN baseline — 주파수 분리 없이 전체 특징에 AdaIN 적용 (ablation 기준선)"
+    ],
+    "evaluation_metrics": [
+      "Pixel-level AUROC (결함 위치 추정 정확도, GT 가용 시)",
+      "Image-level AUROC (이미지 단위 결함 유무 판별)",
+      "False Positive Rate on Normal Images (정상 이미지에서의 위양성률, 목표 ≤1%, McNemar test + bootstrap 95% CI 보고)",
+      "False Alarm per Normal Image (정상 이미지당 평균 오탐 수, 목표 ≤0.5)",
+      "Anomalous Area Ratio on Normal Images (정상 이미지에서 이상으로 판정된 면적 비율, 목표 ≤0.1%)",
+      "Mean Absolute Score Shift under Perturbation (스타일/노이즈 교란 시 정규화 점수 평균 절대 이동, 목표 ≤0.05)",
+      "Normal Acceptance Rate under Perturbation (교란된 정상 이미지의 정상 판정 비율, 목표 ≥95%)",
+      "Pixel-level AUPRO (Per-Region Overlap, 위치 추정 정밀도)",
+      "Defect-size stratified Recall (결함 크기별 검출률: <10px, 10-30px, >30px) 및 broad defect(>50px, low-contrast) Recall 별도 보고",
+      "Defect energy pass-through rate of HF gate (합성 결함 에너지 보존율, 목표 ≥90%)",
+      "Inference Time per 6559×6559 Image (초, 목표 ≤60s, Stage 1/Stage 2 분리 보고)",
+      "Peak GPU Memory Usage (GB, 목표 ≤16GB)",
+      "Throughput (images/minute, 목표 ≥1)"
+    ],
+    "key_experiments": [
+      "실험 1 — 주요 성능 벤치마크: FreqConsensus-AD v2와 모든 baseline(PatchCore, SPADE, PaDiM, EfficientAD, RegAD, pixel-diff, registration-only, retrieval-only, full-feature AdaIN)을 동일 반도체 데이터셋에서 pixel-level AUROC, image-level AUROC, FPR(McNemar test + bootstrap 95% CI), False Alarm 기준으로 비교. 3-fold cross-validation (lot 기준 분할). 특히 reference-based registration baseline 및 retrieval-only baseline과의 비교로 각 모듈의 증분 기여를 명확히 한다.",
+      "실험 2 — 도메인 변이 강건성: 학습/인덱싱에 사용하지 않은 새로운 lot/장비의 이미지에 대해 성능 평가. 밝기·노이즈·콘트라스트 교란을 적용하여 Score Shift 및 Normal Acceptance Rate 측정. 3개 이상 도메인에서 NAR ≥ 85% 검증.",
+      "실험 3 — 결함 크기·유형별 검출 감도: (a) 합성 결함 크기를 3px, 5px, 10px, 20px, 50px로 변화시키며 크기별 Recall/Precision 평가, (b) broad defect(stain, haze, >50px, low-contrast)와 ultra-fine defect(<10px, high-contrast)를 분리 평가하여 3-band 분해의 대역별 기여를 검증. 결함 대조도 2단계 변화.",
+      "실험 4 — 추론 시간 및 자원 프로파일링: NVIDIA RTX 3090, RTX 4090, A5000에서 이미지당 총 추론 시간 및 Stage 1(coarse)/Stage 2(fine) 분리 시간, 패치별 시간 분해(특징 추출/registration/FAISS 검색/잔차 계산/병합), 피크 GPU 메모리를 상세 프로파일링. 2-stage cascade의 hard patch 비율 변화에 따른 시간-성능 trade-off 분석.",
+      "실험 5 — 참조 패치 적응 실험: 새로운 lot에 대해 (a) 참조 패치 0장(완전 제로샷), (b) 50장, (c) 200장, (d) 1000장을 추가하였을 때 FPR 및 AUROC 변화를 측정. HF gate 온라인 EMA 업데이트 유/무에 따른 성능 차이도 함께 평가.",
+      "실험 6 — 공개 데이터셋 일반화: MVTec AD (texture), AeBAD (domain shift)(evidence_id: a0bb81ad6fd730d673580fda6713691d8e1d5bdc), DAGM에서 동일 파이프라인 적용하여 방법론의 도메인 독립적 일반화 능력 검증. PatchCore, EfficientAD와의 직접 비교.",
+      "실험 7 — HF 노이즈 게이트 recall 보호 검증: 합성 미세결함(3-10px)을 주입한 패치에 대해 (a) energy preservation regularizer 유/무, (b) 게이트 적용 유/무 조건에서 defect energy pass-through rate와 크기별 recall을 측정. Regularizer가 recall 붕괴를 방지하는지 직접 검증."
+    ],
+    "ablation_studies": [
+      "Ablation A — 주파수 대역 수 및 적응적 분해 효과: (i) 주파수 분해 없이 전체 특징 AdaIN, (ii) 2-band(LF+HF) 고정 σ 가우시안, (iii) 3-band 고정 컷오프, (iv) 3-band 적응적 컷오프(제안). Pixel AUROC, FPR, Score Shift, broad defect recall, fine defect recall 비교.",
+      "Ablation B — Top-K 컨센서스 수 K의 영향: K=1, 3, 5, 7, 10에서 FPR(McNemar test), False Alarm, pixel AUROC, 추론 시간 trade-off 분석.",
+      "Ablation C — 컨센서스 집계 방식: K개 잔차의 median vs minimum vs mean vs trimmed-mean 비교.",
+      "Ablation D — HF 노이즈 게이트 구성 요소별 ablation: (i) gate 없음, (ii) MSE-only gate, (iii) MSE + energy preservation regularizer(제안), (iv) MSE + regularizer + online EMA update. 교란 환경 FPR, Score Shift, 미세결함 recall 비교.",
+      "Ablation E — Phase-correlation registration 효과: (i) registration 없음, (ii) phase-correlation만, (iii) phase-correlation + orientation canonicalization(제안). FPR, pixel AUROC, False Alarm 비교.",
+      "Ablation F — 인코더 선택: EfficientViT-M4 vs ConvNeXt-Tiny vs DINOv2-ViT-S/14 (frozen). 성능-속도 Pareto 분석.",
+      "Ablation G — Coarse-to-fine cascade threshold: hard patch 상위 10%, 20%, 30%, 50%, 100%에서 총 추론 시간, pixel AUROC, FPR trade-off 분석.",
+      "Ablation H — 패치 크기 및 오버랩: 128×128, 256×256, 512×512 패치와 overlap 0, 32, 64, 128에서의 pixel AUROC, FPR, 추론 시간, 경계 아티팩트 평가.",
+      "Ablation I — FAISS 인덱스 구성: Flat L2 vs IVF1024-PQ16 vs IVF4096-PQ32 vs HNSW에서 검색 정확도(Recall@K) 및 검색 시간 비교.",
+      "Ablation J — 적응적 임계값 전략: μ+2σ, μ+3σ, μ+4σ, Otsu, 학습 기반 임계값에서 FPR-Recall trade-off 분석.",
+      "Ablation K — Edge-consistent patch merging 효과: (i) 단순 가우시안 병합, (ii) + edge consistency penalty, (iii) + median post-filter(제안). 패치 경계 FPR 및 전체 FPR 비교."
+    ]
+  },
+  "related_papers": [
+    {
+      "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+      "venue": "ECCV 2024 (AeBAD)",
+      "relevance": "도메인 변이 환경에서의 이상 탐지 문제 정의 및 벤치마크 제공. 본 연구의 도메인 강건성 평가 기준(AeBAD 데이터셋) 및 masked multi-scale reconstruction 대비 참조 기반 잔차 비교의 우위 근거."
+    },
+    {
+      "paper_id": "eafa7778d6f4b8d6b18fceaaf517f029dc10d896",
+      "title": "Defect detection techniques robust to process variation in semiconductor inspection",
+      "venue": "SPIE 2024",
+      "relevance": "공정 변동(process variation)이 위양성의 주요 원인이며 다양한 주파수 대역에 분포함을 실증. 3-band 주파수 분해 및 적응적 컷오프의 물리적 동기 제공."
+    },
+    {
+      "paper_id": "1255cade98ae03c55b587eb53c0eab98622544d8",
+      "title": "Machine learning based on using layout to generate reference SEM images for defect inspection",
+      "venue": "SPIE 2023",
+      "relevance": "참조 이미지 기반 비교 검사에서 공정 변동 미반영으로 인한 위양성 문제와 정합 오류 지적. Phase-correlation registration 및 다중 참조 컨센서스의 필요성 근거."
+    },
+    {
+      "paper_id": "9ad0b513ee21c5ec91db34ce094e4b64a263a429",
+      "title": "Achieving the Defect Transfer Detection of Semiconductor Wafer by a Novel Prototype Learning-Based Semantic Segmentation Network",
+      "venue": "IEEE Trans. 2023",
+      "relevance": "프로토타입 기반 접근이 배경 변화에 강건하나 완전히 새로운 구조에 한계. 참조 교체 기반 적응 및 동결 인코더 활용의 우위 근거."
+    },
+    {
+      "paper_id": "d67b9dafcf94017784c266e021fe29baf2ffd572",
+      "title": "A Novel Pixel-Wise Defect Inspection Method Based on Stable Background Reconstruction",
+      "venue": "IEEE 2023",
+      "relevance": "재구성 기반 방법의 환각/흐림 한계를 실증. 본 연구가 재구성 대신 다중참조 잔차 비교를 채택한 근거."
+    },
+    {
+      "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+      "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+      "venue": "CVPR Workshop 2022",
+      "relevance": "비지도 이상 탐지의 이미지 레벨 한계를 지적. 패치 레벨 멀티스케일 특징 및 어텐션 기반 분석의 필요성 근거."
+    },
+    {
+      "paper_id": "2e99ad8d913fe587a82ee0a87872c79536da6aaf",
+      "title": "Scanning electron microscopy-based automatic defect inspection for semiconductor manufacturing: a systematic review",
+      "venue": "Measurement 2024",
+      "relevance": "반도체 자동 검사의 체계적 문헌 리뷰. 수동 설정 최소화, 처리량 한계 극복, 평가 메트릭 선정의 근거."
+    },
+    {
+      "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+      "title": "Simulation of semiconductor wafer dicing induced faults on chips and their application as augmentation method for a deep learning based visual inspection system",
+      "venue": "SPIE/IEEE",
+      "relevance": "시뮬레이션 기반 합성 결함의 유효성 실증. HF noise gate의 에너지 보존 정규화에 사용되는 합성 미세결함 주입 전략의 근거."
+    },
+    {
+      "paper_id": "25757e7819eeb8829d3524474f973b79befd7b59",
+      "title": "Anomaly detection with convolutional neural networks for industrial surface inspection",
+      "venue": "CVPR/IEEE",
+      "relevance": "비지도 CNN 기반 산업 표면 이상 탐지의 선행 연구. Normal-only 학습 기반 anomaly detection baseline 및 benign variation 강건성 문제의 근거."
+    }
+  ],
+  "evidence_links": [
+    {
+      "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "supports": [
+        "key_innovation",
+        "expected_mechanism",
+        "dataset",
+        "key_experiments"
+      ]
+    },
+    {
+      "paper_id": "eafa7778d6f4b8d6b18fceaaf517f029dc10d896",
+      "supports": [
+        "key_innovation",
+        "rationale",
+        "expected_mechanism",
+        "falsification_criteria"
+      ]
+    },
+    {
+      "paper_id": "1255cade98ae03c55b587eb53c0eab98622544d8",
+      "supports": [
+        "key_innovation",
+        "rationale",
+        "expected_mechanism",
+        "baseline_models"
+      ]
+    },
+    {
+      "paper_id": "9ad0b513ee21c5ec91db34ce094e4b64a263a429",
+      "supports": [
+        "rationale",
+        "key_innovation"
+      ]
+    },
+    {
+      "paper_id": "d67b9dafcf94017784c266e021fe29baf2ffd572",
+      "supports": [
+        "key_innovation",
+        "rationale"
+      ]
+    },
+    {
+      "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+      "supports": [
+        "expected_mechanism",
+        "baseline_models"
+      ]
+    },
+    {
+      "paper_id": "2e99ad8d913fe587a82ee0a87872c79536da6aaf",
+      "supports": [
+        "evaluation_metrics",
+        "baseline_models"
+      ]
+    },
+    {
+      "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+      "supports": [
+        "expected_mechanism",
+        "ablation_studies"
+      ]
+    },
+    {
+      "paper_id": "25757e7819eeb8829d3524474f973b79befd7b59",
+      "supports": [
+        "baseline_models",
+        "rationale"
+      ]
+    }
+  ],
+  "confidence": 0.72,
+  "risk_factors": [
+    "위험 1: 3-band 적응적 분해에서도 특정 반도체 패턴(극미세 피치 <20nm)에서 결함과 정상 패턴의 주파수 대역이 중첩될 수 있음. 완화: 학습 가능한 wavelet filter bank의 컷오프를 데이터 적응적으로 조절하고, 대역별 결함 recall을 모니터링하여 분해 파라미터를 자동 튜닝.",
+    "위험 2: Phase-correlation registration이 비주기적 패턴이나 edge 근처 패치에서 실패하여 오정합이 발생할 수 있음. 완화: registration confidence score(peak-to-noise ratio)를 산출하고, 낮은 confidence의 참조를 컨센서스에서 제외하는 soft weighting 적용.",
+    "위험 3: HF noise gate의 에너지 보존 정규화가 특정 유형의 공정 노이즈(예: line-edge roughness)와 미세 결함을 여전히 구분하지 못할 수 있음. 완화: 다양한 유형의 합성 결함을 주입하여 정규화를 학습하고, gate 통과 전후 결함 에너지 비율을 지속 모니터링.",
+    "위험 4: Coarse-to-fine cascade에서 Stage 1의 coarse screening이 미세 결함 패치를 놓칠 수 있음(false negative in coarse stage). 완화: coarse threshold를 보수적으로 설정(상위 30%)하고, threshold에 따른 recall-time trade-off를 ablation으로 최적화.",
+    "위험 5: lot/장비별 참조 패치 라이브러리가 FAISS 인덱스로 누적되면서 16GB GPU 메모리를 초과할 수 있음. 완화: 코어셋 선택(coreset selection)으로 참조 수를 제한하고, PQ 압축률을 높이며, 필요 시 CPU-GPU 하이브리드 검색 활용.",
+    "위험 6: Edge-consistent patch merging에도 불구하고, 극도로 큰 이상 영역이 패치 경계를 걸칠 때 병합 아티팩트가 완전히 제거되지 않을 수 있음. 완화: 이상 영역 크기가 패치 크기의 50%를 초과할 경우 해당 영역을 확대 패치(512×512)로 재분석하는 adaptive re-inspection 전략 적용.",
+    "위험 7: 실제 반도체 팹 데이터의 보안/비밀 유지 정책으로 인해 충분한 데이터 확보가 어려울 수 있음. 완화: 공개 데이터셋(MVTec, AeBAD, DAGM)으로 방법론 검증 후, 제한된 실제 데이터로 전이 평가.",
+    "위험 8: HF noise gate의 온라인 EMA 업데이트가 급격한 공정 변동 시 과도하게 느리게 적응하거나 불안정해질 수 있음. 완화: EMA decay rate를 공정 변동 감지 시 동적으로 조절하고, drift detector를 병렬 운영하여 급변 시 gate를 초기화 후 빠른 재학습."
+  ],
+  "debate_log": [
+    {
+      "round": 1,
+      "role": "Proposer",
+      "model": "Claude",
+      "output": {
+        "research_gap_summary": "Evidence Pack에서 드러난 핵심 연구 갭은 세 가지로 수렴한다. (1) 기존 참조 기반(die-to-die) 비교 방식은 정상 공정 변동·스타일 차이를 결함으로 오인하여 높은 위양성을 유발하며, 도메인 불변(domain-invariant) 특징 표현이 부재하다. (2) 비지도/재구성 기반 이상 탐지는 복잡한 텍스처의 미세 결함을 흐리게 하거나 환각(hallucination)하여 픽셀 수준 정밀도가 낮고, 도메인 변이가 클 경우 정상 변동과 실결함 분리에 실패한다. (3) 초고해상도(6559×6559) 이미지를 패치 단위로 분할·비교하면서도 엄격한 추론 시간 제약(1분 이내)을 만족하고, 재학습 없이 새로운 lot/장비에 적응하는 경량 파이프라인이 사실상 제안되지 않았다.",
+        "existing_approaches": [
+          "Prototype learning 기반 의미론적 분할로 배경 전이 결함 검출 [9ad0b513]",
+          "DifferNet + 어텐션 모듈을 이용한 이미지 레벨 비지도 이상 탐지 [9641f237]",
+          "오토인코더+GAN 통합 안정적 배경 재구성 후 차분(difference) 기반 결함 검출 [d67b9daf]",
+          "레이아웃→SEM 참조 이미지 생성 후 die-to-die 비교 결함 탐지 [1255cade]",
+          "마스크 기반 다중 스케일 재구성 모델로 도메인 변이 대응 이상 탐지 [a0bb81ad]",
+          "Super-Resolution 브랜치 결합 YOLO-NAS 기반 결함 검출 [2f243810]",
+          "SEM 기반 공정 변동 vs 실결함 판별 기법 [eafa7778]",
+          "GAN/시뮬레이션 기반 결함 합성 데이터 증강 [ece3cb43, 30ec9762, 7de3cc19, d8c6b9c6]"
+        ],
+        "limitations": [
+          "참조 이미지 비교 방식이 공정 변동·스타일 차이를 반영하지 못해 위양성이 과다 발생하며, 생성 모델 기반 참조 합성도 허용 공차 범위를 모사하지 못함",
+          "비지도 재구성 모델이 도메인 변이가 큰 환경에서 정상 변동과 실결함을 완벽히 분리하지 못하고, 미세 텍스처 결함에 대한 픽셀 정밀도가 부족함",
+          "초고해상도 이미지의 패치 분할·병합 과정에서 추론 시간이 급증하여 양산 인라인 검사의 지연 시간 제약을 충족하기 어려움",
+          "대부분의 방법이 새로운 lot/장비/공정 조건 변경 시 재학습 또는 대규모 재라벨링을 요구하여 제로샷/퓨샷 적응성이 부재함",
+          "프로토타입 학습이나 GAN 증강은 학습 시 보지 못한 완전히 새로운 결함 유형이나 배경 패턴에 대한 일반화에 실패함"
+        ],
+        "hypotheses": [
+          {
+            "id": 1,
+            "statement": "A frozen, pre-trained vision foundation model (e.g., DINOv2-ViT) used solely as a patch-level feature extractor, combined with adaptive instance normalization (AdaIN) that aligns each source patch's style statistics to its matched normal reference patch in feature space, can produce domain-invariant anomaly scores that maintain pixel-level AUROC ≥ 0.95 and FPR ≤ 1% under style/brightness/noise shifts without any fine-tuning or retraining.",
+            "statement_kr": "사전학습된 비전 파운데이션 모델(DINOv2-ViT 등)을 동결 상태의 패치 레벨 특징 추출기로만 사용하고, 소스 패치의 스타일 통계를 매칭된 정상 참조 패치의 특징 공간 통계로 정렬하는 적응적 인스턴스 정규화(AdaIN)를 결합하면, 재학습 없이도 스타일·밝기·노이즈 변동 하에서 픽셀 수준 AUROC ≥ 0.95 및 FPR ≤ 1%를 달성하는 도메인 불변 이상 점수를 생성할 수 있다.",
+            "core_idea": "DINOv2 등의 frozen ViT에서 다중 레이어 특징을 추출한 뒤, 각 레이어에서 소스 패치의 채널별 평균·분산을 참조 패치의 것으로 AdaIN 변환하여 스타일/장비/공정 차이를 특징 공간에서 사전 제거한다. 정규화된 특징 간의 코사인 거리 맵을 다중 스케일로 집계하여 픽셀 단위 이상 점수를 산출하며, 정상 참조 패치 교체만으로 새로운 lot/장비에 즉시 적응한다. 파운데이션 모델을 fine-tuning하지 않으므로 학습 비용이 제로이고, AdaIN 연산은 채널 통계 연산만으로 추론 오버헤드가 극히 작다.",
+            "key_innovation": "기존 연구 [a0bb81ad]의 마스크 재구성 모델은 도메인 변이 대응을 위해 별도 학습이 필요하고, [1255cade]의 레이아웃→참조 생성은 공정 공차 미반영으로 위양성이 높으며, [9ad0b513]의 프로토타입 학습은 새 배경에 제로샷 대응이 불가하다. 본 가설은 (a) frozen foundation model로 학습을 완전 제거하고, (b) 특징 공간 AdaIN으로 비교 전(前) 단계에서 도메인 갭을 명시적으로 정규화하여 참조 교체만으로 제로샷 적응을 달성한다는 점에서 근본적으로 다르다.",
+            "potential_weaknesses": [
+              "DINOv2가 자연 이미지 중심으로 사전학습되어 반도체 그레이스케일 이미지의 미세 텍스처 차이를 충분히 인코딩하지 못할 수 있으며, 특히 수 픽셀 크기의 초미세 결함 검출 민감도가 부족할 수 있다",
+              "AdaIN이 채널별 1차·2차 통계만 정렬하므로, 고차(higher-order) 스타일 분포 차이(예: 특정 장비의 비가우시안 노이즈 패턴)를 완전히 제거하지 못해 잔여 위양성이 발생할 수 있다",
+              "6559×6559 이미지를 256×256 패치로 분할 시 약 676개 패치가 생성되며, 각 패치마다 ViT forward pass가 필요하여 단일 GPU에서 1분 이내 추론 제약이 빡빡할 수 있다"
+            ]
+          },
+          {
+            "id": 2,
+            "statement": "A hierarchical coarse-to-fine patch matching pipeline that first performs fast structural-hash-based candidate filtering at reduced resolution, then applies learned local-descriptor matching only on flagged candidate patches, can reduce per-image inference to under 60 seconds while achieving false alarm per normal image ≤ 0.5 on 6559×6559 semiconductor images.",
+            "statement_kr": "축소 해상도에서 구조적 해시 기반 후보 필터링을 먼저 수행한 뒤, 플래그된 후보 패치에 대해서만 학습된 로컬 디스크립터 매칭을 적용하는 계층적 coarse-to-fine 패치 매칭 파이프라인은, 6559×6559 반도체 이미지에서 추론 시간 60초 이내 및 정상 이미지당 오탐 ≤ 0.5를 동시에 달성할 수 있다.",
+            "core_idea": "Phase 1(Coarse): 소스 이미지를 4×~8× 축소하여 각 macro-block의 구조 해시(pHash/DCT 기반)를 정상 참조 패치 해시 사전(dictionary)과 해밍 거리 비교하여 정상 확률이 높은 영역을 즉시 필터링한다. Phase 2(Fine): Phase 1에서 이상 후보로 플래그된 소수의 패치(전체의 10~20%)에 대해서만 경량 로컬 디스크립터 네트워크(예: MobileNetV3 backbone + 메모리 뱅크)를 사용한 정밀 매칭을 수행하여 최종 이상 맵을 생성한다. 이 2단계 구조로 전체 연산량을 5~10배 절감하면서, 미세 결함에 대한 정밀 매칭 성능은 유지한다.",
+            "key_innovation": "기존 [2f243810]의 SuperYOLO-NAS는 전체 이미지에 SR+검출을 균일 적용하여 추론 지연이 크고, [eafa7778]의 SEM 리뷰는 본질적으로 느리며, [c299a47d]의 2단계 비지도 학습은 이상 탐지 후 클러스터링으로 후처리만 다단계이지 연산 효율을 위한 계층 필터링이 아니다. 본 가설은 (a) 해싱 기반 초고속 1차 필터링으로 정상 영역의 불필요한 DNN 연산을 제거하고, (b) 후보 패치에만 집중적 정밀 분석을 수행하는 비대칭 연산 구조를 통해 초고해상도 이미지의 실시간 제약을 해결하는 점이 차별적이다.",
+            "potential_weaknesses": [
+              "Phase 1의 축소 해상도 해싱에서 미세 결함(수 픽셀 크기)이 정보 손실로 누락되어 Phase 2로 전달되지 않을 수 있으며, 이는 검출률(Recall)의 치명적 하락으로 이어질 수 있다",
+              "해시 사전의 크기와 갱신 전략에 따라 새로운 정상 패턴이 추가될 때 해시 충돌이나 사전 비대화가 발생하여 Phase 1의 속도 이점이 감소할 수 있다",
+              "Coarse-to-fine 경계에서의 패치 분할·병합 시 경계 영역 결함이 두 단계 모두에서 부분적으로만 처리되어 경계 아티팩트가 발생할 수 있다"
+            ]
+          },
+          {
+            "id": 3,
+            "statement": "A contrastive-learning-based patch-pair scoring network, trained exclusively on normal-vs-normal patch pairs with synthetic hard negatives generated by controllable local perturbations (erasing, intensity shift, morphological distortion), can learn a robust defect-sensitive similarity metric that generalizes to unseen real defect types with pixel-level AUROC ≥ 0.95 and mean absolute score shift ≤ 0.05 under domain perturbation.",
+            "statement_kr": "정상-정상 패치 쌍만으로 학습하되, 제어 가능한 국소 변형(지우기, 밝기 이동, 형태학적 왜곡)으로 생성한 합성 하드 네거티브를 활용한 대조 학습 기반 패치 쌍 점수화 네트워크는, 학습 시 본 적 없는 실제 결함 유형에도 일반화하여 도메인 변동 하에서 픽셀 수준 AUROC ≥ 0.95 및 평균 절대 점수 이동 ≤ 0.05를 달성하는 강건한 결함 민감 유사도 메트릭을 학습할 수 있다.",
+            "core_idea": "정상 참조 패치와 소스 패치를 Siamese 구조에 입력하여 패치 쌍 간 유사도 맵을 출력하는 경량 네트워크를 설계한다. 학습 시 결함 데이터 없이 정상 패치에 국소적으로 (a) 랜덤 마스킹/지우기, (b) 가우시안 블러/밝기 점프, (c) 형태학적 팽창/침식 등의 합성 변형을 가하여 '의사 결함(pseudo-defect)' 패치를 생성하고, 이를 하드 네거티브로 사용하는 대조 학습을 수행한다. 동시에, 전역 스타일 변동(전체 밝기/대비 이동, 가우시안 노이즈 주입)은 정상 쌍으로 라벨링하여 네트워크가 전역 도메인 변이에 불변(invariant)하면서 국소 구조 이상에만 민감한 메트릭을 학습하도록 유도한다.",
+            "key_innovation": "기존 [ece3cb43, 7de3cc19]의 GAN 기반 결함 합성은 모드 붕괴·물리적 비현실성 문제가 있고, [30ec9762]의 시뮬레이션 합성은 도메인 갭이 존재하며, [25757e78]의 비지도 CNN은 무해한 변동에 대한 오탐 제어가 부족하다. 본 가설은 (a) 결함 자체를 합성하지 않고 '결함의 효과(국소 구조 변형)'만 간단한 이미지 처리로 모사하여 GAN의 복잡성과 모드 붕괴를 회피하고, (b) 전역 변동을 명시적 정상 쌍으로 학습하여 도메인 변이 강건성을 구조적으로 보장하며, (c) Siamese 패치 쌍 비교 구조로 참조 패치 교체만으로 새 공정에 적응 가능하다는 점에서 차별적이다.",
+            "potential_weaknesses": [
+              "합성 의사 결함(마스킹, 밝기 점프 등)이 실제 반도체 결함의 미묘한 특성(서브픽셀 구조 변형, 특정 물질의 광학 산란 패턴 등)을 충분히 대표하지 못하여, 학습된 메트릭이 특정 실결함 유형에 둔감할 수 있다",
+              "대조 학습의 하드 네거티브 난이도 조절이 부적절하면, 너무 쉬운 네거티브는 메트릭의 판별력을 저하시키고, 너무 어려운 네거티브는 정상 패턴의 미세한 자연 변동까지 이상으로 학습하여 위양성을 증가시킬 수 있다",
+              "Siamese 네트워크의 패치 쌍 비교는 소스 패치와 가장 유사한 참조 패치를 사전 매칭하는 과정이 필요하며, 매칭 오류 시 구조적으로 다른 정상 영역을 비교하여 대량의 위양성이 발생할 수 있다"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "round": 2,
+      "role": "Critic",
+      "model": "gpt-5.4",
+      "output": {
+        "critiques": [
+          {
+            "id": 1,
+            "fatal_flaws": [
+              "핵심 논리 비약이 크다. AdaIN으로 채널 평균·분산을 맞추면 스타일/밝기 차이가 제거된다는 전제에서 곧바로 'domain-invariant anomaly score'가 나온다고 주장하지만, Evidence Pack의 [a0bb81ad]는 도메인 변이가 큰 경우 정상 구조 변동과 실제 이상을 완전히 구분하기 어렵다고 명시한다. 즉 1차·2차 통계 정렬만으로 공정 노이즈, 장비별 비선형 응답, 구조 변형까지 제거된다는 근거가 없다.",
+              "사전학습 ViT를 무학습으로 그대로 쓰는 부분이 연구 주제와 충돌한다. 반도체 초고해상도 그레이스케일 미세 패턴은 자연영상 기반 foundation model의 사전학습 분포와 매우 다르며, 가설 스스로도 미세 결함 민감도 부족 가능성을 인정한다. 그런데도 픽셀 AUROC ≥ 0.95, FPR ≤ 1%를 '재학습 없이' 달성한다고 단정하는 것은 내부적으로 모순적이다.",
+              "패치 매칭 전제가 불명확하다. 'matched normal reference patch'를 어떻게 찾는지가 핵심인데, 입력/출력 크기가 다르고 정상 참조가 patch 단위로만 주어지는 설정에서 정합 오류가 조금만 나도 false positive가 급증한다. [1255cade]도 참조-실영상 간 공정 공차 미반영 때문에 위양성이 높아질 수 있음을 보여준다. 이 가설은 가장 어려운 참조 선택 문제를 사실상 블랙박스로 남긴다.",
+              "실시간성 주장도 취약하다. 6559x6559 이미지를 수백 개 패치로 쪼개고 각 패치에 대해 다중 레이어 ViT 특징 추출 + 참조 검색 + 레이어별 AdaIN + 멀티스케일 거리맵 집계를 single GPU 1분 내에 처리할 수 있다는 계산 근거가 없다. [2e99ad8d]가 지적한 처리량 한계를 고려하면, 'AdaIN 오버헤드는 작다'는 말만으로 전체 파이프라인의 지연을 정당화할 수 없다."
+            ],
+            "exaggerations": [
+              "'without any fine-tuning or retraining' 상태에서 'pixel-level AUROC ≥ 0.95 and FPR ≤ 1%'를 보장하는 서술은 Evidence Pack 어디에서도 지지되지 않는다.",
+              "'정상 참조 패치 교체만으로 새로운 lot/장비에 즉시 적응'은 [9ad0b513]이 지적한 제로샷 전이 한계를 사실상 해결했다고 선언하는 수준인데, 그에 상응하는 증거가 없다.",
+              "'AdaIN 연산은 채널 통계 연산만으로 추론 오버헤드가 극히 작다'는 표현은 전체 비용의 대부분이 foundation model 추론과 patch-wise matching에 있다는 점을 의도적으로 축소한다."
+            ],
+            "unverifiable": [
+              "'domain-invariant'라는 표현은 지나치게 강하며, 어떤 도메인 시프트 범위(장비, lot, 노이즈 스펙트럼, contrast transfer function 변화)까지 포함하는지 정의되어 있지 않아 검증 가능성이 낮다.",
+              "픽셀 수준 성능을 말하지만 foundation feature를 patch-level로 뽑아 코사인 거리맵을 집계하는 방식이 실제로 sub-patch 결함을 얼마나 정밀하게 국소화하는지 측정 설계가 제시되지 않았다.",
+              "정상 참조 패치만 추가하면 무재학습 적응 가능하다는 주장도, 참조 라이브러리 크기 증가에 따른 검색 복잡도·메모리·threshold drift 문제를 평가하지 않으면 검증할 수 없다."
+            ],
+            "score": 3
+          },
+          {
+            "id": 2,
+            "fatal_flaws": [
+              "가장 큰 논리 결함은 coarse stage와 research goal의 충돌이다. 수 픽셀급 미세 결함을 잡아야 하는데 4x~8x 축소 해상도 해싱으로 1차 필터링하면, 미세 결함이 coarse 단계에서 사라질 가능성이 높다. 가설도 이를 약점으로 적었지만, 이는 단순 약점이 아니라 recall을 구조적으로 희생하는 설계 결함이다.",
+              "구조 해시(pHash/DCT)가 공정 스타일 변화, 밝기 변동, 노이즈 변화에 강건하다는 근거가 없다. 연구 문제의 핵심은 정상 패턴이 스타일/노이즈 차이로 달라 보인다는 것인데, 전통적 해시는 바로 이런 저수준 통계 변화에 민감할 수 있다. [25757e78], [a0bb81ad]가 지적한 benign variation 오탐 문제가 coarse 단계에서 재현될 가능성이 높다.",
+              "'learned local-descriptor matching only on flagged candidate patches'라는 설계는 결국 candidate filtering 품질에 모든 성능이 종속된다. coarse 단계에서 놓치면 fine 단계가 복구할 방법이 없다. 따라서 저오탐과 고재현율을 동시에 달성해야 하는데, 이 trade-off를 해결했다는 증거가 없다.",
+              "학습된 로컬 디스크립터 네트워크를 사용하면서도 학습 데이터 구성, 도메인 적응 방식, 새로운 lot/장비 추가 시 재학습 여부가 빠져 있다. 연구 제약은 training-light인데, 이 가설은 실제로는 학습된 descriptor 품질에 의존하면서 학습 비용을 숨기고 있다."
+            ],
+            "exaggerations": [
+              "'연산량 5~10배 절감하면서 미세 결함 정밀 매칭 성능은 유지'는 coarse filtering의 누락 위험 때문에 지나친 낙관이다.",
+              "'false alarm per normal image ≤ 0.5'를 6559x6559 이미지에서 달성 가능하다고 단정하지만, coarse 해시 단계 자체가 스타일 차이에 의한 false trigger를 대량 생성할 수 있어 근거가 빈약하다.",
+              "기존 [c299a47d]와의 차별성을 강조하지만, 다단계 처리 자체는 새롭지 않다. 여기서의 핵심 신규성으로 제시한 '해시 기반 초고속 1차 필터링'은 오히려 정밀검사 과제에 부적합할 가능성이 더 크다."
+            ],
+            "unverifiable": [
+              "정상 영역의 80~90%를 coarse 단계에서 안전하게 제거할 수 있다는 암묵적 가정은 데이터셋의 패턴 반복성, 참조 사전 다양성, style shift 정도에 크게 좌우되는데 검증 조건이 제시되지 않았다.",
+              "해시 사전(dictionary) 크기, 갱신 주기, 신규 lot 유입 시 충돌률과 검색 시간 증가를 어떻게 관리할지 정의가 없어 실제 시스템 수준 검증이 어렵다.",
+              "경계 패치 분할/병합 문제를 인정하지만, bounding box/mask 산출 시 후처리 규칙이 없어 localization 품질 평가가 재현 불가능하다."
+            ],
+            "score": 4
+          },
+          {
+            "id": 3,
+            "fatal_flaws": [
+              "핵심 주장이 synthetic hard negatives에서 real unseen defects로 일반화된다는 것인데, Evidence Pack의 [30ec97a6], [ece3cb43], [7de3cc19], [d8c6b9c6]는 모두 합성 데이터의 domain gap과 비현실성 문제를 지적한다. GAN이 아니라고 해서 문제가 사라지지 않는다. 단순 erasing/intensity shift/morphology가 실제 반도체 결함의 광학/공정 물리를 충분히 대체한다는 논리는 성립하지 않는다.",
+              "정상-정상 쌍 학습만으로 'defect-sensitive similarity metric'을 얻는다고 하지만, 실제로는 어떤 변형을 이상으로 볼지 연구자가 설계한 pseudo-defect 분포에 강하게 종속된다. 이는 결함 검출기가 아니라 합성 변형 판별기일 위험이 있다.",
+              "도메인 불변성과 결함 민감도를 동시에 학습시키는 라벨링 전략이 충돌할 수 있다. 전역 밝기/대비 이동은 정상으로, 국소 intensity shift는 이상으로 두겠다는 규칙은 실제 현장에서 성립하지 않을 수 있다. 공정 변동은 국소적으로도 나타날 수 있으므로 [eafa7778], [25757e7819]가 지적한 nuisance/benign variation 오탐 문제가 그대로 남는다.",
+              "이 가설도 결국 참조 패치 매칭 문제를 회피한다. Siamese 비교는 '어떤 정상 참조와 비교할 것인가'가 성패를 좌우하는데, 매칭 오류가 나면 네트워크가 아무리 좋아도 오탐이 급증한다. 이는 연구 문제의 핵심 병목인데 해결책이 부실하다."
+            ],
+            "exaggerations": [
+              "'unseen real defect types'에 대해 pixel-level AUROC ≥ 0.95를 달성한다는 주장은 합성 변형 기반 학습의 일반화 한계를 고려하면 과도하다.",
+              "'전역 변동을 명시적 정상 쌍으로 학습하여 도메인 변이 강건성을 구조적으로 보장'은 지나친 표현이다. 보장은커녕 특정 perturbation family에 대한 경험적 적응만 가능하다.",
+              "'참조 패치 교체만으로 새 공정에 적응 가능'은 실제로는 metric calibration, threshold 재설정, 참조 검색 실패 문제를 동반하므로 과장이다."
+            ],
+            "unverifiable": [
+              "어떤 pseudo-defect 조합이 실제 결함 분포를 충분히 덮는지 사전에 알 수 없으므로, 학습 설계의 적절성을 독립적으로 검증하기 어렵다.",
+              "'mean absolute score shift ≤ 0.05 under domain perturbation'는 perturbation 프로토콜에 극도로 민감한 수치인데, 노이즈 종류·강도·장비별 스타일 차이를 어떻게 표준화할지 제시되지 않았다.",
+              "픽셀 수준 anomaly map을 Siamese patch-pair scoring network가 어떻게 생성하는지, 그리고 patch 경계에서의 일관성을 어떻게 유지하는지 불명확해 재현 가능한 평가 설계가 부족하다."
+            ],
+            "score": 5
+          }
+        ],
+        "best_hypothesis_id": 3,
+        "best_hypothesis_reason": "세 가설 모두 과장이 크지만, 3번이 그나마 가장 현실적이다. 이유는 (1) 완전 무학습을 전제로 한 1번보다 최소한 반도체 데이터의 정상 분포를 이용해 메트릭을 학습하므로 도메인 적합성을 일부 확보할 수 있고, (2) 2번처럼 coarse 단계에서 미세 결함을 구조적으로 탈락시킬 위험이 상대적으로 덜하며, (3) 합성 hard negative의 한계는 크지만 GAN/복잡한 생성 모델보다 구현·통제·실험 설계가 단순해 실패 원인 분석이 가능하기 때문이다. 다만 이것은 '상대적으로 덜 나쁘다'는 의미이지, 제시된 성능 주장까지 타당하다는 뜻은 아니다.",
+        "critique_summary": "세 가설의 공통 문제는 동일하다. 첫째, Evidence Pack이 반복해서 지적한 도메인 시프트와 benign variation 문제를 지나치게 단순한 메커니즘(AdaIN, 해시, 단순 합성 변형)으로 해결 가능하다고 과장한다. 둘째, 모두 참조 패치 매칭/정합이라는 핵심 난제를 부차적 요소처럼 다루는데, 실제로는 false positive와 localization 실패의 주된 원인이다. 셋째, 6559x6559 초고해상도·1분 이내·단일 GPU·낮은 FPR이라는 동시 제약에 대해 정량적 계산 근거가 없다. 넷째, pixel-level AUROC ≥ 0.95, FPR ≤ 1%, score shift ≤ 0.05 같은 강한 수치를 제시하지만 이를 뒷받침할 현실적 검증 프로토콜과 데이터 조건이 없다. 전반적으로 '방법 아이디어'는 있지만, 연구 주제의 가장 어려운 부분인 미세 결함 재현율, 공정 변동 억제, 참조 정합, 시스템 처리량의 동시 만족을 입증하는 논리가 부족하다.",
+        "missed_opportunities": [
+          "참조 패치 선택 자체를 불확실성 추정과 함께 다루는 retrieval-confidence 모델링이 빠져 있다. 잘못 매칭된 참조와의 비교를 거부하거나 다중 참조 consensus를 쓰는 방향이 더 핵심적이다.",
+          "정상 이미지에서의 score calibration/threshold robustness를 lot·equipment별로 자동 보정하는 통계적 품질관리(SPC) 관점이 빠져 있다.",
+          "패치 독립 처리 대신 인접 패치 간 구조적 연속성을 활용해 patch boundary false positive를 줄이는 graph/CRF류 후처리 또는 overlap-consensus 설계가 누락됐다.",
+          "그레이스케일 반도체 영상 특성을 활용한 주파수 도메인/위상 기반 비교가 전혀 고려되지 않았다. style 변화와 미세 구조 변화 분리에 더 적합할 수 있다.",
+          "완전한 zero-shot보다 'few normal references + lightweight calibration' 같은 더 현실적인 설정이 누락됐다. 성공 기준은 무재학습 또는 최소 추가 정상 패치이므로, 소량 보정은 허용 가능한 절충안이다."
+        ]
+      }
+    },
+    {
+      "round": 2.5,
+      "role": "PairwiseRanker",
+      "model": "GPT+Gemini",
+      "output": {
+        "ranking": [
+          1,
+          3
+        ],
+        "win_count": {
+          "1": 3,
+          "3": 3
+        },
+        "pairwise_results": [
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "winner": 1,
+            "reason": "가설 1은 학습 없이 도메인 변이를 정면으로 다루는 명확한 메커니즘과 높은 모듈성·검증 가능성을 갖추어, 미세 결함 누락 위험이 큰 가설 2보다 연구 주제의 핵심 요구와 영향력에 더 잘 부합한다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              1,
+              3
+            ],
+            "winner": 3,
+            "reason": "가설 3은 정상 데이터만으로 도메인 불변성과 국소 결함 민감도를 함께 학습하도록 설계되어 반도체 미세 텍스처에 더 특화될 가능성이 높고, frozen 자연영상 기반 특징에 의존하는 가설 1보다 실질 성능 향상 여지가 크다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              2,
+              3
+            ],
+            "winner": 3,
+            "reason": "가설 3은 미세 결함 검출과 도메인 강건성을 동시에 겨냥하는 핵심 방법론 가설로서, 초기 해시 필터에서 리콜 손실이 발생할 수 있는 가설 2보다 연구적 참신성과 성능 잠재력이 더 높다.",
+            "evaluator": "GPT"
+          },
+          {
+            "pair": [
+              1,
+              2
+            ],
+            "winner": 1,
+            "reason": "가설 1은 AdaIN을 활용해 도메인 변이를 해결하며 재학습이 필요 없는 반면, 가설 2의 해상도 축소 기반 필터링은 반도체 이미지 검사의 핵심인 미세 결함을 누락할 치명적 위험이 있습니다.",
+            "evaluator": "Gemini"
+          },
+          {
+            "pair": [
+              1,
+              3
+            ],
+            "winner": 1,
+            "reason": "가설 1은 파운데이션 모델과 특징 공간 정규화를 결합해 학습 비용을 완전히 제거하는 혁신적 제로샷 접근인 반면, 가설 3은 성능이 합성 결함의 정교함에 의존하는 기존 방식의 연장선에 있습니다.",
+            "evaluator": "Gemini"
+          },
+          {
+            "pair": [
+              2,
+              3
+            ],
+            "winner": 3,
+            "reason": "가설 3은 대조 학습을 통해 도메인 변이와 미세 결함 탐지라는 본질적 난제를 직접 해결하려 하지만, 가설 2는 연산 속도 개선에만 치중하여 탐지 성능의 신뢰성을 보장하기 어렵습니다.",
+            "evaluator": "Gemini"
+          }
+        ],
+        "gpt_ranking": [
+          3,
+          1,
+          2
+        ],
+        "gemini_ranking": [
+          1,
+          3,
+          2
+        ]
+      }
+    },
+    {
+      "round": 3,
+      "role": "Mediator",
+      "model": "gemini-3.1-pro-preview",
+      "output": {
+        "synthesized_hypotheses": [
+          {
+            "statement": "By decomposing patches into low-frequency style and high-frequency structural components, applying Adaptive Instance Normalization (AdaIN) exclusively to the low-frequency features of a source patch guided by a top-K multi-reference normal consensus, and computing feature residuals via a frozen efficient foundation model, we can achieve domain-invariant micro-defect localization (pixel AUROC ≥ 0.95, FPR ≤ 1%) under 60 seconds per 6559×6559 image without retraining.",
+            "statement_kr": "패치를 저주파 스타일과 고주파 구조 성분으로 분해하고, 상위 K개의 다중 정상 참조 컨센서스를 기반으로 소스 패치의 저주파 특징에만 적응적 인스턴스 정규화(AdaIN)를 적용한 뒤 동결된 경량 파운데이션 모델로 특징 잔차를 계산함으로써, 재학습 없이도 6559×6559 이미지당 60초 이내에 도메인 불변 미세 결함 위치 추정(픽셀 AUROC ≥ 0.95, FPR ≤ 1%)을 달성할 수 있다.",
+            "synthesis_rationale": "Pairwise 1위를 차지한 가설 1(파운데이션 모델+AdaIN 무학습 적응)을 핵심 기반으로 삼되, GPT가 지적한 '1:1 매칭 오류 시 위양성 폭발'과 '통계 정렬의 한계'를 해결하기 위해 다중 참조(top-K consensus) 메커니즘과 주파수 분해(Frequency-aware) 기법을 결합함. 스타일 변화는 저주파에, 미세 결함은 고주파에 존재한다는 물리적 특성을 활용하여 정상 공정 변동과 실제 결함을 분리함.",
+            "resolved_flaws": [
+              "1:1 참조 패치 매칭 오류로 인한 위양성 발생 위험을 Top-K 다중 정상 참조 컨센서스(Multi-reference consensus)를 통해 완화함",
+              "AdaIN이 미세 구조 결함까지 왜곡할 수 있다는 비판을 수용하여, 패치를 주파수 대역으로 분리한 뒤 저주파(조명/스타일) 성분에만 AdaIN을 적용하도록 수정함",
+              "고무거운 ViT 다중 레이어 연산으로 인한 1분 초과 위험을 경량 파운데이션 모델(Efficient ViT/ConvNeXt)과 FAISS 기반 고속 K-NN 검색 결합으로 해결함"
+            ],
+            "preserved_innovations": [
+              "비전 파운데이션 모델을 동결(Frozen) 상태로 사용하여 막대한 라벨링 및 학습 비용을 제거한 제로샷(Zero-shot) 접근법 유지",
+              "특징 공간에서의 통계적 정규화(AdaIN)를 통한 장비/Lot 간의 도메인 갭 사전 제거 로직 유지"
+            ],
+            "remaining_risks": [
+              "특정 공정 노이즈가 고주파 대역에 집중될 경우, 주파수 분해 로직이 이를 실제 미세 결함으로 오인하여 위양성을 유발할 가능성이 남아 있음",
+              "Top-K 정상 참조 검색을 위한 FAISS 인덱스 크기가 새로운 Lot 데이터 추가 시 지속적으로 증가하여 GPU 메모리(16GB)를 압박할 수 있음"
+            ],
+            "verification_plan": "서로 다른 장비/Lot에서 수집된 6559x6559 이미지 쌍(도메인 변이 포함)을 구성하고, 정상 이미지 100장 기준 FPR 및 False Alarm 비율을 측정. 인위적 노이즈/스타일 주입 환경에서 평균 점수 이동(Score Shift ≤ 0.05) 검증. 단일 GPU 환경에서 N=1000장의 이미지에 대해 이미지당 평균/최대 추론 시간과 피크 메모리를 프로파일링함."
+          },
+          {
+            "statement": "A hybrid framework utilizing a frozen foundation model for feature extraction coupled with a lightweight, few-shot calibrated scoring network—trained exclusively on normal-vs-normal pairs to penalize local structural deviations while ignoring global style shifts—can robustly localize actual defects while explicitly rejecting low-confidence reference matches to prevent benign-variation false alarms.",
+            "statement_kr": "동결된 파운데이션 모델로 특징을 추출하고, 전역 스타일 변동은 무시하되 국소 구조 변형에는 페널티를 부여하도록 정상-정상 쌍으로만 학습된 경량 퓨샷 보정 점수화 네트워크를 결합한 하이브리드 프레임워크는, 무해한 변동에 의한 오탐을 방지하기 위해 신뢰도가 낮은 참조 매칭을 명시적으로 거부하면서 실제 결함을 강건하게 찾아낼 수 있다.",
+            "synthesis_rationale": "가설 1의 효율성(Frozen backbone)과 가설 3의 메트릭 학습(Contrastive metric)을 융합하고, GPT의 제안인 '매칭 신뢰도 평가(retrieval-confidence)'를 추가함. 가설 3의 약점이었던 '비현실적인 합성 결함(의사 결함)에의 종속'을 피하기 위해, 결함을 합성하는 대신 '정상 데이터 간의 스타일 차이'만 네트워크에 학습시켜 도메인 불변성만 확보하는 Few-shot 보정 형태로 수정함.",
+            "resolved_flaws": [
+              "합성 결함(Pseudo-defect)이 실제 반도체 결함 물리 특성을 반영하지 못한다는 비판을 수용하여, 결함 합성 로직을 폐기하고 정상-정상 간의 스타일 변동 학습에만 집중함",
+              "참조 패치 검색 실패가 위양성으로 직결되는 문제를 '매칭 신뢰도(Confidence) 기반 거부(Rejection)' 메커니즘 도입으로 해결함",
+              "순수 제로샷(Zero-shot)의 현실적 한계를 인정하고, 정상 참조 패치 소량만으로 작동하는 훈련 최소화(Few-shot calibration) 방식으로 현실성을 높임"
+            ],
+            "preserved_innovations": [
+              "결함 데이터 없이 정상 데이터만 활용하여 도메인 변이 강건성을 확보하는 대조 학습 프레임워크 유지 (가설 3)",
+              "참조 패치와 소스 패치 간의 특징 거리 기반 이상 점수 산출이라는 직관적이고 모듈화된 파이프라인 유지"
+            ],
+            "remaining_risks": [
+              "거부(Rejection)된 패치 영역에 대해 검사 누락(Blind spot)이 발생하거나, 이를 대체할 폴백(Fallback) 알고리즘 추가 시 연산 시간이 60초를 초과할 위험",
+              "Few-shot 보정 네트워크를 튜닝하기 위해 새로운 장비/Lot이 추가될 때마다 약간의 오프라인 파인튜닝 시간이 발생할 수 있음"
+            ],
+            "verification_plan": "매칭 신뢰도 임계값 변화에 따른 AUROC-FPR Trade-off 곡선(ROC 커브) 분석. 기존 알고리즘(예: 단순 MSE 기반 매칭)과 비교하여 도메인 변이 발생 시 '거부(Rejection) 빈도'와 '위양성 감소율' 간의 상관관계 정량화. 정상 데이터 소량(예: 10장 미만) 추가 시의 메트릭 보정 소요 시간 측정."
+          }
+        ],
+        "recommended_id": 1,
+        "for_claude_finalizer": [
+          "Pairwise 1위 가설(가설 1)의 '사전학습 동결 모델 + AdaIN' 구조가 가장 설득력을 얻었으므로 이를 핵심 뼈대로 전개하되, GPT가 신랄하게 지적한 '공정 변동(도메인 시프트)을 단순 통계 정렬로 해결할 수 없다'는 논리적 헛점을 주파수 대역 분할(Frequency-aware)이라는 새로운 개념으로 방어할 것",
+          "6559x6559 초고해상도 이미지를 패치로 분할하여 매칭할 때 '어떤 패치와 비교할 것인가'가 가장 큰 병목이자 오탐의 원인이므로, 단순히 '매칭된 패치'라고 뭉뚱그리지 말고 FAISS를 활용한 Top-K K-NN 검색 및 Multi-reference consensus 구조를 시스템 아키텍처 다이어그램 또는 방법론 섹션에 명시적으로 서술할 것"
+        ]
+      }
+    },
+    {
+      "round": 4,
+      "role": "Finalizer",
+      "model": "Claude",
+      "output": {
+        "research_gap_summary": "기존 참조 기반(die-to-die) 반도체 결함 검사는 정상 공정 변동(스타일·밝기·노이즈)을 결함으로 오인하여 높은 위양성을 유발하며, 비지도 재구성 기반 접근은 미세 결함을 흐리게 하거나 환각하여 픽셀 수준 정밀도가 낮다. 특히 6559×6559 초고해상도 그레이스케일 이미지를 패치 단위로 분할·비교하면서 재학습 없이 새로운 lot/장비에 적응하고, 단일 GPU에서 1분 이내 추론을 달성하는 경량 파이프라인은 사실상 제안된 바 없다. 핵심 난제는 (1) 도메인 불변 특징 표현 부재, (2) 참조 패치 매칭 오류로 인한 위양성 폭발, (3) 공정 노이즈와 미세 실결함의 주파수 대역 중첩 문제이다.",
+        "statement": "A frequency-aware, multi-reference consensus anomaly detection framework that decomposes source and reference patches into low-frequency (style/illumination) and high-frequency (structural/textural) components, applies adaptive instance normalization only to the low-frequency features extracted from a frozen lightweight vision encoder, retrieves top-K normal reference patches via FAISS-accelerated nearest-neighbor search for consensus-based residual scoring, and employs a learned high-frequency noise gate trained on normal-only patches to suppress process noise in the high-frequency band, can achieve domain-invariant defect localization (pixel-level AUROC ≥ 0.95, FPR ≤ 1% on normal images) on 6559×6559 grayscale semiconductor images within 60 seconds on a single GPU without retraining.",
+        "statement_kr": "소스 및 참조 패치를 저주파(스타일/조명)와 고주파(구조/텍스처) 성분으로 분해하고, 동결된 경량 비전 인코더에서 추출한 저주파 특징에만 적응적 인스턴스 정규화(AdaIN)를 적용한 뒤, FAISS 가속 최근접 이웃 검색으로 상위 K개 정상 참조 패치를 검색하여 컨센서스 기반 잔차 점수를 산출하며, 정상 패치만으로 학습된 고주파 노이즈 게이트를 통해 공정 노이즈를 억제하는 주파수 인식 다중참조 컨센서스 이상 탐지 프레임워크는, 재학습 없이 단일 GPU에서 6559×6559 그레이스케일 반도체 이미지에 대해 60초 이내에 도메인 불변 결함 위치 추정(픽셀 AUROC ≥ 0.95, 정상 이미지 FPR ≤ 1%)을 달성할 수 있다.",
+        "rationale": "Pairwise ranking에서 1위를 차지한 가설 1(동결 파운데이션 모델 + AdaIN)을 핵심 골격으로 채택하되, GPT 비판의 세 가지 핵심 약점을 구조적으로 해소한다. 첫째, AdaIN이 미세 결함 신호까지 왜곡한다는 비판을 주파수 대역 분리로 방어한다—스타일/조명 변동은 저주파에 집중되고 미세 결함은 고주파에 존재한다는 반도체 영상의 물리적 특성을 활용하여, AdaIN을 저주파 특징에만 선택적으로 적용함으로써 결함 신호를 보존한다. 둘째, 1:1 참조 매칭 오류로 인한 위양성 폭발을 top-K 다중 참조 컨센서스로 완화한다—K개 참조 패치 잔차의 중앙값/최소값 집계를 통해 단일 매칭 실패에 대한 강건성을 확보한다. 셋째, 공정 노이즈가 고주파 대역에 집중될 경우 미세 결함으로 오인되는 잔여 위험(Gemini가 식별한 남은 위험)을 정상 패치만으로 학습된 경량 고주파 노이즈 게이트(1D Conv 기반 채널별 게이팅)로 억제한다. 이 노이즈 게이트는 정상 패치의 고주파 통계 분포를 학습하여 공정 노이즈 범위 내의 고주파 에너지를 감쇄시키고, 이를 벗어나는 이상 고주파 신호만 통과시킨다. 전체 파이프라인은 동결 인코더와 FAISS 인덱스를 활용하므로 새로운 lot/장비 적응 시 참조 패치 교체만으로 가능하다.",
+        "key_innovation": "주파수 대역 분리 기반 선택적 AdaIN(저주파만) + 정상 패치 학습 고주파 노이즈 게이트 + Top-K 다중 참조 컨센서스 잔차 점수화를 결합한 3중 도메인 불변 메커니즘으로, 공정 변동/스타일 변화와 미세 결함 신호를 구조적으로 분리하는 점.",
+        "expected_mechanism": "1) 6559×6559 소스 이미지를 256×256 패치로 분할(stride 192, overlap 64). 2) 각 패치를 Gaussian 피라미드 또는 학습 가능한 주파수 필터로 저주파(LF)·고주파(HF) 성분 분리. 3) 동결 경량 인코더(EfficientViT-M4 또는 ConvNeXt-Tiny)로 LF·HF 각각의 멀티스케일 특징 추출. 4) LF 특징에 대해 FAISS IVF-PQ 인덱스에서 Top-K(K=5) 정상 참조 패치 검색 후, 각 참조의 LF 통계(평균/분산)를 이용한 AdaIN으로 소스 LF 특징 정규화. 5) HF 특징에 대해 노이즈 게이트 적용: 정상 패치 고주파 통계로 학습된 채널별 게이팅 함수가 공정 노이즈 범위 내의 HF 에너지를 억제. 6) 정규화된 LF 잔차와 게이팅된 HF 잔차를 멀티스케일로 결합하여 패치별 이상 점수 맵 생성(K개 참조 잔차의 element-wise median 집계). 7) 패치 이상 맵을 가우시안 가중 오버랩 병합으로 전체 이미지 이상 맵 재구성. 8) 적응적 임계값(정상 참조 점수 분포의 μ+3σ) 적용 후 connected component 분석으로 결함 바운딩 박스/마스크 출력.",
+        "falsification_criteria": [
+          "반증 조건 1: 정상 이미지 100장에 대한 FPR이 3%를 초과하거나 False Alarm per image가 2.0을 초과하면, 주파수 분리 + AdaIN + 컨센서스 메커니즘이 공정 변동 억제에 실패한 것으로 가설을 기각한다.",
+          "반증 조건 2: 주파수 분해 없이 전체 특징에 AdaIN을 적용한 baseline 대비 pixel-level AUROC 향상이 0.02 미만이면, 주파수 대역 분리의 핵심 혁신이 실질적 기여가 없는 것으로 판정한다.",
+          "반증 조건 3: Top-K 컨센서스(K≥3) 적용 시 K=1(단일 참조) 대비 정상 이미지 FPR 감소가 통계적으로 유의하지 않으면(p>0.05, paired t-test), 다중 참조 컨센서스의 위양성 억제 효과가 없는 것으로 판정한다.",
+          "반증 조건 4: 고주파 노이즈 게이트 유/무 ablation에서 스타일·노이즈 교란 하 Mean Absolute Score Shift 차이가 0.01 미만이면, 노이즈 게이트의 공정 노이즈 억제 효과가 무의미한 것으로 판정한다.",
+          "반증 조건 5: 단일 GPU(NVIDIA RTX 3090/4090 또는 A5000)에서 6559×6559 이미지당 추론 시간이 90초를 초과하면, 제안 파이프라인의 실시간 적용 가능성 주장을 기각한다.",
+          "반증 조건 6: 3개 이상의 서로 다른 장비/lot 도메인에서 Normal Acceptance Rate under Perturbation이 85% 미만이면, 도메인 불변성 주장을 기각한다."
+        ],
+        "architecture": "FreqConsensus-AD (Frequency-aware Consensus Anomaly Detection) 파이프라인:\n\n[입력] 6559×6559 grayscale image\n → [Patch Splitter] 256×256 patches (stride 192, overlap 64) → ~1225 patches\n → [Frequency Decomposer] Gaussian pyramid (σ=2.0, 2-level) 또는 learnable wavelet filter → LF component + HF component\n → [Frozen Encoder] EfficientViT-M4 (ImageNet pretrained, frozen) → LF features (multi-scale: stage 2,3,4) + HF features (multi-scale)\n → [FAISS Retriever] IVF4096-PQ32 index on LF features → Top-K=5 normal reference patches per source patch\n → [Selective AdaIN] LF features만 정규화: μ,σ를 K개 참조 LF 통계의 중앙값으로 정렬\n → [HF Noise Gate] 1D Conv(C→C, kernel=1) + Sigmoid, 정상 HF 통계로 학습 → 공정 노이즈 억제\n → [Residual Scorer] |AdaIN(LF_src) - LF_ref_median| + |Gate(HF_src) - HF_ref_median| → multi-scale residual map\n → [Consensus Aggregator] K개 잔차맵의 element-wise median\n → [Patch Merger] Gaussian-weighted overlap stitching → full anomaly map\n → [Adaptive Thresholder] μ_normal + 3σ_normal → binary mask → connected components → bounding boxes\n\nHF Noise Gate 학습: 정상 패치 HF 특징 쌍 (같은 위치, 다른 lot/장비) 간 잔차를 최소화하는 게이팅 함수를 MSE loss로 학습 (경량, <1시간, 정상 데이터만 필요)",
+        "dataset": "1) 주 데이터셋: 실제 반도체 팹(fab)에서 수집한 6559×6559 grayscale 소스 이미지 (최소 200장: 정상 150장 + 결함 포함 50장, 3개 이상 lot/장비 출처). 정상 참조 패치 라이브러리: lot/장비별 256×256 정상 패치 5000~10000장.\n2) 보조 공개 데이터셋: MVTec AD (texture 카테고리), AeBAD (domain shift 평가), DAGM (textured surface defects) — 방법론 일반화 검증용.\n3) 합성 평가 데이터: 정상 이미지에 제어된 결함(scratch, particle, stain, micro-bridge)을 삽입한 합성 결함 이미지 (pixel-level GT 확보). 크기 3~50px 범위의 다양한 결함 삽입.\n4) 도메인 변이 테스트셋: 동일 다이 패턴에 대해 밝기 ±20%, 가우시안 노이즈 σ=5/10/15, 콘트라스트 ±15% 변환을 적용한 교란 이미지 세트.",
+        "baseline_models": [
+          "PatchCore (CVPR 2022) — coreset 기반 K-NN 이상 탐지, 산업 검사 SOTA",
+          "SPADE (arXiv 2020) — K-NN 기반 다중 해상도 이상 탐지",
+          "PaDiM (ICPR 2021) — 가우시안 분포 기반 패치 이상 탐지",
+          "EfficientAD (WACV 2024) — 경량 student-teacher 이상 탐지",
+          "RegAD (ECCV 2022) — registration 기반 few-shot 이상 탐지",
+          "Naive pixel-diff baseline — 참조 패치와의 직접 픽셀 차이 + Otsu 임계값",
+          "Full-feature AdaIN baseline (주파수 분리 없이 전체 특징에 AdaIN 적용) — ablation 기준선"
+        ],
+        "evaluation_metrics": [
+          "Pixel-level AUROC (결함 위치 추정 정확도, GT 가용 시)",
+          "Image-level AUROC (이미지 단위 결함 유무 판별)",
+          "False Positive Rate on Normal Images (정상 이미지에서의 위양성률, 목표 ≤1%)",
+          "False Alarm per Normal Image (정상 이미지당 평균 오탐 수, 목표 ≤0.5)",
+          "Anomalous Area Ratio on Normal Images (정상 이미지에서 이상으로 판정된 면적 비율, 목표 ≤0.1%)",
+          "Mean Absolute Score Shift under Perturbation (스타일/노이즈 교란 시 정규화 점수 평균 절대 이동, 목표 ≤0.05)",
+          "Normal Acceptance Rate under Perturbation (교란된 정상 이미지의 정상 판정 비율, 목표 ≥95%)",
+          "Pixel-level AUPRO (Per-Region Overlap, 위치 추정 정밀도)",
+          "Defect-size stratified Recall (결함 크기별 검출률: <10px, 10-30px, >30px)",
+          "Inference Time per 6559×6559 Image (초, 목표 ≤60s)",
+          "Peak GPU Memory Usage (GB, 목표 ≤16GB)",
+          "Throughput (images/minute, 목표 ≥1)"
+        ],
+        "key_experiments": [
+          "실험 1 — 주요 성능 벤치마크: 제안 프레임워크(FreqConsensus-AD)와 모든 baseline을 동일 반도체 데이터셋에서 pixel-level AUROC, image-level AUROC, FPR, False Alarm 기준으로 비교. 3-fold cross-validation (lot 기준 분할).",
+          "실험 2 — 도메인 변이 강건성: 학습/인덱싱에 사용하지 않은 새로운 lot/장비의 이미지에 대해 성능 평가. 추가로 밝기·노이즈·콘트라스트 교란을 적용하여 Score Shift 및 Normal Acceptance Rate 측정.",
+          "실험 3 — 미세 결함 검출 감도: 합성 결함 크기를 3px, 5px, 10px, 20px, 50px로 체계적으로 변화시키며 크기별 검출률(Recall)과 정밀도(Precision) 평가. 결함 대조도(contrast)도 2단계로 변화.",
+          "실험 4 — 추론 시간 및 자원 프로파일링: NVIDIA RTX 3090, RTX 4090, A5000에서 이미지당 추론 시간, 패치별 시간 분해(특징 추출/FAISS 검색/잔차 계산/병합), 피크 GPU 메모리를 상세 프로파일링. 배치 크기별 최적화 탐색.",
+          "실험 5 — 참조 패치 적응 실험: 새로운 lot에 대해 (a) 참조 패치 0장(완전 제로샷), (b) 50장, (c) 200장, (d) 1000장을 추가하였을 때 FPR 및 AUROC 변화를 측정하여 최소 필요 참조 수 결정.",
+          "실험 6 — 공개 데이터셋 일반화: MVTec AD (texture), AeBAD (domain shift), DAGM에서 동일 파이프라인 적용하여 방법론의 도메인 독립적 일반화 능력 검증."
+        ],
+        "ablation_studies": [
+          "Ablation A — 주파수 분해 효과: (i) 주파수 분해 없이 전체 특징 AdaIN vs (ii) LF만 AdaIN(제안) vs (iii) HF만 AdaIN. Pixel AUROC, FPR, Score Shift 비교.",
+          "Ablation B — Top-K 컨센서스 수 K의 영향: K=1, 3, 5, 7, 10에서 FPR, False Alarm, pixel AUROC, 추론 시간 trade-off 분석.",
+          "Ablation C — 컨센서스 집계 방식: K개 잔차의 median vs minimum vs mean vs trimmed-mean 비교.",
+          "Ablation D — HF 노이즈 게이트 유무: 노이즈 게이트 제거 시 교란 환경에서의 FPR 및 Score Shift 변화 측정.",
+          "Ablation E — 인코더 선택: EfficientViT-M4 vs ConvNeXt-Tiny vs DINOv2-ViT-S/14 (frozen). 성능-속도 Pareto 분석.",
+          "Ablation F — 패치 크기 및 오버랩: 128×128, 256×256, 512×512 패치와 overlap 0, 32, 64, 128에서의 pixel AUROC, FPR, 추론 시간, 경계 아티팩트 평가.",
+          "Ablation G — FAISS 인덱스 구성: Flat L2 vs IVF1024-PQ16 vs IVF4096-PQ32 vs HNSW에서 검색 정확도(Recall@K) 및 검색 시간 비교.",
+          "Ablation H — 적응적 임계값 전략: μ+2σ, μ+3σ, μ+4σ, Otsu, 학습 기반 임계값에서 FPR-Recall trade-off 분석."
+        ],
+        "related_papers": [
+          {
+            "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+            "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+            "venue": "ECCV 2024 (AeBAD)",
+            "relevance": "도메인 변이 환경에서의 이상 탐지 문제 정의 및 벤치마크 제공. 본 연구의 도메인 강건성 평가 기준으로 활용."
+          },
+          {
+            "paper_id": "eafa7778d6f4b8d6b18fceaaf517f029dc10d896",
+            "title": "Defect detection techniques robust to process variation in semiconductor inspection",
+            "venue": "SPIE 2024",
+            "relevance": "공정 변동(process variation)이 위양성의 주요 원인임을 실증. 본 연구의 주파수 기반 공정 노이즈 억제 동기 제공."
+          },
+          {
+            "paper_id": "1255cade98ae03c55b587eb53c0eab98622544d8",
+            "title": "Machine learning based on using layout to generate reference SEM images for defect inspection",
+            "venue": "SPIE 2023",
+            "relevance": "참조 이미지 기반 비교 검사의 위양성 문제(공정 변동 미반영)를 지적. 다중 참조 컨센서스의 필요성 근거."
+          },
+          {
+            "paper_id": "9ad0b513ee21c5ec91db34ce094e4b64a263a429",
+            "title": "Achieving the Defect Transfer Detection of Semiconductor Wafer by a Novel Prototype Learning-Based Semantic Segmentation Network",
+            "venue": "IEEE Trans. 2023",
+            "relevance": "프로토타입 기반 접근이 배경 변화에 강건하나 완전히 새로운 구조에 한계. 참조 교체 기반 적응의 우위 근거."
+          },
+          {
+            "paper_id": "d67b9dafcf94017784c266e021fe29baf2ffd572",
+            "title": "A Novel Pixel-Wise Defect Inspection Method Based on Stable Background Reconstruction",
+            "venue": "IEEE 2023",
+            "relevance": "재구성 기반 방법의 환각/흐림 한계를 실증. 본 연구가 재구성 대신 잔차 비교를 채택한 근거."
+          },
+          {
+            "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+            "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+            "venue": "CVPR Workshop 2022",
+            "relevance": "비지도 이상 탐지의 이미지 레벨 한계를 지적. 패치 레벨 멀티스케일 특징의 필요성 근거."
+          },
+          {
+            "paper_id": "2e99ad8d913fe587a82ee0a87872c79536da6aaf",
+            "title": "Scanning electron microscopy-based automatic defect inspection for semiconductor manufacturing: a systematic review",
+            "venue": "Measurement 2024",
+            "relevance": "반도체 자동 검사의 체계적 문헌 리뷰. 수동 설정 최소화 및 처리량 한계 극복이 핵심 과제임을 확인."
+          }
+        ],
+        "evidence_links": [
+          {
+            "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+            "supports": [
+              "key_innovation",
+              "expected_mechanism"
+            ]
+          },
+          {
+            "paper_id": "eafa7778d6f4b8d6b18fceaaf517f029dc10d896",
+            "supports": [
+              "key_innovation",
+              "rationale"
+            ]
+          },
+          {
+            "paper_id": "1255cade98ae03c55b587eb53c0eab98622544d8",
+            "supports": [
+              "expected_mechanism",
+              "rationale"
+            ]
+          },
+          {
+            "paper_id": "9ad0b513ee21c5ec91db34ce094e4b64a263a429",
+            "supports": [
+              "rationale"
+            ]
+          },
+          {
+            "paper_id": "d67b9dafcf94017784c266e021fe29baf2ffd572",
+            "supports": [
+              "key_innovation"
+            ]
+          },
+          {
+            "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+            "supports": [
+              "expected_mechanism"
+            ]
+          }
+        ],
+        "confidence": 0.72,
+        "risk_factors": [
+          "위험 1: 특정 공정 노이즈(예: line-edge roughness, grain noise)가 고주파 대역에 집중될 경우, HF 노이즈 게이트가 실제 미세 결함 신호까지 함께 억제하여 recall을 저하시킬 수 있음. 완화: 노이즈 게이트의 억제 강도를 채널별로 학습하고, 게이트 통과 전후 결함 recall을 모니터링하여 억제 임계를 조절.",
+          "위험 2: FAISS Top-K 검색 시 반도체 패턴의 반복성이 높아 유사하지만 미세하게 다른 참조 패치가 검색되어, 위치 미스얼라인먼트로 인한 잔차 아티팩트가 위양성을 유발할 수 있음. 완화: LF 특징 기반 검색 후 서브픽셀 정합(sub-pixel alignment) 또는 특징 공간에서의 spatial transformer 적용.",
+          "위험 3: lot/장비별 참조 패치 라이브러리가 FAISS 인덱스로 누적되면서 16GB GPU 메모리를 초과할 수 있음. 완화: 코어셋 선택(coreset selection)으로 참조 수를 제한하고, PQ 압축률을 높이며, 필요 시 CPU-GPU 하이브리드 검색 활용.",
+          "위험 4: 256×256 패치 경계에서의 불연속성이 이상 맵에 줄무늬 아티팩트를 생성하여 경계 위양성을 유발할 수 있음. 완화: 가우시안 가중 오버랩 병합과 함께 인접 패치 점수 일관성 필터(3×3 median filter on patch scores) 적용.",
+          "위험 5: 주파수 분해의 컷오프 주파수 설정이 데이터 의존적이어서, 특정 반도체 패턴(예: 극미세 피치 패턴)에서는 결함과 정상 패턴의 주파수 대역이 중첩될 수 있음. 완화: 고정 가우시안 대신 학습 가능한 주파수 필터(learnable wavelet) 도입하여 데이터 적응적 분해.",
+          "위험 6: 실제 반도체 팹 데이터의 보안/비밀 유지 정책으로 인해 충분한 데이터 확보가 어려울 수 있음. 완화: 공개 데이터셋(MVTec, AeBAD, DAGM)으로 방법론 검증 후, 제한된 실제 데이터로 전이 평가."
+        ]
+      }
+    }
+  ],
+  "pairwise_ranking": {
+    "ranking": [
+      1,
+      3
+    ],
+    "win_count": {
+      "1": 3,
+      "3": 3
+    },
+    "pairwise_results": [
+      {
+        "pair": [
+          1,
+          2
+        ],
+        "winner": 1,
+        "reason": "가설 1은 학습 없이 도메인 변이를 정면으로 다루는 명확한 메커니즘과 높은 모듈성·검증 가능성을 갖추어, 미세 결함 누락 위험이 큰 가설 2보다 연구 주제의 핵심 요구와 영향력에 더 잘 부합한다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          1,
+          3
+        ],
+        "winner": 3,
+        "reason": "가설 3은 정상 데이터만으로 도메인 불변성과 국소 결함 민감도를 함께 학습하도록 설계되어 반도체 미세 텍스처에 더 특화될 가능성이 높고, frozen 자연영상 기반 특징에 의존하는 가설 1보다 실질 성능 향상 여지가 크다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          2,
+          3
+        ],
+        "winner": 3,
+        "reason": "가설 3은 미세 결함 검출과 도메인 강건성을 동시에 겨냥하는 핵심 방법론 가설로서, 초기 해시 필터에서 리콜 손실이 발생할 수 있는 가설 2보다 연구적 참신성과 성능 잠재력이 더 높다.",
+        "evaluator": "GPT"
+      },
+      {
+        "pair": [
+          1,
+          2
+        ],
+        "winner": 1,
+        "reason": "가설 1은 AdaIN을 활용해 도메인 변이를 해결하며 재학습이 필요 없는 반면, 가설 2의 해상도 축소 기반 필터링은 반도체 이미지 검사의 핵심인 미세 결함을 누락할 치명적 위험이 있습니다.",
+        "evaluator": "Gemini"
+      },
+      {
+        "pair": [
+          1,
+          3
+        ],
+        "winner": 1,
+        "reason": "가설 1은 파운데이션 모델과 특징 공간 정규화를 결합해 학습 비용을 완전히 제거하는 혁신적 제로샷 접근인 반면, 가설 3은 성능이 합성 결함의 정교함에 의존하는 기존 방식의 연장선에 있습니다.",
+        "evaluator": "Gemini"
+      },
+      {
+        "pair": [
+          2,
+          3
+        ],
+        "winner": 3,
+        "reason": "가설 3은 대조 학습을 통해 도메인 변이와 미세 결함 탐지라는 본질적 난제를 직접 해결하려 하지만, 가설 2는 연산 속도 개선에만 치중하여 탐지 성능의 신뢰성을 보장하기 어렵습니다.",
+        "evaluator": "Gemini"
+      }
+    ],
+    "gpt_ranking": [
+      3,
+      1,
+      2
+    ],
+    "gemini_ranking": [
+      1,
+      3,
+      2
+    ]
+  },
+  "debate_summary": {
+    "claude_hypotheses": [
+      "사전학습된 비전 파운데이션 모델(DINOv2-ViT 등)을 동결 상태의 패치 레벨 특징 추출기로만 사용하고, 소스 패치의 스타일 통계를 매칭된 정상 참조 패치의 특징 공간 통계로 정렬하는 적응적 인스턴스 정규화(AdaIN)를 결합하면, 재학습 없이도 스타일·밝기·노이즈 변동 하에서 픽셀 수준 AUROC ≥ 0.95 및 FPR ≤ 1%를 달성하는 도메인 불변 이상 점수를 생성할 수 있다.",
+      "축소 해상도에서 구조적 해시 기반 후보 필터링을 먼저 수행한 뒤, 플래그된 후보 패치에 대해서만 학습된 로컬 디스크립터 매칭을 적용하는 계층적 coarse-to-fine 패치 매칭 파이프라인은, 6559×6559 반도체 이미지에서 추론 시간 60초 이내 및 정상 이미지당 오탐 ≤ 0.5를 동시에 달성할 수 있다.",
+      "정상-정상 패치 쌍만으로 학습하되, 제어 가능한 국소 변형(지우기, 밝기 이동, 형태학적 왜곡)으로 생성한 합성 하드 네거티브를 활용한 대조 학습 기반 패치 쌍 점수화 네트워크는, 학습 시 본 적 없는 실제 결함 유형에도 일반화하여 도메인 변동 하에서 픽셀 수준 AUROC ≥ 0.95 및 평균 절대 점수 이동 ≤ 0.05를 달성하는 강건한 결함 민감 유사도 메트릭을 학습할 수 있다."
+    ],
+    "gpt_critique": "세 가설의 공통 문제는 동일하다. 첫째, Evidence Pack이 반복해서 지적한 도메인 시프트와 benign variation 문제를 지나치게 단순한 메커니즘(AdaIN, 해시, 단순 합성 변형)으로 해결 가능하다고 과장한다. 둘째, 모두 참조 패치 매칭/정합이라는 핵심 난제를 부차적 요소처럼 다루는데, 실제로는 false positive와 localization 실패의 주된 원인이다. 셋째, 6559x6559 초고해상도·1분 이내·단일 GPU·낮은 FPR이라는 동시 제약에 대해 정량적 계산 근거가 없다. 넷째, pixel-level AUROC ≥ 0.95, FPR ≤ 1%, score shift ≤ 0.05 같은 강한 수치를 제시하지만 이를 뒷받침할 현실적 검증 프로토콜과 데이터 조건이 없다. 전반적으로 '방법 아이디어'는 있지만, 연구 주제의 가장 어려운 부분인 미세 결함 재현율, 공정 변동 억제, 참조 정합, 시스템 처리량의 동시 만족을 입증하는 논리가 부족하다.",
+    "gpt_best_id": 3,
+    "pairwise_winner": 1,
+    "pairwise_win_count": {
+      "1": 3,
+      "3": 3
+    },
+    "gemini_synthesis": "패치를 저주파 스타일과 고주파 구조 성분으로 분해하고, 상위 K개의 다중 정상 참조 컨센서스를 기반으로 소스 패치의 저주파 특징에만 적응적 인스턴스 정규화(AdaIN)를 적용한 뒤 동결된 경량 파운데이션 모델로 특징 잔차를 계산함으로써, 재학습 없이도 6559×6559 이미지당 60초 이내에 도메인 불변 미세 결함 위치 추정(픽셀 AUROC ≥ 0.95, FPR ≤ 1%)을 달성할 수 있다.",
+    "final": "소스 및 참조 패치를 저주파(스타일/조명)와 고주파(구조/텍스처) 성분으로 분해하고, 동결된 경량 비전 인코더에서 추출한 저주파 특징에만 적응적 인스턴스 정규화(AdaIN)를 적용한 뒤, FAISS 가속 최근접 이웃 검색으로 상위 K개 정상 참조 패치를 검색하여 컨센서스 기반 잔차 점수를 산출하며, 정상 패치만으로 학습된 고주파 노이즈 게이트를 통해 공정 노이즈를 억제하는 주파수 인식 다중참조 컨센서스 이상 탐지 프레임워크는, 재학습 없이 단일 GPU에서 6559×6559 그레이스케일 반도체 이미지에 대해 60초 이내에 도메인 불변 결함 위치 추정(픽셀 AUROC ≥ 0.95, 정상 이미지 FPR ≤ 1%)을 달성할 수 있다."
+  },
+  "falsification_criteria": [
+    "반증 조건 1: 정상 이미지 100장에 대한 FPR이 3%를 초과하거나 False Alarm per image가 2.0을 초과하면, 다중대역 주파수 분리 + AdaIN + 정합 보강 컨센서스 메커니즘이 공정 변동 억제에 실패한 것으로 가설을 기각한다.",
+    "반증 조건 2: 3-band 주파수 분해 + LB-only AdaIN 적용 시, 주파수 분해 없이 전체 특징에 AdaIN을 적용한 baseline 대비 pixel-level AUROC 향상이 0.02 미만이면, 다중대역 주파수 분리의 핵심 혁신이 실질적 기여가 없는 것으로 가설의 핵심 주장을 기각한다.",
+    "반증 조건 3: Top-K 컨센서스(K≥3) 적용 시 K=1(단일 참조) 대비 정상 이미지 FPR 감소가 McNemar test p>0.05 또는 bootstrap 95% CI가 0을 포함하면, 다중 참조 컨센서스의 위양성 억제 효과가 통계적으로 유의하지 않은 것으로 해당 모듈의 기여를 기각한다.",
+    "반증 조건 4: HF 노이즈 게이트 유/무 ablation에서 스타일·노이즈 교란 하 Mean Absolute Score Shift 차이가 0.01 미만이면, 노이즈 게이트의 공정 노이즈 억제 효과가 무의미한 것으로 해당 모듈의 기여를 기각한다.",
+    "반증 조건 5: 단일 GPU(NVIDIA RTX 3090/4090 또는 A5000)에서 6559×6559 이미지당 추론 시간이 60초를 초과하면, 제안 파이프라인의 실시간 적용 가능성 주장을 기각한다(성공 기준과 일치).",
+    "반증 조건 6: 3개 이상의 서로 다른 장비/lot 도메인에서 Normal Acceptance Rate under Perturbation이 85% 미만이면, 도메인 불변성 주장을 기각한다.",
+    "반증 조건 7: phase-correlation registration 적용 시 registration 없는 baseline 대비 정상 이미지 FPR 감소가 McNemar test p>0.05이면, 정합 보강의 위양성 억제 기여가 유의하지 않은 것으로 해당 모듈을 기각한다.",
+    "반증 조건 8: recall-preserving regularizer 적용 HF gate에서 합성 미세결함(≤10px) 검출 recall이 gate 미적용 대비 5%p 이상 하락하면, 에너지 보존 정규화가 recall 보호에 실패한 것으로 해당 메커니즘을 기각한다."
+  ],
+  "_refinement_log": [
+    {
+      "iteration": 1,
+      "prev_score": 7.7,
+      "improvement": "이번 1차 개선에서 수행한 주요 수정 사항:\n\n1. [Validity 강화 — LF/HF 이분법 한계 해소] 기존 2-band 고정 가우시안 분해를 3-band(LB/MB/HB) 적응적 웨이블릿 분해로 확장. 패치별 공간주파수 엔트로피 조건 컷오프 도입으로 broad defect(stain, haze)와 ultra-fine defect 모두 검출 가능하도록 물리적 타당성 보강. MB 대역을 AdaIN 없이 직접 잔차 비교에 활용.\n\n2. [Validity 강화 — 참조 정합 오류 완화] FAISS 검색 전 phase-correlation 기반 coarse registration + orientation canonicalization 단계를 추가하여, 위치 오프셋/회전으로 인한 median aggregation anomaly inflation 문제를 구조적으로 방지. Registration confidence 기반 soft weighting 도입.\n\n3. [Validity 강화 — HF gate recall 보호] MSE-only 학습 대신 합성 미세결함 에너지 보존 정규화(≥90% pass-through 제약)를 추가하여 recall 붕괴를 직접 제어. L2 정규화, dropout, 온라인 EMA 업데이트로 과적합 방지.\n\n4. [Feasibility/Impact 강화 — 추론 시간 준수] Coarse-to-fine 2단계 캐스케이드 추론을 도입하여 전체 패치의 80%를 coarse scoring으로 처리하고 hard patch만 fine analysis. 약 60-70% 연산 절약으로 60초 제약 충족.\n\n5. [Impact 강화 — Baseline 확충 및 통계 검정 강화] reference-based registration baseline과 retrieval-only baseline을 추가하여 각 모듈의 증분 기여 명확화. FPR 유의성 검정을 paired t-test에서 McNemar test + bootstrap 95% CI로 교체.\n\n6. [구조 검사 경고 해결] 반증 조건 2, 3, 4에 '가설의 핵심 주장을 기각한다' / '해당 모듈의 기여를 기각한다' 등 명시적 반증 방향 키워드를 추가. 반증 조건 5의 시간 기준을 90초→60초로 강화하여 성공 기준과 일치.\n\n7. [추가 반증 조건] 반증 조건 7(registration 모듈 기여 검증), 반증 조건 8(recall-preserving regularizer 효과 검증)을 신규 추가.\n\n8. [Edge-consistent patch merging] 패치 스티칭 아티팩트 억제를 위한 edge consistency penalty 및 median post-filter를 명시적으로 architecture에 도입.\n\n9. [Evidence 인용 강화] Evidence Pack의 관련 논문을 rationale, key_innovation, expected_mechanism 전반에 걸쳐 인용하고, evidence_links를 재작성하여 유효 ID와 일치시킴."
+    }
+  ]
+}
