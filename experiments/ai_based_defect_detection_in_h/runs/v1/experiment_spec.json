@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "experiment_version": 1,
   "topic_slug": "ai_based_defect_detection_in_h",
   "task": "anomaly_detection",
   "model": "FreqConsensusAD",
