@@ -26,7 +26,7 @@ from pathlib import Path
 # ── 상수 ──────────────────────────────────────────────────
 from lab.config import SCORE_THRESHOLD as PDF_SCORE_THRESHOLD, topic_slug as _topic_slug, reports_dir as _reports_dir
 
-MAX_PAGES = 4
+MAX_PAGES = 6
 
 C_BG      = "#1A1A2E"
 C_HYPO    = "#0F3460"
@@ -668,46 +668,89 @@ def _strength_score(paper: dict) -> int:
 
 
 def _build_section1(inp: dict, hyp: dict) -> list:
-    """Section 1: Problem Definition & Hypothesis Summary."""
+    """Section 1: Introduction & Motivation — 논문 Introduction 수준."""
     items = []
 
+    # 문제 배경 + 동기
+    topic = inp.get("topic", "")
     problem = inp.get("problem_definition", "")
-    if problem:
+    if topic:
+        items.append(("text",
+            f"This work addresses the problem of {topic}. "
+            f"{problem}" if problem else ""))
+    elif problem:
         items.append(("kv", "Problem", problem))
 
-    constraints = inp.get("constraints", "")
-    if constraints:
-        items.append(("kv", "Constraints", constraints))
+    items.append(("gap", 2))
 
+    # 제약 조건 + 목표
+    constraints = inp.get("constraints", "")
     target = inp.get("target_metric", "")
     outcome = inp.get("desired_outcome", "")
+    if constraints:
+        items.append(("kv", "Constraints", constraints))
     target_text = target
     if outcome:
         target_text += f" — {outcome}"
     if target_text:
-        items.append(("kv", "Target metric", target_text))
+        items.append(("kv", "Target", target_text))
 
-    items.append(("gap", 3))
+    items.append(("gap", 2))
 
+    # 가설 + 핵심 주장
+    items.append(("subheading", "Research Hypothesis"))
     stmt = hyp.get("statement_kr") or hyp.get("statement", "")
     if stmt:
-        items.append(("kv", "Hypothesis", stmt))
+        items.append(("text", stmt))
 
-    # Task family (자동 추론)
+    # Rationale (가설 근거)
+    rationale = hyp.get("rationale", "")
+    if rationale:
+        items.append(("gap", 1))
+        items.append(("kv", "Rationale", rationale))
+
+    items.append(("gap", 2))
+
+    # Task family
     from lab.task_families import infer_task_family, get_generation_prior
     family = infer_task_family(
         inp.get("topic", ""), inp.get("target_metric", ""), inp.get("problem_definition", ""))
-    if family != "classification":
-        prior = get_generation_prior(family)
-        items.append(("kv", "Task family", f"{family} — risks: {', '.join(prior.get('likely_failure_modes', [])[:2])}"))
+    prior = get_generation_prior(family)
+    items.append(("kv", "Task family", f"{family}"))
+    if prior.get("likely_failure_modes"):
+        items.append(("kv", "Known risks", ", ".join(prior.get("likely_failure_modes", [])[:3])))
 
+    items.append(("gap", 2))
+
+    # 핵심 기여 (Key Contribution)
+    items.append(("subheading", "Novelty & Mechanism"))
     innov = hyp.get("key_innovation", "")
-    if innov:
-        items.append(("kv", "Novelty", innov))
-
     mech = hyp.get("expected_mechanism", "")
+    if innov:
+        items.append(("bullet", f"Novelty: {innov}"))
     if mech:
-        items.append(("kv", "Mechanism", mech))
+        items.append(("bullet", f"Mechanism: {mech}"))
+
+    # 실험 계획 개요
+    exp_plan = hyp.get("experiment_plan", {})
+    if isinstance(exp_plan, dict):
+        arch = exp_plan.get("architecture", "")
+        dataset = exp_plan.get("dataset", "")
+        baselines = exp_plan.get("baseline_models", [])
+        if arch:
+            items.append(("bullet", f"Architecture: {arch}"))
+        if dataset:
+            items.append(("bullet", f"Dataset: {dataset}"))
+        if baselines:
+            items.append(("bullet", f"Baselines: {', '.join(str(b).split('(')[0].strip() for b in baselines[:3])}"))
+
+    # Risk factors
+    risks = hyp.get("risk_factors", [])
+    if risks:
+        items.append(("gap", 1))
+        items.append(("subheading", "Risk Factors"))
+        for r in risks[:3]:
+            items.append(("bullet", str(r)))
 
     return items
 
@@ -720,7 +763,7 @@ def _build_section2(hyp: dict, papers_list: list, val_norm: dict,
     # Top papers by rank / support_strength
     ranked = sorted(papers_list,
                     key=lambda p: (p.get("rank", 99), -_strength_score(p)))
-    top_papers = ranked[:5]
+    top_papers = ranked[:8]
 
     for i, p in enumerate(top_papers):
         role = p.get("evidence_role", "")
@@ -811,7 +854,7 @@ def _build_section3(run_history: list, final_summary: dict,
     last_val = run_history[-1].get(primary_name, 0)
     total_delta = last_val - first_val
 
-    # Overview line
+    # ── Overview + Version Comparison Table ──
     overview = f"{primary_name}: {first_val:.4f} → {last_val:.4f}"
     if total_delta != 0:
         sign = "+" if total_delta > 0 else ""
@@ -819,12 +862,41 @@ def _build_section3(run_history: list, final_summary: dict,
     overview += f" over {n_runs} run(s). Target: {target}. {'Met.' if met else 'Not met.'}"
     items.append(("text", overview))
 
+    # 버전별 비교 테이블 (10년차 박사급 — 한눈에 진행 상황 파악)
+    if n_runs >= 2:
+        items.append(("gap", 1))
+        items.append(("subheading", "Version Comparison"))
+        header = f"{'Ver':>4} | {primary_name:>10} | {'Delta':>8} | {'Δ%':>7} | {'Gap→Target':>11} | {'Params':>7} | Changes"
+        items.append(("text", header))
+        items.append(("text", "—" * min(len(header), 90)))
+        for i, entry in enumerate(run_history):
+            val = entry.get(primary_name, 0)
+            params = entry.get("params_M", "?")
+            changes = str(entry.get("changes", ""))[:40]
+            ver = entry.get("version", i + 1)
+            gap_to_target = target - val
+
+            if i == 0:
+                row = f"v{ver:>2} | {val:>10.4f} | {'—':>8} | {'—':>7} | {gap_to_target:>+10.4f} | {params:>6}M | {changes}"
+            else:
+                prev_val = run_history[i - 1].get(primary_name, 0)
+                delta = val - prev_val
+                pct = (delta / prev_val * 100) if prev_val else 0
+                row = f"v{ver:>2} | {val:>10.4f} | {delta:>+8.4f} | {pct:>+6.1f}% | {gap_to_target:>+10.4f} | {params:>6}M | {changes}"
+            items.append(("text", row))
+
+        # 누적 개선률
+        if first_val > 0:
+            cumul_pct = (last_val - first_val) / first_val * 100
+            attainment = (last_val / target * 100) if target > 0 else 0
+            items.append(("text", f"Cumulative: {cumul_pct:+.1f}% improvement. Target attainment: {attainment:.1f}%."))
+
     items.append(("gap", 1))
     items.append(("chart_placeholder", None))
     items.append(("gap", 2))
 
-    # Experiment Changes
-    items.append(("subheading", "Experiment Changes"))
+    # Experiment Changes (상세 — 각 버전 무엇이 바뀌었고 왜)
+    items.append(("subheading", "Experiment Changes & Rationale"))
     for i, entry in enumerate(run_history):
         val = entry.get(primary_name, 0)
         changes = entry.get("changes", "")
@@ -838,8 +910,10 @@ def _build_section3(run_history: list, final_summary: dict,
             delta = val - prev_val
             sign = "+" if delta >= 0 else ""
             pct = (delta / prev_val * 100) if prev_val else 0
-            effect = f"{sign}{delta:.4f} ({sign}{pct:.1f}%)" if delta != 0 else "no change"
-            line = f"v{ver}: {changes} → {effect}. {primary_name}={val:.4f}, {params}M params."
+            magnitude = "large" if abs(pct) > 5 else "small" if abs(pct) > 1 else "negligible"
+            effective = "effective" if delta > 0 else "ineffective" if delta < 0 else "neutral"
+            line = (f"v{ver}: {changes} → {sign}{delta:.4f} ({sign}{pct:.1f}%, {magnitude}). "
+                    f"Change was {effective}. {primary_name}={val:.4f}.")
         items.append(("bullet", line))
 
     items.append(("gap", 2))
@@ -914,12 +988,58 @@ def _build_section3(run_history: list, final_summary: dict,
             missing = mech_audit.get("missing_links", [])
             items.append(("bullet", f"Core mechanism: NOT implemented (risk: {risk}). Missing: {'; '.join(str(m) for m in missing[:2])}."))
 
-    # Ablation / revision insights
+    # Ablation / revision insights (논문 Ablation Study 수준)
     ablation = final_summary.get("ablation_findings", [])
     if ablation:
-        for ab in ablation[:2]:
-            desc = ab.get("description", "") if isinstance(ab, dict) else str(ab)
-            items.append(("bullet", desc))
+        items.append(("gap", 2))
+        items.append(("subheading", "Ablation Analysis"))
+        for ab in ablation:
+            if isinstance(ab, dict):
+                families = ab.get("change_family", [])
+                if families == ["_summary"]:
+                    items.append(("text", ab.get("likely_effect", "")))
+                    continue
+                effect = ab.get("likely_effect", "")
+                mag = ab.get("effect_magnitude", "")
+                conf = ab.get("confidence", 0)
+                confounded = ab.get("confounded", False)
+                delta = ab.get("metric_delta", 0)
+                causal = ab.get("causal_attribution", {})
+
+                line = f"{'/'.join(families)}: {delta:+.4f} ({mag})"
+                if confounded:
+                    line += " [confounded]"
+                if causal.get("method") == "differential":
+                    known = causal.get("known_effects", {})
+                    residual = causal.get("residual_effect", 0)
+                    line += f" — known: {known}, residual: {residual:+.4f}"
+                elif causal.get("method") == "additive_check":
+                    synergy = causal.get("synergy_or_interference", 0)
+                    if abs(synergy) > 0.005:
+                        line += f" — synergy/interference: {synergy:+.4f}"
+                items.append(("bullet", line))
+            else:
+                items.append(("bullet", str(ab)))
+
+    # Falsification criteria 검증 결과
+    falsif = hyp.get("falsification_criteria", [])
+    if falsif and final_summary:
+        items.append(("gap", 2))
+        items.append(("subheading", "Falsification Check"))
+        primary = final_summary.get("primary_metric", {})
+        met = primary.get("met", False)
+        val = primary.get("value", 0)
+        tgt = primary.get("target", 0)
+        for fc in falsif:
+            fc_text = str(fc)
+            # 자동 판정 시도
+            if met:
+                status = "PASS"
+            elif any(kw in fc_text.lower() for kw in ["accuracy", "psnr", primary_name]):
+                status = "FAIL" if not met else "PASS"
+            else:
+                status = "N/A"
+            items.append(("bullet", f"[{status}] {fc_text}"))
 
     return items
 
@@ -1123,22 +1243,28 @@ def _build_section4(run_history: list, final_summary: dict,
 
 
 def _build_section5(papers_list: list) -> list:
-    """Section 5: References — key 3-8 papers with relevance note."""
+    """Section 5: References — 논문 형식 참고 문헌 (최대 15편)."""
     items = []
 
     ranked = sorted(papers_list,
                     key=lambda p: (p.get("rank", 99), -_strength_score(p)))
-    key_papers = ranked[:8]
+    key_papers = ranked[:15]
 
     for i, p in enumerate(key_papers):
         ref = _format_reference(p, i + 1)
         role = p.get("evidence_role", "")
+        strength = p.get("support_strength", "")
         slots = p.get("claim_slots_supported", [])
-        note = ""
+        why = p.get("why_selected", "")
+
+        note_parts = []
         if role:
-            note = f" — {role}"
-        elif slots:
-            note = f" — supports {', '.join(str(s) for s in slots[:2])}"
+            note_parts.append(role)
+        if strength:
+            note_parts.append(f"strength: {strength}")
+        if slots:
+            note_parts.append(f"supports: {', '.join(str(s) for s in slots[:2])}")
+        note = f" — {'; '.join(note_parts)}" if note_parts else ""
         items.append(("ref", ref + note))
 
     return items
@@ -1334,24 +1460,47 @@ def generate_pdf(
     papers_list = papers.get("papers", [])
     has_results = results is not None and final_summary is not None
 
-    # 섹션 빌드
+    # 섹션 빌드 — 논문 작성 가능 구조 (NeurIPS/CVPR/ECCV/ICML/ICLR/AAAI 매핑)
+    #
+    # 1. Introduction & Motivation     → paper: Introduction
+    # 2. Related Work & Prior Art      → paper: Related Work
+    # 3. Proposed Method               → paper: Method (결과 없을 때까지)
+    # 4. Experiments & Results         → paper: Experiments + Results
+    # 5. Analysis & Conclusion         → paper: Discussion + Conclusion
+    # 6. References                    → paper: References
     sec_num = 1
     sections = []
 
-    sections.append((f"{sec_num}. Problem Definition & Hypothesis",
-                     _build_section1(inp, hyp)))
+    # §1 Introduction & Motivation (문제 + 가설 + 핵심 기여)
+    s1 = _build_section1(inp, hyp)
+    # 논문 기여 요약 추가
+    s1.append(("gap", 2))
+    s1.append(("subheading", "Key Contribution"))
+    contrib = hyp.get("key_innovation", "")
+    mech = hyp.get("expected_mechanism", "")
+    if contrib:
+        s1.append(("bullet", f"Novel approach: {contrib}"))
+    if mech:
+        s1.append(("bullet", f"Core mechanism: {mech}"))
+    constraints = inp.get("constraints", "")
+    if constraints:
+        s1.append(("bullet", f"Under constraints: {constraints}"))
+    sections.append((f"{sec_num}. Introduction & Motivation", s1))
     sec_num += 1
 
+    # §2 Related Work & Prior Art
     decisive_ev = papers.get("decisive_evidence")
-    sections.append((f"{sec_num}. Related Work & Evidence Synthesis",
+    sections.append((f"{sec_num}. Related Work & Prior Art",
                      _build_section2(hyp, papers_list, val_n, decisive_ev)))
     sec_num += 1
 
     chart_data = None
     if has_results:
         primary_name = final_summary.get("primary_metric", {}).get("name", "accuracy")
+
+        # §3 Experiments & Results (버전 비교 테이블 + 차트 + 변경 분석)
         s3_items = _build_section3(results, final_summary, primary_name, hyp)
-        sections.append((f"{sec_num}. Experiment Changes & Insights", s3_items))
+        sections.append((f"{sec_num}. Experiments & Results", s3_items))
         sec_num += 1
 
         # 차트 데이터 준비
@@ -1366,13 +1515,15 @@ def generate_pdf(
             "class_cats": class_cats,
         }
 
+    # §4 Analysis & Conclusion (검증 + 과학적 베팅 + 결론 + 다음 행동)
     primary_name_4 = (final_summary.get("primary_metric", {}).get("name", "accuracy")
                       if has_results else "")
-    sections.append((f"{sec_num}. Hypothesis Verification & Conclusion",
+    sections.append((f"{sec_num}. Analysis & Conclusion",
                      _build_section4(results or [], final_summary or {},
                                      primary_name_4, hyp, val_n, has_results)))
     sec_num += 1
 
+    # §5 References
     if papers_list:
         sections.append((f"{sec_num}. References",
                          _build_section5(papers_list)))

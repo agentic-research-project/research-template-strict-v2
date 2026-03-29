@@ -1,17 +1,15 @@
 from dotenv import load_dotenv
-import anyio
 import json
 import os
 import re
 from pathlib import Path
-from claude_agent_sdk import query as _sdk_query, ClaudeAgentOptions, AssistantMessage
 
 load_dotenv()
 
 # LLM 모델 설정
 CLAUDE_MODEL = "claude-opus-4-6"
-OPENAI_MODEL = "gpt-5.1"   #5.4
-GEMINI_MODEL = "gemini-2.5-pro" #3.1-pro
+OPENAI_MODEL = "gpt-5.4"   #5.4
+GEMINI_MODEL = "gemini-3.1-pro" #3.1-pro
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -316,59 +314,84 @@ def prompt_hash(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
 
 
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+
 def query_claude(prompt: str, image_paths: list[str] | None = None,
                  timeout: int | None = None, model: str | None = None) -> str:
-    """claude_agent_sdk를 통해 Claude에 단일 쿼리를 실행한다 (API 키 불필요).
+    """Anthropic API를 직접 호출하여 Claude에 쿼리한다.
 
-    image_paths를 전달하면 Read 툴을 허용하여 Claude가 이미지를 직접 읽는다.
-    timeout: 초 단위 타임아웃 (기본값: LLM_QUERY_TIMEOUT)
-    model: 사용할 모델 (기본값: CLAUDE_MODEL). 코드 생성 등 JSON 출력이
-           필요한 경우 'claude-sonnet-4-20250514'를 사용하면 tool 호출 없이 텍스트로 응답한다.
+    SDK 대신 API를 사용하여 안정적인 JSON 응답을 보장한다.
+    image_paths가 있으면 이미지를 base64로 인코딩하여 전송한다.
     """
+    import anthropic
+    import time
+
     _timeout = timeout if timeout is not None else LLM_QUERY_TIMEOUT
     _model = model or CLAUDE_MODEL
 
-    async def _run() -> str:
-        import asyncio
+    client = anthropic.Anthropic(
+        api_key=ANTHROPIC_API_KEY,
+        timeout=_timeout,
+    )
 
-        full_prompt = prompt
-        if image_paths:
-            paths = "\n".join(f"- {p}" for p in image_paths)
-            full_prompt += f"\n\n분석할 이미지 파일:\n{paths}"
+    # 메시지 구성
+    content: list = []
 
-        tools     = ["Read"] if image_paths else []
-        max_turns = max(3, len(image_paths) + 2) if image_paths else 1
+    # 이미지가 있으면 base64로 첨부
+    if image_paths:
+        import base64
+        for img_path in image_paths:
+            try:
+                with open(img_path, "rb") as f:
+                    img_data = base64.standard_b64encode(f.read()).decode("utf-8")
+                ext = img_path.rsplit(".", 1)[-1].lower()
+                media_type = {"png": "image/png", "jpg": "image/jpeg",
+                              "jpeg": "image/jpeg", "gif": "image/gif",
+                              "webp": "image/webp"}.get(ext, "image/png")
+                content.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": img_data},
+                })
+            except Exception as e:
+                content.append({"type": "text", "text": f"[이미지 로드 실패: {img_path}: {e}]"})
 
-        async def _query_inner() -> str:
-            text = ""
-            async for msg in _sdk_query(
-                prompt=full_prompt,
-                options=ClaudeAgentOptions(
-                    model=_model,
-                    allowed_tools=tools,
-                    max_turns=max_turns,
-                ),
-            ):
-                if isinstance(msg, AssistantMessage):
-                    for block in msg.content:
-                        if hasattr(block, "text"):
-                            text += block.text
-            return text
+    content.append({"type": "text", "text": prompt})
 
-        # timeout 적용
+    # 재시도 로직
+    last_error = None
+    for attempt in range(LLM_QUERY_MAX_RETRIES + 1):
         try:
-            return await asyncio.wait_for(_query_inner(), timeout=_timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError(
-                f"Claude query timed out after {_timeout}s. "
-                f"Prompt length: {len(prompt)} chars."
+            # 모델별 max_tokens 자동 결정
+            _max_tokens = 32768 if "opus" in _model else 16384
+            response = client.messages.create(
+                model=_model,
+                max_tokens=_max_tokens,
+                messages=[{"role": "user", "content": content}],
             )
+            text = ""
+            for block in response.content:
+                if hasattr(block, "text"):
+                    text += block.text
+            if text.strip():
+                return text
+            print(f"    [query_claude] 빈 응답 (시도 {attempt+1})")
+        except Exception as e:
+            last_error = e
+            if attempt < LLM_QUERY_MAX_RETRIES:
+                wait = 2 ** attempt
+                print(f"    [query_claude] 재시도 {attempt+1}/{LLM_QUERY_MAX_RETRIES} ({wait}s): {e}")
+                time.sleep(wait)
 
-    return anyio.run(_run)
+    if last_error:
+        raise last_error
+    return ""
 
 
 def parse_json(text: str) -> dict:
     """LLM 응답에서 마크다운 펜스를 제거하고 JSON을 파싱한다."""
+    if not text or not text.strip():
+        raise json.JSONDecodeError("Empty input to parse_json", "", 0)
     text = text.strip()
     if text.startswith("```"):
         text = text.split("```")[1]
@@ -380,4 +403,16 @@ def parse_json(text: str) -> dict:
         text = text.split("```json")[1].split("```")[0].strip()
     elif "```" in text and not text.startswith("{") and not text.startswith("["):
         text = text.split("```")[1].split("```")[0].strip()
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Try to find JSON object in the text
+        import re
+        m = re.search(r'\{[\s\S]*\}', text)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                pass
+        print(f"    [parse_json] 파싱 실패, text 앞 200자: {text[:200]!r}")
+        raise
