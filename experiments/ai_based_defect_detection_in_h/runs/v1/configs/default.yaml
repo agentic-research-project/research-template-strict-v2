@@ -1,0 +1,50 @@
+# FreqConsensus-AD Configuration
+
+# Model Architecture
+patch_size: 256
+stride: 192
+k_neighbors: 5
+freq_levels: 2
+freq_sigma: 2.0
+
+# Training Configuration
+optimizer: adamw
+lr: 0.0001
+epochs: 50
+batch_size: 16
+seed: 42
+weight_decay: 0.01
+gradient_clip: 1.0
+
+# Data Configuration
+image_size: 512  # Reduced from 6559 for efficiency
+num_workers: 4
+data_path: ''
+
+# Loss and Metrics
+loss_function: mse  # For HF gate training
+primary_metric: pixel
+
+# Training Settings
+precision: bf16-mixed
+scheduler: cosine
+warmup_epochs: 5
+
+# Anomaly Detection Specific
+threshold_multiplier: 3.0  # μ + 3σ for adaptive thresholding
+max_reference_patches: 1000
+
+# Performance Constraints
+max_inference_time: 60.0  # seconds per image
+max_memory_mb: 8000
+
+# Evaluation
+eval_frequency: 5
+save_best: true
+early_stopping_patience: 15
+
+# Device
+device: cuda
+
+# Reproducibility
+deterministic: true

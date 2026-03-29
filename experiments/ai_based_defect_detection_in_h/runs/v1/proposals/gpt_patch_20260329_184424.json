@@ -1,0 +1,100 @@
+{
+  "patches": [
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name",
+      "rationale": "The current frequency decomposer calls F.gaussian_blur, which is not available in torch.nn.functional in many PyTorch versions and will fail at runtime. The spec explicitly requires Gaussian pyramid-based LF/HF decomposition with sigma=2.0, 2-level option. This patch keeps the implementation minimal while making the Gaussian LF/HF split executable and deterministic.",
+      "hypothesis_alignment_check": "Aligns with mechanism step 2 by preserving Gaussian low-frequency / high-frequency decomposition. It does not alter the intended anomaly scoring logic, only fixes the blur operator to a valid PyTorch implementation.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 18,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "class GaussianPyramid(nn.Module):\n    def __init__(self, sigma=2.0, levels=2):\n        super().__init__()\n        self.sigma = sigma\n        self.levels = levels\n        \n    def forward(self, x):\n        # x: B, C, H, W\n        # Apply Gaussian blur for low-freq, subtract for high-freq\n        kernel_size = int(6 * self.sigma + 1)\n        if kernel_size % 2 == 0:\n            kernel_size += 1\n        \n        lf = F.gaussian_blur(x, kernel_size, sigma=self.sigma)\n        hf = x - lf\n        return lf, hf",
+          "new": "class GaussianPyramid(nn.Module):\n    def __init__(self, sigma=2.0, levels=2):\n        super().__init__()\n        self.sigma = sigma\n        self.levels = levels\n\n    def _gaussian_blur(self, x):\n        kernel_size = int(6 * self.sigma + 1)\n        if kernel_size % 2 == 0:\n            kernel_size += 1\n        radius = kernel_size // 2\n        coords = torch.arange(-radius, radius + 1, device=x.device, dtype=x.dtype)\n        kernel_1d = torch.exp(-(coords ** 2) / (2 * self.sigma ** 2))\n        kernel_1d = kernel_1d / kernel_1d.sum()\n        kernel_2d = torch.outer(kernel_1d, kernel_1d)\n        kernel_2d = kernel_2d.view(1, 1, kernel_size, kernel_size)\n        kernel_2d = kernel_2d.repeat(x.shape[1], 1, 1, 1)\n        return F.conv2d(x, kernel_2d, padding=radius, groups=x.shape[1])\n\n    def forward(self, x):\n        # x: B, C, H, W\n        lf = self._gaussian_blur(x)\n        hf = x - lf\n        return lf, hf"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "constraints_raw",
+      "rationale": "The input is specified as grayscale semiconductor imagery. The current encoder assumes ImageNet-pretrained ResNet18 and therefore expects 3-channel input, while the pipeline decomposes grayscale LF/HF patches. A minimal adapter is needed so grayscale patches can be processed without forcing external code to duplicate channels everywhere.",
+      "hypothesis_alignment_check": "Aligns with mechanism steps 1-3 and the grayscale input constraint. It preserves the frozen pretrained encoder idea while making grayscale inputs compatible.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 6,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "    def forward(self, x):\n        # Extract multi-scale features\n        features = []\n        for i, layer in enumerate(self.backbone):\n            x = layer(x)\n            if i in [4, 5, 6]:  # layer1, layer2, layer3 outputs\n                features.append(x)\n        return features",
+          "new": "    def forward(self, x):\n        if x.shape[1] == 1:\n            x = x.repeat(1, 3, 1, 1)\n        # Extract multi-scale features\n        features = []\n        for i, layer in enumerate(self.backbone):\n            x = layer(x)\n            if i in [4, 5, 6]:  # layer1, layer2, layer3 outputs\n                features.append(x)\n        return features"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism",
+      "rationale": "The spec requires LF and HF features from multi-scale stages 2, 3, and 4. The current comments and selected indices are inconsistent with the actual ResNet sequential layout after removing avgpool/fc. This patch corrects the selected stages to the intended three deeper multi-scale outputs.",
+      "hypothesis_alignment_check": "Aligns with mechanism step 3 by making the extracted feature hierarchy better match the required multi-scale stage outputs used later for residual scoring.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 2,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "            if i in [4, 5, 6]:  # layer1, layer2, layer3 outputs",
+          "new": "            if i in [5, 6, 7]:  # layer2, layer3, layer4 outputs"
+        }
+      ]
+    },
+    {
+      "target_file": "module.py",
+      "spec_field": "hypothesis_contract.mechanism",
+      "rationale": "HF Noise Gate training is specified to minimize residuals between normal HF feature pairs from different normal patches. The current code begins pairwise training but is truncated and contains a typo/comment fragment, which likely leaves the training loop invalid. This patch minimally completes the loss computation using adjacent-pair MSE on gated HF features, without changing the overall training loop structure.",
+      "hypothesis_alignment_check": "Aligns with mechanism step 5 and the HF Noise Gate training description: normal-only, lightweight, residual minimization between normal HF features. It avoids introducing supervised anomaly labels or heavy retraining.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 14,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "            # Loss: minimize difference between gated HF features of normal patches\n            if len(gated_hf) > 0 and normal_data.shape[0] > 1:\n                # Compute pairwise MSE los",
+          "new": "            # Loss: minimize difference between gated HF features of normal patches\n            if len(gated_hf) > 0 and normal_data.shape[0] > 1:\n                losses = []\n                for feat in gated_hf:\n                    if feat.shape[0] < 2:\n                        continue\n                    feat_a = feat[:-1]\n                    feat_b = feat[1:]\n                    losses.append(self.criterion(feat_a, feat_b))\n                if not losses:\n                    continue\n                loss = torch.stack(losses).mean()\n                loss.backward()\n                self.optimizer.step()\n                total_loss += loss.item()\n                num_batches += 1"
+        }
+      ]
+    },
+    {
+      "target_file": "module.py",
+      "spec_field": "constraints_raw",
+      "rationale": "The normal-mask is created from labels before moving labels to the same device as data. Indexing a CUDA tensor with a CPU boolean mask can fail. This is a minimal runtime-safety patch needed for single-GPU execution.",
+      "hypothesis_alignment_check": "Supports the single-GPU under-1-minute constraint by preventing avoidable device mismatch failures during the lightweight normal-only gate training stage.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 1,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "            data = data.to(self.device)\n            \n            # Only use normal samples (label 0)\n            normal_mask = (labels == 0)",
+          "new": "            data = data.to(self.device)\n            labels = labels.to(self.device)\n            \n            # Only use normal samples (label 0)\n            normal_mask = (labels == 0)"
+        }
+      ]
+    },
+    {
+      "target_file": "data.py",
+      "spec_field": "constraints_raw",
+      "rationale": "The dataset implementation is syntactically incomplete because the defect generation loop has no body. This will prevent import/execution entirely. A minimal placeholder defect injection keeps the file valid and preserves the intended synthetic normal/defect split behavior.",
+      "hypothesis_alignment_check": "This does not change the scientific mechanism of the proposed model; it only restores executable dataset generation so the experiment can run. It remains compatible with limited-annotation anomaly detection evaluation.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 12,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        for _ in range(num_defects):\n            defect_type = np.random.choice(['scratch', 'particle', 'stain', 'bridge'])\n            \n    ",
+          "new": "        for _ in range(num_defects):\n            defect_type = np.random.choice(['scratch', 'particle', 'stain', 'bridge'])\n            x = np.random.randint(0, self.image_size)\n            y = np.random.randint(0, self.image_size)\n            r = np.random.randint(3, 12)\n            if defect_type == 'scratch':\n                img_defective[max(0, y - 1):min(self.image_size, y + 2), max(0, x - 4 * r):min(self.image_size, x + 4 * r)] = 1.0\n            elif defect_type == 'particle':\n                yy, xx = np.ogrid[:self.image_size, :self.image_size]\n                mask = (xx - x) ** 2 + (yy - y) ** 2 <= r ** 2\n                img_defective[mask] = 1.0\n            elif defect_type == 'stain':\n                img_defective[max(0, y - r):min(self.image_size, y + r), max(0, x - r):min(self.image_size, x + r)] *= 0.3\n            else:  # bridge\n                img_defective[max(0, y - r):min(self.image_size, y + r), max(0, x - 2 * r):min(self.image_size, x + 2 * r)] = 0.8\n        return np.clip(img_defective, 0, 1)\n    "
+        }
+      ]
+    }
+  ],
+  "overall_assessment": "The generated code is currently not executable end-to-end: model.py is truncated, module.py contains an incomplete training block, and data.py is syntactically incomplete. The proposed patches are intentionally minimal and focused on restoring runtime validity while improving alignment with the frequency-decomposition, grayscale-input, multi-scale-feature, and normal-only HF gate training requirements in the spec. Larger missing pieces such as FAISS retrieval, selective AdaIN over Top-K reference LF statistics, consensus aggregation, patch splitting/merging, and adaptive thresholding are still absent and would need separate author-side implementation.",
+  "critical_issues": [
+    "model.py is truncated at `class FreqConsensusAD(nn.Module): def __init__(self, c`, so the main model class is missing and cannot be instantiated.",
+    "Spec-critical components are not yet implemented: patch splitter/merger, FAISS Top-K retrieval, LF-only selective AdaIN using median reference stats, consensus median aggregation across K references, adaptive thresholding, and connected-components box extraction.",
+    "The current encoder is a ResNet18 substitute rather than EfficientViT-M4/ConvNeXt-Tiny; while acceptable as a lightweight placeholder, it is only a partial match to the architecture contract."
+  ]
+}

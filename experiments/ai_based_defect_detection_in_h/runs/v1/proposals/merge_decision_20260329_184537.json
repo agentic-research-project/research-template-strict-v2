@@ -1,0 +1,87 @@
+{
+  "decisions": [
+    {
+      "patch_index": 0,
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "torch.nn.functional does not have gaussian_blur (it is in torchvision). This patch prevents a runtime AttributeError by providing a valid custom implementation.",
+      "claude_reason": "F.gaussian_blur가 존재하지 않는 PyTorch 버전에서 런타임 실패를 방지하는 필수적 수정. 구현이 정확하고 spec의 Gaussian pyramid (σ=2.0, 2-level) 요구사항과 완벽히 일치함.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 1,
+      "target_file": "model.py",
+      "spec_field": "constraints_raw",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "The pretrained ResNet encoder expects 3-channel input, while the dataset and spec use 1-channel grayscale images. Repeating the channels avoids shape mismatch errors.",
+      "claude_reason": "6559×6559 grayscale 입력 spec과 ImageNet pretrained 3채널 인코더 간 호환성 문제를 간단히 해결. 최소한의 변경으로 실행 가능성 확보.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 2,
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Corrects the feature extraction indices to properly fetch stages 2, 3, and 4 from ResNet, which matches the spec's multi-scale requirement.",
+      "claude_reason": "ResNet 구조에서 올바른 multi-scale feature 추출을 위해 레이어 인덱스 수정. spec의 stage 2,3,4 멀티스케일 특징 요구사항과 일치.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 3,
+      "target_file": "module.py",
+      "spec_field": "hypothesis_contract.mechanism",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Completes the truncated training loop for the HF Noise Gate. Computes pairwise MSE loss on adjacent normal patch features to train the gate as specified.",
+      "claude_reason": "HF Noise Gate 학습 루프의 구문적 완성과 정상 HF 특징 간 residual 최소화 로직 구현. spec의 경량 정상-전용 학습 요구사항 충족.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 4,
+      "target_file": "module.py",
+      "spec_field": "constraints_raw",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Prevents a device mismatch runtime error by moving labels to the GPU before using them to index GPU data.",
+      "claude_reason": "CUDA/CPU 디바이스 불일치로 인한 런타임 오류 방지. 단일 GPU 실행 제약조건 충족을 위한 필수적 수정.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 5,
+      "target_file": "data.py",
+      "spec_field": "constraints_raw",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Fixes a syntax error from truncated code in the dataset generator. Provides valid basic implementations for synthetic defect injection.",
+      "claude_reason": "불완전한 defect 생성 루프로 인한 import/실행 실패 방지. 합성 정상/결함 데이터셋의 기본 기능 복원으로 실험 실행 가능성 확보.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    }
+  ],
+  "patch_count": 6,
+  "accepted": 6,
+  "rejected": 0,
+  "ambiguous": 0,
+  "created_at": "2026-03-29T18:45:37.041087"
+}
