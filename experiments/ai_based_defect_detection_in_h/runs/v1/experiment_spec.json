@@ -39,6 +39,38 @@
     "no_full_finetuning": true,
     "normal_only_training": true
   },
+  "evaluation_config": {
+    "primary_metric": "pixel_auroc",
+    "target_value": 0.95,
+    "secondary_metrics": ["fpr_normal", "false_alarm_per_image", "anomalous_area_ratio", "inference_time_s", "peak_memory_mb"],
+    "test_set": "val_split",
+    "metric_units": {
+      "pixel_auroc": "AUROC",
+      "fpr_normal": "rate",
+      "false_alarm_per_image": "count",
+      "anomalous_area_ratio": "ratio",
+      "inference_time_s": "seconds",
+      "peak_memory_mb": "MB"
+    }
+  },
+  "model_architecture": {
+    "name": "FreqConsensusAD",
+    "encoder": "ResNet18 (frozen)",
+    "freq_decomposer": "GaussianPyramid",
+    "hf_gate": "HFNoiseGate (learnable)",
+    "retrieval": "SimpleFAISSReplacement (numpy cosine)",
+    "normalization": "AdaptiveInstanceNorm (LF only)"
+  },
+  "training_config": {
+    "normal_only": true,
+    "epochs": 50,
+    "batch_size": 16,
+    "optimizer": "adamw",
+    "lr": 0.0001,
+    "patch_size": 256,
+    "stride": 192,
+    "k_neighbors": 5
+  },
   "runner_type": "github",
   "pkg_dir": "experiments/ai_based_defect_detection_in_h/runs/v1",
   "smoke_test_passed": true,
