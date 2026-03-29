@@ -363,6 +363,12 @@ workspace  = "experiments/{topic_slug}"
 - 존재하지 않고 공개 데이터셋이면 data.py에서 해당 경로에 자동 다운로드하도록 구현하세요.
 - 데이터 경로가 미지정이면 data.py에서 torchvision 등으로 자동 다운로드하도록 구현하세요.
 
+⚠️ 데이터 보안 규칙 (절대 준수):
+- 데이터 경로(data_path)의 파일을 Read 도구로 읽지 마라 (산업/의료 민감 데이터 가능)
+- 데이터 경로의 이미지를 분석하거나 API로 전송하지 마라
+- 데이터는 오직 data.py에서 로컬 파일 시스템으로만 로드한다
+- 참조 이미지(todo.md에 명시적으로 적힌 것)만 분석 가능
+
 8단계 실행 시 runner_type = "{runner_type}" 을 사용하세요.
 시스템 프롬프트의 {{runner_type}} 을 "{runner_type}" 으로 치환하세요.
 {precondition_check}"""
