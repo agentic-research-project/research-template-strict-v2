@@ -2592,6 +2592,133 @@ def _append_results_log(summary: dict, pkg_dir: Path) -> None:
 # 메인 루프
 # ──────────────────────────────────────────────────────────
 
+# ──────────────────────────────────────────────────────────
+# GitHub Issue 알림 (실험 완료/실패 시 자동 생성)
+# ──────────────────────────────────────────────────────────
+
+_INFRA_FAILURE_STATUSES = {"smoke_failed", "failed", "timeout", "metrics_parse_error"}
+
+
+def _is_infra_failure(summary: dict) -> tuple[bool, str]:
+    """실험 실패가 인프라/코드 문제인지 판단한다.
+
+    Returns: (is_infra, reason)
+    - True: 코드 버그, 시스템 에러 → 즉시 중단
+    - False: 성능 미달 → Path A 재시도 가능
+    """
+    status = summary.get("status", "")
+    if status in _INFRA_FAILURE_STATUSES:
+        stderr = summary.get("stderr_tail", [])
+        stderr_text = " ".join(stderr[-5:]) if stderr else ""
+        # smoke_failed의 구체적 원인 분류
+        if "ModuleNotFoundError" in stderr_text or "ImportError" in stderr_text:
+            return True, f"import error: {stderr_text[:200]}"
+        if "SyntaxError" in stderr_text:
+            return True, f"syntax error: {stderr_text[:200]}"
+        if "NameError" in stderr_text or "AttributeError" in stderr_text:
+            return True, f"code error: {stderr_text[:200]}"
+        if "CUDA" in stderr_text or "out of memory" in stderr_text.lower():
+            return True, f"GPU/memory error: {stderr_text[:200]}"
+        if "git" in stderr_text.lower() and "push" in stderr_text.lower():
+            return True, f"git push error: {stderr_text[:200]}"
+        if "timeout" in status:
+            return True, f"execution timeout"
+        # smoke_failed이지만 구체적 원인 불명 → 인프라 문제로 간주
+        if status == "smoke_failed":
+            return True, f"smoke test failed: {stderr_text[:200]}"
+        return True, f"execution failed: {status}"
+    return False, ""
+
+
+def _create_github_issue(title: str, body: str, labels: list[str] | None = None) -> str:
+    """GitHub Issue를 생성하여 사용자에게 알린다.
+
+    Returns: issue URL or error message
+    """
+    import requests
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    owner = os.environ.get("GITHUB_OWNER", "").strip()
+    repo = os.environ.get("GITHUB_REPO", "").strip()
+
+    if not (token and owner and repo):
+        msg = f"[알림] GitHub Issue 생성 불가 (env 미설정) — {title}"
+        print(msg)
+        return msg
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    data = {"title": title, "body": body, "labels": labels or []}
+
+    try:
+        resp = requests.post(url, json=data, headers=headers, timeout=30)
+        if resp.status_code == 201:
+            issue_url = resp.json().get("html_url", "")
+            print(f"  [알림] GitHub Issue 생성: {issue_url}")
+            return issue_url
+        else:
+            msg = f"[알림] Issue 생성 실패 ({resp.status_code}): {resp.text[:200]}"
+            print(msg)
+            return msg
+    except Exception as e:
+        msg = f"[알림] Issue 생성 오류: {e}"
+        print(msg)
+        return msg
+
+
+def _notify_experiment_result(
+    summary: dict, decision: dict | None, slug: str, version: int,
+    is_infra_fail: bool = False, infra_reason: str = "",
+) -> None:
+    """실험 결과를 GitHub Issue로 알린다."""
+    primary = summary.get("primary_metric", {})
+    status = summary.get("status", "")
+    met = primary.get("met", False)
+
+    if is_infra_fail:
+        # 인프라/코드 실패 → 즉시 중단 알림
+        title = f"🔴 실험 실패 (v{version}): {slug} — 인프라/코드 오류"
+        body = f"""## 실험 실패 — 즉시 확인 필요
+
+| 항목 | 값 |
+|------|-----|
+| **실험** | `{slug}` v{version} |
+| **상태** | `{status}` |
+| **원인** | {infra_reason} |
+| **metric** | {primary.get('name', '?')} = {primary.get('value', 0)} |
+
+### 조치 필요
+- 코드/환경 문제를 수정 후 재실행하세요
+- Path A 자동 재시도는 **중단**되었습니다
+
+### stderr (마지막 5줄)
+```
+{chr(10).join(summary.get('stderr_tail', [])[-5:])}
+```
+"""
+        _create_github_issue(title, body, labels=["bug", "experiment-failed"])
+
+    elif met:
+        # 목표 달성 → 완료 알림
+        path = decision.get("path", "done") if decision else "done"
+        title = f"🟢 실험 완료 (v{version}): {slug} — 목표 달성!"
+        body = f"""## 실험 완료 — 목표 달성
+
+| 항목 | 값 |
+|------|-----|
+| **실험** | `{slug}` v{version} |
+| **{primary.get('name', '?')}** | **{primary.get('value', 0):.4f}** |
+| **목표** | {primary.get('target', 0)} |
+| **판정** | ✅ 달성 |
+| **confidence** | {summary.get('confidence', 0)} |
+
+### 다음 단계
+결과를 확인하고 논문 작성 또는 추가 실험을 진행하세요.
+- `experiments/{slug}/results/v{version}/result_summary.json`
+- `experiments/{slug}/reports/report.pdf`
+"""
+        _create_github_issue(title, body, labels=["experiment-done"])
+
+
 def run_research_loop(
     pkg_dir: str,
     topic_file: str,
@@ -2676,6 +2803,18 @@ def run_research_loop(
         primary = summary["primary_metric"]
         print(f"\n  [결과] {primary['name']} = {primary['value']:.4f} "
               f"(target={primary['target']:.2f}, met={primary['met']})")
+
+        # ── 인프라/코드 실패 감지 → 즉시 중단 + 알림 ──
+        is_infra, infra_reason = _is_infra_failure(summary)
+        if is_infra:
+            print(f"\n  🔴 [인프라 실패] {infra_reason}")
+            print(f"     Path A 재시도 없이 즉시 중단합니다.")
+            _notify_experiment_result(
+                summary, None, slug_from_pkg(pkg), version,
+                is_infra_fail=True, infra_reason=infra_reason,
+            )
+            final_summary = summary
+            break
 
         stability = summary.get("training_stability", {})
         hyp_impl = summary.get("hypothesis_implementation", {})
@@ -2824,6 +2963,9 @@ def run_research_loop(
 
         if decision["path"] == "done":
             print(f"\n  🎉 목표 달성! {primary['name']}={primary['value']:.4f}")
+            _notify_experiment_result(
+                summary, decision, slug_from_pkg(pkg), version,
+            )
             break
 
         if decision["path"] == "A" and round_idx < max_rounds:
@@ -2978,6 +3120,14 @@ def _push_results(slug: str, version: int) -> None:
             capture_output=True, text=True,
         ).stdout.strip()
 
+        # push 전 pull --rebase (원격이 더 최신일 수 있음)
+        pull = subprocess.run(
+            ["git", "pull", "--rebase", remote, branch],
+            capture_output=True, text=True,
+        )
+        if pull.returncode != 0:
+            print(f"    [git 경고] pull --rebase 실패: {pull.stderr.strip()[:200]}")
+
         push = subprocess.run(
             ["git", "push", remote, branch],
             capture_output=True, text=True,
@@ -2985,7 +3135,7 @@ def _push_results(slug: str, version: int) -> None:
         if push.returncode == 0:
             print(f"    [git] 결과 push 완료 → {remote}/{branch}")
         else:
-            print(f"    [git 경고] push 실패: {push.stderr.strip()}")
+            print(f"    [git 경고] push 실패: {push.stderr.strip()[:200]}")
     except Exception as e:
         print(f"    [git 경고] 결과 push 중 오류: {e}")
 

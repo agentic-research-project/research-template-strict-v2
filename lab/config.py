@@ -9,7 +9,7 @@ load_dotenv()
 # LLM 모델 설정
 CLAUDE_MODEL = "claude-opus-4-6"
 OPENAI_MODEL = "gpt-5.4"   #5.4
-GEMINI_MODEL = "gemini-3.1-pro" #3.1-pro
+GEMINI_MODEL = "gemini-3.1-pro-preview" #3.1-pro-preview
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
