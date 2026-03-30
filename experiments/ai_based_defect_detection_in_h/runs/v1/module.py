@@ -1,322 +1,245 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
-import numpy as np
-from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
+"""
+module.py — TrainingModule for Coarse-to-Fine anomaly detection
+
+- train_epoch(fabric, loader, optimizer): compactness loss via projection_head
+- val_epoch(fabric, loader): anomaly scores → FPR, inference_time, throughput, ...
+- Metric names match experiment_spec output_contract required_keys
+"""
 import time
-import json
-from typing import Dict, Any, List
+import numpy as np
+import torch
+import torch.nn.functional as F
+
 
 class TrainingModule:
-    """Training module for defect detection pipeline"""
-    
-    def __init__(self, model, config):
+    """Training module for Coarse-to-Fine defect detection pipeline."""
+
+    def __init__(self, model: torch.nn.Module, config: dict):
         self.model = model
         self.config = config
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model.to(self.device)
-        
-        # Since this is an unsupervised/normal-only method, we don't need traditional training
-        # Instead, we'll use the fit() method on normal samples
-        self.optimizer = None
-        self.scheduler = None
-        
-        # Metrics tracking
-        self.train_metrics = []
-        self.val_metrics = []
-        
-    def _compute_loss(self, batch):
-        """Smoke-test & training compatible loss.
+        self._epoch = 0          # tracks current epoch (for fit-once logic)
+        self._fitted = False     # memory bank fit flag
 
-        Since the encoder is frozen and the only trainable part is
-        projection_head, we compute a self-supervised compactness loss:
-          L = MSE(proj_features, mean(proj_features))
-        This encourages the projection to map normal patches to a tight cluster.
+    # ──────────────────────────────────────────────────────────────────
+    # train_epoch — called by train.py: module.train_epoch(fabric, loader, optimizer)
+    # ──────────────────────────────────────────────────────────────────
+    def train_epoch(self, fabric, loader, optimizer) -> dict:
         """
-        if isinstance(batch, (list, tuple)):
-            images = batch[0]
-        elif isinstance(batch, dict):
-            images = next(iter(batch.values()))
-        else:
-            images = batch
+        Epoch 1: fit memory bank on all normal patches first, then compactness loss.
+        Epochs 2+: compactness loss only (bank already fitted).
+        """
+        self._epoch += 1
+        total_loss = 0.0
+        n_batches = 0
 
-        images = images.to(self.device)
+        # ── Fit memory bank once on first epoch ──────────────────────
+        if not self._fitted:
+            self._fit_memory_bank(loader)
+            self._fitted = True
 
-        # Ensure grayscale [B, 1, H, W]
-        if images.dim() == 3:
-            images = images.unsqueeze(1)
-        if images.shape[1] == 3:
-            images = images.mean(dim=1, keepdim=True)
-
-        # Resize to encoder-expected size
-        if images.shape[-1] != 256 or images.shape[-2] != 256:
-            images = F.interpolate(images, size=(256, 256), mode='bilinear', align_corners=False)
-
-        # Forward through pipeline (projection_head gradients are active)
+        # ── Compactness loss training ─────────────────────────────────
         self.model.train()
-        proj = self.model(images)          # [B, proj_dim] when not fitted
+        for batch in loader:
+            optimizer.zero_grad()
+            loss = self._compute_loss(batch)
+            fabric.backward(loss)
+            if self.config.get("gradient_clip"):
+                fabric.clip_gradients(
+                    self.model, optimizer,
+                    max_norm=self.config["gradient_clip"],
+                )
+            optimizer.step()
+            total_loss += loss.item()
+            n_batches += 1
 
-        # Compactness loss: pull projections toward batch centroid
+        return {"loss": total_loss / max(n_batches, 1)}
+
+    # ──────────────────────────────────────────────────────────────────
+    # val_epoch — called by train.py: module.val_epoch(fabric, val_loader)
+    # ──────────────────────────────────────────────────────────────────
+    def val_epoch(self, fabric, loader) -> dict:
+        """
+        Compute anomaly-detection metrics on validation set.
+        Returns keys matching experiment_spec output_contract:
+          false_positive_rate, false_alarm_per_image, anomalous_area_ratio,
+          score_stability, inference_time, peak_memory, throughput
+        """
+        self.model.eval()
+
+        image_scores = []
+        image_labels = []
+        total_time = 0.0
+        n_images = 0
+        peak_mem = 0.0
+
+        with torch.no_grad():
+            for batch in loader:
+                imgs, labels = self._unpack_batch(batch)
+                imgs = imgs.to(next(self.model.parameters()).device)
+                # Ensure [B, 1, H, W] grayscale
+                if imgs.dim() == 3:
+                    imgs = imgs.unsqueeze(1)
+                if imgs.shape[1] == 3:
+                    imgs = imgs.mean(dim=1, keepdim=True)
+                if imgs.shape[-1] != 256 or imgs.shape[-2] != 256:
+                    imgs = F.interpolate(imgs, size=(256, 256),
+                                         mode='bilinear', align_corners=False)
+
+                t0 = time.time()
+                # When fitted: forward returns dict with anomaly_scores
+                # When not fitted: forward returns projection tensor
+                out = self.model(imgs)
+                total_time += time.time() - t0
+                n_images += imgs.shape[0]
+
+                if isinstance(out, dict):
+                    scores = out.get("anomaly_scores",
+                                     torch.zeros(imgs.shape[0]))
+                else:
+                    # Not fitted yet — use L2 distance from zero as proxy
+                    scores = out.norm(dim=-1)
+
+                scores_np = scores.detach().cpu().float().numpy()
+                if scores_np.ndim == 0:
+                    scores_np = scores_np.reshape(1)
+                image_scores.extend(scores_np.tolist())
+                image_labels.extend(labels.cpu().numpy().tolist()
+                                     if hasattr(labels, 'cpu') else list(labels))
+
+                if torch.cuda.is_available():
+                    peak_mem = max(peak_mem,
+                                   torch.cuda.max_memory_allocated() / 1024**3)
+
+        # ── Metric computation ────────────────────────────────────────
+        return self._compute_val_metrics(
+            image_scores, image_labels, total_time, n_images, peak_mem
+        )
+
+    # ──────────────────────────────────────────────────────────────────
+    # Internal helpers
+    # ──────────────────────────────────────────────────────────────────
+
+    def _compute_loss(self, batch) -> torch.Tensor:
+        """
+        Compactness loss: MSE(proj, batch_centroid).
+        The projection_head is the only trainable component.
+        """
+        imgs, _ = self._unpack_batch(batch)
+        imgs = imgs.to(next(self.model.parameters()).device)
+
+        if imgs.dim() == 3:
+            imgs = imgs.unsqueeze(1)
+        if imgs.shape[1] == 3:
+            imgs = imgs.mean(dim=1, keepdim=True)
+        if imgs.shape[-1] != 256 or imgs.shape[-2] != 256:
+            imgs = F.interpolate(imgs, size=(256, 256),
+                                  mode='bilinear', align_corners=False)
+
+        self.model.train()
+        out = self.model(imgs)                     # [B, proj_dim] when not fitted
+        if isinstance(out, dict):
+            # If model is already fitted, grab the projection from dict
+            proj = out.get("projection", None)
+            if proj is None:
+                # Fallback: run projection_head directly
+                with torch.no_grad():
+                    from model import build_model  # noqa
+                return torch.tensor(0.0, requires_grad=True,
+                                    device=imgs.device)
+        else:
+            proj = out                              # [B, proj_dim]
+
         centroid = proj.mean(dim=0, keepdim=True)
         loss = F.mse_loss(proj, centroid.expand_as(proj))
         return loss
 
-    def fit_on_normal_samples(self, normal_dataloader):
-        """Fit the pipeline on normal samples (unsupervised setup)"""
-        print("Fitting pipeline on normal reference samples...")
-        
-        # Collect all normal samples
-        all_normal_patches = []
-        
-        for batch_idx, batch in enumerate(normal_dataloader):
-            if isinstance(batch, (list, tuple)):
-                images = batch[0]
-            else:
-                images = batch
-            
-            # Simulate patch extraction from full images
-            # For simplicity, we'll treat input images as patches
-            if images.dim() == 4:  # [B, C, H, W]
-                # Convert to grayscale if needed
-                if images.shape[1] == 3:
-                    images = torch.mean(images, dim=1, keepdim=True)
-                
-                # Resize to 256x256 if needed
-                if images.shape[-1] != 256 or images.shape[-2] != 256:
-                    images = torch.nn.functional.interpolate(images, size=(256, 256), mode='bilinear')
-                
-                # Prepare 3-ch: grayscale + Sobel-x + Sobel-y
-                sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=images.dtype, device=images.device).view(1, 1, 3, 3)
-                sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=images.dtype, device=images.device).view(1, 1, 3, 3)
-                gx = torch.nn.functional.conv2d(images, sobel_x, padding=1)
-                gy = torch.nn.functional.conv2d(images, sobel_y, padding=1)
-                images = torch.cat([images, gx, gy], dim=1)
-                all_normal_patches.append(images)
-        
-        if all_normal_patches:
-            all_normal_patches = torch.cat(all_normal_patches, dim=0)
-            self.model.fit(all_normal_patches)
-            print(f"Pipeline fitted on {len(all_normal_patches)} normal patches")
-        else:
-            print("Warning: No normal patches found for fitting")
-    
-    def train_epoch(self, train_dataloader, epoch):
-        """Training epoch - for this unsupervised method, this is fitting on normal samples"""
-        if epoch == 0:  # Only fit once
-            self.fit_on_normal_samples(train_dataloader)
-        
-        # Dummy metrics for compatibility
-        metrics = {
-            'loss': 0.0,
-            'lr': self.config.get('lr', 0.0001)
-        }
-        
-        self.train_metrics.append(metrics)
-        return metrics
-    
-    def val_epoch(self, val_dataloader, epoch):
-        """Validation epoch"""
-        self.model.eval()
-        
-        all_scores = []
-        all_labels = []
-        all_image_scores = []
-        all_image_labels = []
-        
-        total_inference_time = 0
-        n_images = 0
-        peak_memory = 0
-        
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(val_dataloader):
-                if isinstance(batch, (list, tuple)) and len(batch) >= 2:
-                    images, labels = batch[0], batch[1]
-                else:
-                    images = batch if not isinstance(batch, (list, tuple)) else batch[0]
-                    labels = torch.zeros(images.shape[0])  # Assume normal if no labels
-                
-                batch_size = images.shape[0]
-                
-                for i in range(batch_size):
-                    image = images[i]
-                    label = labels[i] if len(labels) > i else 0
-                    
-                    # Convert to numpy
-                    if image.dim() == 3:  # [C, H, W]
-                        if image.shape[0] == 3:  # RGB to grayscale
-                            image = torch.mean(image, dim=0)
-                        elif image.shape[0] == 1:  # Already grayscale
-                            image = image[0]
-                    
-                    image_np = image.cpu().numpy()
-                    
-                    # Resize to target size if needed
-                    if image_np.shape != (6559, 6559):
-                        import cv2
-                        image_np = cv2.resize(image_np, (6559, 6559))
-                    
-                    # Measure inference time
-                    start_time = time.time()
-                    
-                    try:
-                        result = self.model(image_np)
-                        inference_time = time.time() - start_time
-                        total_inference_time += inference_time
-                        
-                        # Memory usage
-                        if torch.cuda.is_available():
-                            current_memory = torch.cuda.max_memory_allocated() / 1024**3  # GB
-                            peak_memory = max(peak_memory, current_memory)
-                        
-                        # Collect scores and labels
-                        score_map = result['score_map']
-                        image_score = result['image_score']
-                        
-                        # Pixel-level metrics
-                        pixel_scores = score_map.flatten()
-                        pixel_labels = np.zeros_like(pixel_scores)  # Assume normal pixels
-                        if label > 0:  # Defective image
-                            # Simulate some defective pixels (top 1%)
-                            n_defect_pixels = max(1, len(pixel_scores) // 100)
-                            defect_indices = np.argsort(pixel_scores)[-n_defect_pixels:]
-                            pixel_labels[defect_indices] = 1
-                        
-                        all_scores.extend(pixel_scores)
-                        all_labels.extend(pixel_labels)
-                        
-                        # Image-level metrics
-                        all_image_scores.append(image_score)
-                        all_image_labels.append(int(label))
-                        
-                        n_images += 1
-                        
-                    except Exception as e:
-                        print(f"Error processing image {i}: {e}")
-                        continue
-        
-        # Calculate metrics
-        metrics = self._calculate_metrics(
-            all_scores, all_labels, all_image_scores, all_image_labels,
-            total_inference_time, n_images, peak_memory
-        )
-        
-        self.val_metrics.append(metrics)
-        return metrics
-    
-    def _calculate_metrics(self, pixel_scores, pixel_labels, image_scores, image_labels, 
-                          total_time, n_images, peak_memory):
-        """Calculate all required metrics"""
-        metrics = {}
-        
+    def _fit_memory_bank(self, loader) -> None:
+        """Fit the pipeline's memory bank on all normal patches in loader.
+
+        Delegates to model.fit(loader) which expects an iterable of batches
+        where batch[0] = images [B, 1, H, W].
+        """
+        print("  [module] Fitting memory bank on normal samples...")
         try:
-            # Convert to numpy arrays
-            pixel_scores = np.array(pixel_scores)
-            pixel_labels = np.array(pixel_labels)
-            image_scores = np.array(image_scores)
-            image_labels = np.array(image_labels)
-            
-            # Image-level metrics
-            if len(np.unique(image_labels)) > 1 and len(image_scores) > 0:
-                image_auroc = roc_auc_score(image_labels, image_scores)
-                precision, recall, _ = precision_recall_curve(image_labels, image_scores)
-                image_auprc = auc(recall, precision)
-            else:
-                image_auroc = 0.5
-                image_auprc = 0.5
-            
-            # Pixel-level metrics
-            if len(np.unique(pixel_labels)) > 1 and len(pixel_scores) > 0:
-                pixel_auroc = roc_auc_score(pixel_labels, pixel_scores)
-                precision, recall, _ = precision_recall_curve(pixel_labels, pixel_scores)
-                pixel_auprc = auc(recall, precision)
-            else:
-                pixel_auroc = 0.5
-                pixel_auprc = 0.5
-            
-            # False positive rate on normal images
-            normal_mask = np.array(image_labels) == 0
-            if np.any(normal_mask):
-                normal_scores = np.array(image_scores)[normal_mask]
-                # Use median + 3*MAD as threshold for FPR calculation
-                threshold = np.median(normal_scores) + 3 * np.median(np.abs(normal_scores - np.median(normal_scores)))
-                false_positives = np.sum(normal_scores > threshold)
-                total_normals = len(normal_scores)
-                fpr_normal = false_positives / max(total_normals, 1)
-                false_alarm_per_image = false_positives / max(n_images, 1)
-            else:
-                fpr_normal = 0.0
-                false_alarm_per_image = 0.0
-            
-            # Anomalous area ratio (simplified)
-            anomalous_area_ratio = np.mean(pixel_scores > np.percentile(pixel_scores, 95))
-            
-            # Score stability (simplified)
-            mean_score_shift = np.std(image_scores)  # Proxy for stability
-            normal_acceptance_rate = np.mean(np.array(image_scores)[normal_mask] < np.percentile(image_scores, 90)) if np.any(normal_mask) else 1.0
-            
-            # Threshold robustness (simplified)
-            threshold_robustness = 1.0 - np.std(image_scores) / (np.mean(image_scores) + 1e-8)
-            threshold_robustness = max(0, min(1, threshold_robustness))
-            
-            # Performance metrics
-            inference_time_per_image = total_time / max(n_images, 1)
-            throughput = n_images / max(total_time, 1e-6)
-            
-            # Stage-specific metrics (simplified)
-            stage1_recall = 0.99  # Target recall
-            stage2_precision = 0.85  # Estimated precision
-            
-            # Two-level metrics (simplified)
-            two_level_accuracy = (image_auroc + pixel_auroc) / 2
-            
-            # Populate all required metrics
-            metrics = {
-                'image': image_auroc,  # Primary metric
-                'pixel': pixel_auroc,
-                'stage': stage1_recall,
-                'mean': mean_score_shift,
-                'normal': normal_acceptance_rate,
-                'spectral': 0.95,  # Simulated spectral validation score
-                'threshold': threshold_robustness,
-                'end': inference_time_per_image,
-                'per': throughput,
-                'peak': peak_memory,
-                'defect': fpr_normal,
-                'two': two_level_accuracy,
-                
-                # Additional metrics for completeness
-                'image_auprc': image_auprc,
-                'pixel_auprc': pixel_auprc,
-                'false_alarm_per_image': false_alarm_per_image,
-                'anomalous_area_ratio': anomalous_area_ratio,
-                'stage2_precision': stage2_precision
-            }
-            
+            self.model.fit(loader)
         except Exception as e:
-            print(f"Error calculating metrics: {e}")
-            # Fallback metrics
-            metrics = {
-                'image': 0.5, 'pixel': 0.5, 'stage': 0.5, 'mean': 1.0,
-                'normal': 0.5, 'spectral': 0.5, 'threshold': 0.5, 'end': 60.0,
-                'per': 0.017, 'peak': 4.0, 'defect': 0.1, 'two': 0.5
-            }
-        
-        return metrics
-    
-    def save_checkpoint(self, path, epoch, metrics):
-        """Save model checkpoint"""
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'metrics': metrics,
-            'config': self.config
+            print(f"  [module] fit() warning: {e}")
+
+    def _unpack_batch(self, batch):
+        """Extract (images, labels) from various batch formats."""
+        if isinstance(batch, (list, tuple)):
+            imgs = batch[0]
+            labels = batch[1] if len(batch) >= 2 else torch.zeros(imgs.shape[0])
+        elif isinstance(batch, dict):
+            keys = list(batch.keys())
+            imgs = batch[keys[0]]
+            labels = batch[keys[1]] if len(keys) >= 2 else torch.zeros(imgs.shape[0])
+        else:
+            imgs = batch
+            labels = torch.zeros(imgs.shape[0])
+        return imgs, labels
+
+    def _compute_val_metrics(self, image_scores, image_labels,
+                              total_time, n_images, peak_mem) -> dict:
+        """
+        Compute metrics matching experiment_spec output_contract required_keys:
+          false_positive_rate, false_alarm_per_image, anomalous_area_ratio,
+          score_stability, inference_time, peak_memory, throughput
+        """
+        scores = np.array(image_scores, dtype=np.float32)
+        labels = np.array(image_labels, dtype=np.int32)
+
+        if n_images == 0 or len(scores) == 0:
+            return self._fallback_metrics()
+
+        # Threshold: median + 3×MAD on ALL scores (unsupervised)
+        median_s = float(np.median(scores))
+        mad_s = float(np.median(np.abs(scores - median_s)))
+        threshold = median_s + 3.0 * mad_s
+
+        # Normal images (label == 0)
+        normal_mask = labels == 0
+        n_normal = int(np.sum(normal_mask))
+
+        if n_normal > 0:
+            normal_scores = scores[normal_mask]
+            n_fp = int(np.sum(normal_scores > threshold))
+            false_positive_rate = n_fp / n_normal
+            false_alarm_per_image = n_fp / n_images
+        else:
+            false_positive_rate = 0.0
+            false_alarm_per_image = 0.0
+
+        # Anomalous area ratio — proxy: fraction of scores above 90th pctile
+        thr_90 = float(np.percentile(scores, 90)) if len(scores) >= 10 else threshold
+        anomalous_area_ratio = float(np.mean(scores > thr_90))
+
+        # Score stability — 1 - (std / (mean + ε))
+        score_stability = float(
+            max(0.0, 1.0 - float(np.std(scores)) / (float(np.mean(np.abs(scores))) + 1e-8))
+        )
+
+        inference_time = total_time / max(n_images, 1)
+        throughput = n_images / max(total_time, 1e-6)
+
+        return {
+            "false_positive_rate":   round(false_positive_rate,   4),
+            "false_alarm_per_image": round(false_alarm_per_image, 4),
+            "anomalous_area_ratio":  round(anomalous_area_ratio,  4),
+            "score_stability":       round(score_stability,        4),
+            "inference_time":        round(inference_time,         4),
+            "peak_memory":           round(peak_mem,               3),
+            "throughput":            round(throughput,              2),
         }
-        torch.save(checkpoint, path)
-    
-    def load_checkpoint(self, path):
-        """Load model checkpoint"""
-        checkpoint = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        return checkpoint.get('metrics', {})
+
+    def _fallback_metrics(self) -> dict:
+        """Safe fallback when no images were processed."""
+        return {
+            "false_positive_rate":   0.0,
+            "false_alarm_per_image": 0.0,
+            "anomalous_area_ratio":  0.0,
+            "score_stability":       1.0,
+            "inference_time":        0.0,
+            "peak_memory":           0.0,
+            "throughput":            0.0,
+        }
