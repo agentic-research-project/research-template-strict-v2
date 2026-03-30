@@ -432,7 +432,14 @@ class GitHubActionsRunner(BaseRunner):
         return f"https://github.com/{self.owner}/{self.repo}/actions/runs/{run_id}"
 
     def _push_pkg(self, pkg_dir: Path) -> str:
-        """실험 패키지를 git commit/push하고 HEAD SHA를 반환한다."""
+        """실험 패키지를 실행 repo(GITHUB_OWNER/GITHUB_REPO)에 git commit/push하고 HEAD SHA를 반환한다."""
+        # git config 보장 (컨테이너 내 미설정 시)
+        subprocess.run(["git", "config", "user.email"], capture_output=True).returncode != 0 and \
+            subprocess.run(["git", "config", "user.email", "pipeline@research.local"], capture_output=True)
+        subprocess.run(["git", "config", "user.name"], capture_output=True).returncode != 0 and \
+            subprocess.run(["git", "config", "user.name", "research-pipeline"], capture_output=True)
+
+        # git add
         result = subprocess.run(
             ["git", "add", str(pkg_dir)],
             capture_output=True, text=True,
@@ -445,45 +452,54 @@ class GitHubActionsRunner(BaseRunner):
             capture_output=True, text=True,
         ).stdout.strip()
 
-        if changed:
-            commit = subprocess.run(
-                ["git", "commit", "-m",
-                 f"chore: push experiment package {pkg_dir.name} for CI"],
-                capture_output=True, text=True, check=True,
-            )
-            push = subprocess.run(
-                ["git", "push", "origin", self.ref],
-                capture_output=True, text=True,
-            )
-            if push.returncode != 0:
-                raise RuntimeError(f"git push 실패: {push.stderr.strip()}")
-            print(f"  [GitHubRunner] 패키지 push 완료: {pkg_dir}")
-        else:
+        if not changed:
             print(f"  [GitHubRunner] 변경사항 없음 — 기존 commit 사용")
+            sha = subprocess.run(
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True,
+            ).stdout.strip()
+            return sha
 
-        # CI workflow repo (ati-v2) 동기화: rsync --delete로 삭제되는 것을 방지
-        _ci_remote = f"https://github.com/{self.owner}/{self.repo}.git"
-        _remotes_raw = subprocess.run(
+        # commit
+        subprocess.run(
+            ["git", "commit", "-m", f"chore: push experiment package {pkg_dir.name} for CI"],
+            capture_output=True, text=True, check=True,
+        )
+
+        # 실행 repo로 push (GITHUB_OWNER/GITHUB_REPO)
+        # 1. 실행 repo에 대응하는 remote 찾기
+        target_repo_path = f"{self.owner}/{self.repo}"
+        remotes_raw = subprocess.run(
             ["git", "remote", "-v"], capture_output=True, text=True
         ).stdout
-        _ci_remote_name = next(
-            (line.split()[0] for line in _remotes_raw.splitlines()
-             if _ci_remote.split("@")[-1] in line and "(push)" in line),
-            None,
+        push_remote = None
+        for line in remotes_raw.splitlines():
+            if target_repo_path in line and "(push)" in line:
+                push_remote = line.split()[0]
+                break
+
+        # 2. remote가 없으면 임시 생성
+        if not push_remote:
+            push_remote = "_ci_push"
+            push_url = f"https://{self.token}@github.com/{self.owner}/{self.repo}.git"
+            subprocess.run(["git", "remote", "remove", push_remote], capture_output=True)
+            subprocess.run(["git", "remote", "add", push_remote, push_url], capture_output=True)
+            print(f"  [GitHubRunner] 임시 remote 생성: {push_remote} → {self.owner}/{self.repo}")
+
+        # 3. pull --rebase 후 push
+        subprocess.run(
+            ["git", "pull", "--rebase", push_remote, self.ref],
+            capture_output=True, text=True,
         )
-        if _ci_remote_name and _ci_remote_name != "origin":
-            _push2 = subprocess.run(
-                ["git", "push", _ci_remote_name, self.ref, "--force"],
-                capture_output=True, text=True,
-            )
-            if _push2.returncode == 0:
-                print(f"  [GitHubRunner] CI 레포({_ci_remote_name}) 동기화 완료")
-            else:
-                print(f"  [GitHubRunner] CI 레포 동기화 실패 (무시): {_push2.stderr[:100]}")
+        push = subprocess.run(
+            ["git", "push", push_remote, self.ref],
+            capture_output=True, text=True,
+        )
+        if push.returncode != 0:
+            raise RuntimeError(f"git push 실패 ({push_remote}): {push.stderr.strip()[:200]}")
+        print(f"  [GitHubRunner] 패키지 push 완료: {pkg_dir} → {push_remote} ({self.owner}/{self.repo})")
 
         sha = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True,
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True,
         ).stdout.strip()
         return sha
 

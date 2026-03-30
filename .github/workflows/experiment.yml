@@ -225,12 +225,25 @@ jobs:
 
       - name: Run smoke test
         run: |
-          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            cd "${{ env.PROJECT_DIR }}/${{ env.EXPERIMENT_PKG }}"
+          PKG_BASE="${{ inputs.project_dir || vars.PROJECT_DIR }}"
+          if [ -z "$PKG_BASE" ]; then
+            PKG_BASE=$(docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+              find / -maxdepth 6 -name '.git' -type d \
+                -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' \
+                -not -path '/run/*' -not -path '/tmp/*' 2>/dev/null | \
+              while read p; do
+                dir=\$(dirname \$p)
+                if git -C \$dir remote -v 2>/dev/null | grep -q 'agentic-research-project/research-ATI-strict-v2'; then
+                  echo \$dir; break
+                fi
+              done" 2>/dev/null || echo "")
+          fi
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+            cd \"${PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             conda run -n ${{ env.CONDA_ENV_NAME }} \
               python scripts/smoke_test.py --config configs/fast.yaml
-          '
+          "
 
       - name: Write smoke_failed status
         if: failure()
