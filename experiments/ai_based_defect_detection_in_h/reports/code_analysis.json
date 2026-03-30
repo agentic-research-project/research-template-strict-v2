@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-03-30T03:43:36.470592",
+  "topic": "AI-based defect detection in high-resolution grayscale semiconductor images using normal-only reference patches",
+  "repos_found": [],
+  "repos_metadata": [],
+  "files_analyzed": 0,
+  "analyzed_sources": [],
+  "reusable_components": [],
+  "architecture_insights": [],
+  "recommended_baseline": "코드를 찾지 못했습니다. 직접 구현이 필요합니다.",
+  "implementation_tips": []
+}

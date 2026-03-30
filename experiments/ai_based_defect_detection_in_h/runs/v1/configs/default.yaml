@@ -1,0 +1,81 @@
+# Configuration for AI-based defect detection in semiconductor images
+
+# Model architecture
+model_architecture: 'DefectDetectionPipeline'
+patch_size: 256
+stride: 224
+feature_dim: 1024
+k_neighbors: 3
+coreset_size: 5000
+
+# Training configuration
+epochs: 50
+batch_size: 16
+lr: 0.0001
+optimizer: 'adamw'
+weight_decay: 0.01
+gradient_clip: 1.0
+seed: 42
+
+# Precision and performance
+precision: 'bf16-mixed'
+num_workers: 4
+pin_memory: true
+
+# Pipeline-specific parameters
+coarse_gate:
+  acceptance_percentile: 1.0
+  cue_weights: [0.25, 0.25, 0.25, 0.25]  # variance, entropy, edge_max, mahalanobis
+
+encoder:
+  input_channels: 3  # grayscale + sobel-x + sobel-y
+  freeze_pretrained: true
+  apply_adain: [1, 2]  # Apply AdaIN to blocks 1-2 only
+
+memory_bank:
+  distance_metric: 'l2'
+  index_type: 'flat'
+  search_k: 3
+
+evt_thresholds:
+  patch_level:
+    percentile: 90
+    target_threshold: 70
+  image_level:
+    percentile: 90
+    target_threshold: 99
+
+# Image processing
+image_processing:
+  target_size: [6559, 6559]
+  overlap_pixels: 32
+  blur_sigma: 1.0
+  edge_enhancement: true
+
+# Data configuration
+data_dir: './data'
+num_workers: 4
+shuffle_train: true
+drop_last: false
+
+# Validation and metrics
+validation:
+  frequency: 1  # Every epoch
+  save_predictions: false
+  calculate_detailed_metrics: true
+
+# Performance constraints
+performance:
+  max_inference_time: 60  # seconds per image
+  max_memory_gb: 8
+  target_throughput: 0.017  # images per second
+
+# Logging
+logging:
+  log_frequency: 10
+  save_checkpoints: true
+  tensorboard: false
+
+# Reproducibility
+random_seed: 42
+deterministic: true

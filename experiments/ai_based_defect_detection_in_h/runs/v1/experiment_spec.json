@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "spec_id": "ai_based_defect_detection_in_h_v1_20260330_035621",
+  "hypothesis_id": "91e30adb",
+  "experiment_version": 1,
+  "topic_slug": "ai_based_defect_detection_in_h",
+  "created_at": "2026-03-30T03:56:21.566461",
+  "revised_from_spec_id": null,
+  "revision_path": null,
+  "model_architecture": {
+    "name": "CoarseToFineDefectDetectionPipeline",
+    "description": "Stage-1에서 픽셀 분산·엔트로피·경량 Sobel-edge 최대값과 얕은 동결 특징 기반 Mahalanobis 마이크로 스크리닝을 결합한 다중 단서 조기 필터로 높은 결함 리콜(≥99%)의 조기 배제를 수행하고, Stage-2에서 동결 인코더의 얕은 계층(블록 1–2) 한정 AdaIN(Median/MAD 기반 강건 스타일 통계)으로 저주파 스타일 변동을 스펙트럼 검증 기반으로 분리·보정하며 국소 최대 풀링+±r 공간 탐색 윈도우로 다중 모드 정렬 완화를 수행하고, Stage-3에서 패치 수준 GPD와 이미지 수준 max-cluster 통계에 대해 각각 EVT 보정을 이중 수행하되 소수 참조 lot에는 풀링-lot 베이지안 사전분포를 적용하며 후보 영역에만 선택적 희소 블렌딩을 수행하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 이미지 수준 FPR ≤1%, 픽셀 AUROC ≥0.95, Stage-1 결함 리콜 ≥99%, 60초 이내 추론을 달성할 수 있다.",
+    "key_components": [
+      "MultiCueCoarseGate",
+      "FrozenEncoder+AdaIN",
+      "MemoryBank",
+      "EVTThreshold",
+      "ProjectionHead"
+    ],
+    "param_budget_M": 5.0,
+    "param_estimate_M": 5.0
+  },
+  "training_config": {
+    "epochs": 5,
+    "batch_size": 8,
+    "optimizer": "adam",
+    "lr": 0.0001,
+    "loss_function": "compactness_mse",
+    "seed": 42,
+    "precision": "bf16-mixed",
+    "gradient_clip": 1.0
+  },
+  "evaluation_config": {
+    "primary_metric": "false_positive_rate",
+    "target_value": 0.01,
+    "secondary_metrics": [
+      "false_alarm_per_image",
+      "anomalous_area_ratio",
+      "score_stability",
+      "inference_time",
+      "peak_memory",
+      "throughput"
+    ],
+    "metric_units": {
+      "false_positive_rate": "%",
+      "false_alarm_per_image": "count",
+      "anomalous_area_ratio": "%",
+      "inference_time": "s",
+      "peak_memory": "GB",
+      "throughput": "img/s"
+    },
+    "test_set": "val_split",
+    "eval_frequency": 1
+  },
+  "hypothesis_contract": {
+    "mechanism": "**Stage-0 (Reference Preparation — offline, one-time per lot):**\nDefect-free 256×256 normal reference patches are passed through a frozen lightweight encoder (primary: DINOv2-Small ViT or EfficientNet-B4, selected via Ablation-4; input: grayscale + Sobel-x + Sobel-y as 3 channels). Per-layer feature statistics are stored using robust estimators: channel-wise median and MAD (Median Absolute Deviation) for the style profile (blocks 1–2), replacing mean/std to resist outlier references. A hierarchical coreset of deep-layer features (blocks 3–4) is built via greedy k-center sampling (~5000 points). Two-level EVT fitting: (L1) GPD is fitted to the tail (>90th percentile) of patch-level k-NN distances within the normal coreset; (L2) for each normal reference image (or synthetic full-image composition), compute the image-level max anomaly score and top-5 cluster score, then fit a second GPD to this image-level distribution. For lots with <25 reference images, GPD shape ξ and scale σ are regularized via empirical Bayes priors pooled from all available lots. Automated reference quality gate: patches with shallow-feature Mahalanobis distance >3σ from reference population median are flagged and excluded.\n\n**Spectral Validation Protocol (one-time, per encoder configuration):**\nFor blocks 1–4, extract feature maps from 200+ normal patches before and after AdaIN. Compute 2D Fourier power spectra of feature maps. Measure: (a) high-frequency cosine similarity (spatial frequencies > half-Nyquist) — must be >0.95 for blocks 1–2 and >0.98 for blocks 3–4 (where no AdaIN is applied, serving as control); (b) inject synthetic defects (Perlin blobs, scratches) and measure Fisher discriminant ratio (FDR) between defect and normal feature distributions per layer — FDR degradation after AdaIN must be <5% at blocks 3–4. Results stored as validation certificates.\n\n**Stage-1 (Multi-Cue Coarse Gate):**\nThe 6559×6559 source image is tiled into 256×256 patches with 32-pixel overlap (stride=224), yielding ~841 patches. For each patch, four cues are computed in parallel on GPU (<0.5 ms total per patch):\n  (C1) Pixel variance — captures uniform/low-texture regions\n  (C2) Shannon entropy of 8-bit histogram — captures information content\n  (C3) Sobel-edge maximum — max of |Sobel-x| and |Sobel-y| response, captures thin linear defects (scratches) even in low-variance patches\n  (C4) Mahalanobis micro-screen — pass the patch through block-1 only of the frozen encoder (~0.3 ms), compute Mahalanobis distance from normal reference block-1 statistics → flags subtle textural anomalies\nA patch is classified as 'trivially normal' ONLY if ALL FOUR cues fall within their respective acceptance bands (calibrated from reference patch statistics at the 1st percentile for edge-max and Mahalanobis, ensuring ≥99% defect recall). Rejected patches are assigned score=0. Estimated 40–60% of patches are rejected.\n\n**Stage-2a (Patch-Level Pre-Screen):**\nCandidate patches from Stage-1 are encoded through the full frozen encoder in batches (batch=16–32, async GPU pipeline). At blocks 1–2, AdaIN aligns channel-wise median and MAD to the robust reference style profile. At blocks 3–4, features are extracted without modification. Global-average-pooled deep features yield a single 1024-d vector per patch. Patch-level anomaly score = k-NN distance (k=3) to coreset via FAISS IVF-PQ. Patches scoring below the 70th percentile of normal patch distribution are classified as 'fine-normal' — no dense spatial scoring needed. Only suspicious patches (~30–50% of candidates, ~10–30% of total) proceed to Stage-2b.\n\n**Stage-2b (Dense Spatial Scoring):**\nFor suspicious patches, spatial-position-level feature vectors (after 2×2 local max-pooling on deep feature maps) are compared to the coreset using FAISS with a ±r=4 spatial search window: each query position's feature vector is compared not just to its positional counterpart but to all coreset entries within a radius of 4 spatial positions, selecting the minimum distance. This provides tolerance to ±8 pixels of translation, small rotation (~2°), and periodic lattice offsets common in semiconductor die arrays. Per-position anomaly scores form a spatial score map for the patch.\n\n**Stage-3 (Selective Assembly & Two-Level Thresholding):**\nPatch score maps are assembled into the full 6559×6559 grid. Background (Stage-1 rejected) and fine-normal (Stage-2a cleared) regions are zero-filled with no blending computation. Gaussian-weighted blending is applied ONLY at boundaries between adjacent candidate patches, reducing blending operations by ~60–80%. The assembled score map is thresholded at the Level-1 EVT threshold (GPD 99th percentile) to produce candidate defect pixels. Image-level summary statistics (max score, top-5 cluster mean) are compared against the Level-2 EVT threshold for final image-level defect/normal classification. Connected components in the pixel mask produce bounding boxes with confidence = 1 − p-value from GPD.\n\n**Pipelining:** Tiling and Stage-1 run on CPU/GPU concurrently; Stage-1 results stream to Stage-2a in micro-batches; Stage-2b is triggered only for flagged patches. Async CPU↔GPU transfer minimizes idle time. Target: <60s on RTX 4090 for 6559×6559.",
+    "target_metric_raw": "False Positive Rate on Normal Images, False Alarm per Image, Anomalous Area Ratio on Normal Images, Score Stability under Style/Noise Perturbation (Mean Absolute Score Shift and Normal Acceptance Rate under Perturbation), Threshold Robustness, Inference Time per Source Image, Peak Memory Usage, Throughput",
+    "constraints_raw": "Input is 6559x6559 grayscale source image, Reference images are defect-free normal patches (256x256 or 512x512 or smaller), Input and output image h/w dimensions may differ, Defect annotations are very limited or absent, Training should be minimized (normal-only / few-shot / training-light preferred), Must run on single GPU or limited compute environment, Inspection time per source image must be under 1 minute, Must be robust to image style / contrast / noise level changes, Avoid end-to-end fine-tuning of very large foundation models, Must avoid excessive false positive increase for real-world deployment",
+    "architecture_hint": "CoarseToFine anomaly detection with frozen encoder and memory bank"
+  },
+  "constraints_structured": {},
+  "data_config": {
+    "data_path": "/data/0_Data/0_1_INDUST/ATI",
+    "dataset_name": "ATI semiconductor dataset"
+  },
+  "task_family": "anomaly_detection",
+  "pattern_candidates": [
+    "memory_bank_knn",
+    "feature_normalization",
+    "coarse_to_fine"
+  ],
+  "family_contract": {},
+  "generation_prior": {},
+  "literature_code_prior": {},
+  "contract_tests": [],
+  "starter_skeleton_path": "",
+  "must_not_do": [
+    "finetune_large_model",
+    "supervised_defect_labels"
+  ],
+  "synthesized_baselines": [
+    "PatchCore",
+    "SPADE",
+    "PaDiM"
+  ],
+  "latest_trends": {},
+  "ablations": [],
+  "baselines": [
+    "PatchCore",
+    "SPADE"
+  ],
+  "output_contract": {
+    "stdout_pattern": "^METRICS:\\{.*\\}$",
+    "required_keys": [
+      "false_positive_rate",
+      "false_alarm_per_image",
+      "anomalous_area_ratio",
+      "score_stability",
+      "inference_time",
+      "peak_memory",
+      "throughput"
+    ]
+  }
+}

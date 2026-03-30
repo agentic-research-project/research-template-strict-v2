@@ -1,0 +1,26 @@
+{
+  "ok": false,
+  "syntax_ok": true,
+  "smoke_ok": false,
+  "forward_ok": false,
+  "metric_contract_ok": false,
+  "output_contract_ok": true,
+  "hypothesis_implementation_ok": false,
+  "mechanism_ok": false,
+  "metric_ok": false,
+  "constraints_ok": true,
+  "hard_audit_ok": false,
+  "task_family_ok": true,
+  "family_audit": {},
+  "hard_failures": [
+    "mechanism not implemented: missing=['MultiCueCoarseGate.compute_cues() 메서드가 불완전하게 구현됨 (코드 중간에 절단)', 'AdaIN 구현이 코드에서 찾을 수 없음 (blocks 1-2에서의 스타일 정규화)', 'EVT(Extreme Value Theory) GPD 피팅 구현 누락', 'FAISS 기반 k-NN 검색 및 coreset 구현 누락', 'Spectral Validation Protocol 완전 미구현', 'Stage-2b의 Dense Spatial Scoring with ±r=4 spatial search window 미구현', 'Two-level EVT thresholding 시스템 미구현', '실제 forward() 호출 경로에서 mechanism들이 연결되지 않음', '6559x6559 이미지 처리를 위한 메모리 최적화 파이프라인 미완성', \"[AST] forward()에서 mechanism 미발견: ['Stage', 'Reference', 'Preparation', 'one-time', 'Defect', 'DINO', 'Small', 'EfficientNet', 'Ablation', 'Sobel']\"]",
+    "metric not implemented: primary=false_positive_rate, found=True, stdout_ok=True, missing_keys=['score_stability', 'inference_time', 'peak_memory', 'throughput']"
+  ],
+  "errors": [
+    "smoke_test failed: ckages/torchvision/transforms/transforms.py\", line 137, in __call__\n    return F.to_tensor(pic)\n           ^^^^^^^^^^^^^^^^\n  File \"/home/ssdl/.conda/envs/yhn/lib/python3.12/site-packages/torchvision/transforms/functional.py\", line 142, in to_tensor\n    raise TypeError(f\"pic should be PIL Image or ndarray. Got {type(pic)}\")\nTypeError: pic should be PIL Image or ndarray. Got <class 'torch.Tensor'>\n"
+  ],
+  "warnings": [
+    "test_forward failed (non-blocking): ",
+    "metric key contract: required_keys ['score_stability', 'inference_time', 'peak_memory', 'throughput'] not found in module.py/train.py"
+  ]
+}
