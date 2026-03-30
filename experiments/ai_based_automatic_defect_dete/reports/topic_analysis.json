@@ -1,0 +1,215 @@
+{
+  "research_question": "How can a training-light anomaly detection system, leveraging only defect-free normal reference patches, reliably localize subtle and diverse defects in ultra-high-resolution (6559×6559) grayscale semiconductor wafer images while maintaining low false positive rates and sub-2-minute inference under varying imaging conditions?",
+  "background": "Semiconductor wafer inspection demands pixel-level defect detection in ultra-high-resolution images, yet actual defect samples are extremely scarce and diverse, making supervised approaches impractical due to prohibitive labeling costs. Conventional rule-based inspection systems suffer from excessive false positives when confronted with process noise, equipment drift, brightness shifts, and style variations across production lots. A normal-only, training-light anomaly detection paradigm that operates via robust feature-space comparison at the patch level offers a scalable and adaptable alternative, but faces unique challenges in handling the extreme resolution, subtle defect signatures, and strict throughput requirements of real-world semiconductor fabrication lines.",
+  "image_analysis": {
+    "input_characteristics": "Ultra-high-resolution 6559×6559 single-channel grayscale semiconductor source images with fine-grained circuit patterns, process noise, brightness and contrast variations across equipment and lots; reference images are defect-free normal patches at 256×256 or 512×512 resolution",
+    "target_characteristics": "Per-pixel anomaly score map or heatmap at source image resolution, with defect locations presented as bounding boxes or binary segmentation masks; defect score should clearly separate normal regions from anomalous regions",
+    "visual_gap": "Input source images may contain tiny, low-contrast defects (scratches, particles, pattern deviations) embedded in highly repetitive but style-varying circuit textures; the output must highlight only true anomalies while suppressing false activations from normal pattern variation, noise, and style drift",
+    "domain_type": "industrial"
+  },
+  "problem_analysis": {
+    "core_problem": "Detecting and localizing rare, subtle, and diverse defects in ultra-high-resolution semiconductor images using only normal reference patches, without defect supervision, under strict false positive, robustness, and latency constraints",
+    "current_limitations": [
+      "Rule-based methods produce excessive false positives under style, brightness, and noise variations across lots and equipment",
+      "Supervised deep learning methods require large labeled defect datasets that are prohibitively expensive and incomplete in semiconductor inspection",
+      "Existing anomaly detection methods (e.g., PatchCore, SPADE, PaDiM) are designed for moderate-resolution images and do not natively handle 6559×6559 inputs within tight time budgets",
+      "Simple pixel-level template matching fails to capture semantic and structural anomalies, especially for very small and subtle defects",
+      "Most anomaly detection methods require per-category or per-product training, limiting adaptability to new lots and equipment without retraining",
+      "Patch-level divide-and-merge strategies introduce boundary artifacts and inconsistent scoring across tiles"
+    ],
+    "why_difficult": "The problem is difficult because it combines multiple compounding challenges: (1) the extreme image resolution (43M pixels) necessitates efficient patch-based divide-and-merge with seamless stitching; (2) defects are exceedingly rare, small, and diverse, requiring high sensitivity at the sub-patch level; (3) normal appearance varies significantly due to process, equipment, and environmental factors, demanding robust feature representations invariant to style/noise but sensitive to true anomalies; (4) zero or near-zero defect labels preclude supervised training; (5) real-time deployment requires sub-2-minute full-image inference with bounded memory; and (6) false positive suppression is critical for production viability, yet the threshold must generalize across unseen conditions."
+  },
+  "scope": {
+    "in_scope": [
+      "Normal-only (unsupervised/self-supervised/few-shot) anomaly detection at patch level",
+      "Multi-scale patch extraction, inference, and anomaly map merging for ultra-high-resolution images",
+      "Feature-space comparison using pre-trained or lightly fine-tuned deep feature extractors",
+      "Robustness mechanisms against style, contrast, brightness, and noise variations",
+      "Efficient inference pipeline design for 6559×6559 images within 1-2 minute budget",
+      "Anomaly score map generation with bounding box and mask output",
+      "Adaptation to new lots/equipment/styles with minimal or no retraining (adding normal references only)",
+      "False positive rate optimization and threshold robustness analysis",
+      "Memory-efficient tiling and stitching strategies"
+    ],
+    "out_scope": [
+      "Fully supervised defect classification with large labeled datasets",
+      "Defect root cause analysis or process control feedback",
+      "Color image processing or multi-spectral imaging",
+      "Hardware-specific accelerator design (FPGA/ASIC)",
+      "3D wafer surface reconstruction or depth-based inspection",
+      "Training large generative models from scratch on semiconductor data",
+      "Cross-domain transfer from non-semiconductor anomaly detection benchmarks without adaptation"
+    ]
+  },
+  "search_keywords": {
+    "primary": [
+      "unsupervised anomaly detection semiconductor wafer inspection",
+      "normal-only patch-based defect localization high-resolution industrial images",
+      "training-free anomaly detection pretrained feature memory bank",
+      "multi-scale patch anomaly segmentation ultra-high-resolution",
+      "few-shot anomaly detection industrial manufacturing low false positive"
+    ],
+    "secondary": [
+      "PatchCore SPADE PaDiM industrial anomaly detection benchmark",
+      "MVTec anomaly detection AUROC false positive rate evaluation",
+      "style-invariant feature extraction domain shift robustness industrial inspection",
+      "efficient tiling inference large-resolution image anomaly map stitching",
+      "knowledge distillation anomaly detection inference speed memory efficiency",
+      "Input 6559x6559 grayscale"
+    ],
+    "venues": [
+      "CVPR",
+      "ECCV",
+      "ICCV",
+      "NeurIPS",
+      "ICLR",
+      "AAAI",
+      "WACV",
+      "IEEE TRANSACTIONS ON SEMICONDUCTOR MANUFACTURING",
+      "IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS"
+    ]
+  },
+  "success_criteria": {
+    "quantitative": [
+      "False Positive Rate on Normal Images <= 1% (ideally <= 0.5%)",
+      "False Alarm per Image <= 0.5 on average for normal images",
+      "Anomalous Area Ratio on Normal Images <= 0.1%",
+      "Mean Absolute Score Shift under style/noise perturbation <= 0.05 (normalized scale)",
+      "Normal Acceptance Rate under Perturbation >= 95%",
+      "Pixel-level AUROC >= 0.95 on annotated defect subsets (where labels exist)",
+      "Inference Time per 6559×6559 source image <= 120 seconds",
+      "Peak Memory Usage <= 16 GB GPU memory",
+      "Throughput >= 0.5 images per minute"
+    ],
+    "qualitative": [
+      "Detected defect locations visually align with ground-truth defect regions as verified by domain experts",
+      "Anomaly heatmap provides interpretable and smooth defect localization without excessive boundary artifacts from tiling",
+      "System adapts to new lot/equipment styles by simply adding new normal reference patches without retraining",
+      "Output bounding boxes and masks are production-ready for downstream review workflows",
+      "Score distribution on normal images is stable and well-separated from defective regions across different imaging conditions"
+    ]
+  },
+  "constraints": [
+    "Input source image is 6559×6559 single-channel grayscale",
+    "Reference images are defect-free normal grayscale patches (256×256 or 512×512 or smaller)",
+    "Input and output spatial dimensions (h, w) may differ between source and reference",
+    "Defect annotations are extremely limited or entirely absent — no supervised training allowed",
+    "Training must be minimized: normal-only, few-shot, or training-light paradigm required",
+    "Full inspection per source image must complete within 1-2 minutes on a single GPU",
+    "Must be robust to style, contrast, brightness, and noise level variations across lots and equipment",
+    "Must maintain low false positive rate suitable for real-world production deployment",
+    "Must handle very small and subtle defects that are invisible to simple pixel-level comparison",
+    "Memory usage must be bounded for deployment on standard industrial GPU hardware (e.g., single GPU with 16-24 GB)"
+  ],
+  "target_metrics": [
+    "False Positive Rate on Normal Images",
+    "False Alarm per Image",
+    "Anomalous Area Ratio on Normal Images",
+    "Score Stability under Style/Noise Perturbation (Mean Absolute Score Shift)",
+    "Normal Acceptance Rate under Perturbation",
+    "Threshold Robustness (performance consistency across threshold sweeps)",
+    "Inference Time per Source Image",
+    "Peak Memory Usage",
+    "Throughput (images per minute)",
+    "Pixel-level AUROC (where ground-truth annotations are available)",
+    "Image-level AUROC (where ground-truth annotations are available)"
+  ],
+  "expected_challenges": [
+    "Achieving sufficient sensitivity to detect extremely small and subtle defects at the sub-patch level while suppressing false positives from normal pattern variations, process noise, and style drift — the fundamental sensitivity-specificity tradeoff is amplified by the absence of defect supervision and the high diversity of normal appearances",
+    "Designing an efficient and artifact-free patch-based divide-and-merge inference pipeline for 43-megapixel images that respects the 1-2 minute time budget and memory constraints, including handling overlapping tile boundaries, multi-scale aggregation, and consistent anomaly score normalization across thousands of patches",
+    "Ensuring robust generalization to unseen lots, equipment, and imaging conditions without retraining — the feature representations and scoring mechanisms must be invariant to domain shift (brightness, contrast, noise statistics) while remaining discriminative for true anomalies, which requires careful design of normalization, feature selection, and adaptive thresholding strategies"
+  ],
+  "input": {
+    "topic": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
+    "details": "Develop a training-light anomaly detection system that leverages only defect-free reference patches (256x256, 512x512 or smaller) to localize defects in ultra-high-resolution semiconductor wafer images, replacing or supplementing conventional rule-based inspection with robust feature-space comparison and multi-scale patch inference.",
+    "problem_definition": "The source images are ultra-high-resolution (6559x6559) grayscale semiconductor images that cannot be processed at once and require patch-level divide-and-merge strategies. Actual defect samples are extremely scarce and diverse, making supervised detection impractical due to high labeling costs, while variations in image style, brightness, process noise, and equipment differences cause simple rule-based methods to produce excessive false positives. Additionally, defects can be very small and subtle, exceeding the capability of simple pixel-level comparison.",
+    "desired_outcome": "The system should reliably detect defect candidates using only normal reference patches, generate an anomaly map or defect score map for each source image, and present defect locations as bounding boxes or masks. It must maintain robust performance under style and noise variations, complete inspection of one source image within 1–2 minutes, and adapt to new lots/equipment/styles without retraining or with only minimal addition of normal references.",
+    "constraints": "Input is 6559x6559 grayscale source image, Reference images are defect-free normal grayscale patches (256x256 or 512x512 or smaller), Input and output image dimensions (h and w) may differ, Defect annotations are very limited or absent, Training must be minimized (normal-only / few-shot / training-light preferred), Inspection time per source image must be within 1-2 minutes, Must be robust to style and contrast and noise level variations, Must avoid excessive false positive rates for real-world deployment",
+    "target_metric": "False Positive Rate on Normal Images, False Alarm per Image, Anomalous Area Ratio on Normal Images, Score Stability under Style/Noise Perturbation (Mean Absolute Score Shift and Normal Acceptance Rate under Perturbation), Threshold Robustness, Inference Time per Source Image, Peak Memory Usage, Throughput",
+    "data_path": ""
+  },
+  "constraints_structured": {},
+  "retrieval_plan": {
+    "task_type": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
+    "domain_type": "industrial",
+    "must_cover": [
+      "key_innovation",
+      "expected_mechanism",
+      "closest_prior_art",
+      "baseline_models",
+      "evaluation_metrics",
+      "constraints",
+      "falsification_criteria",
+      "failure_modes",
+      "deployment_constraints"
+    ],
+    "query_families": [
+      {
+        "type": "task-core",
+        "queries": [
+          "unsupervised anomaly detection semiconductor wafer inspection",
+          "normal-only patch-based defect localization high-resolution industrial images",
+          "training-free anomaly detection pretrained feature memory bank",
+          "source images ultra high"
+        ]
+      },
+      {
+        "type": "constraint-aware",
+        "queries": [
+          "based automatic Input 6559x6559 grayscale",
+          "efficient tiling inference large-resolution image anomaly map stitching",
+          "knowledge distillation anomaly detection inference speed memory efficiency"
+        ]
+      },
+      {
+        "type": "metric-aware",
+        "queries": [
+          "based automatic False Positive Rate on Normal Images",
+          "based automatic False Alarm per Image",
+          "based automatic Anomalous Area Ratio on Normal Images"
+        ]
+      },
+      {
+        "type": "baseline-aware",
+        "queries": [
+          "state-of-the-art system should reliably",
+          "benchmark unsupervised anomaly detection semiconductor wafer inspection"
+        ]
+      },
+      {
+        "type": "mechanism-seeking",
+        "queries": [
+          "based automatic mechanism",
+          "based automatic how it works"
+        ]
+      },
+      {
+        "type": "closest-prior-art-seeking",
+        "queries": [
+          "based automatic prior work",
+          "based automatic previous approach"
+        ]
+      },
+      {
+        "type": "falsification-seeking",
+        "queries": [
+          "based automatic limitation failure",
+          "based automatic does not work"
+        ]
+      },
+      {
+        "type": "failure-mode-seeking",
+        "queries": [
+          "based automatic failure mode",
+          "based automatic common pitfalls"
+        ]
+      },
+      {
+        "type": "deployment-constraint-seeking",
+        "queries": [
+          "based automatic deployment Input 6559x6559"
+        ]
+      }
+    ]
+  }
+}

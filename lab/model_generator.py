@@ -61,7 +61,7 @@ SCHEMAS_DIR  = Path(__file__).parent.parent / "schemas"
 def _save_proposal(pkg_dir: Path, prefix: str, data: dict) -> Path:
     """proposals/{prefix}_{timestamp}.json 으로 저장하고 경로 반환."""
     proposals_dir = pkg_dir / "proposals"
-    proposals_dir.mkdir(exist_ok=True)
+    proposals_dir.mkdir(parents=True, exist_ok=True)  # parents=True: pkg_dir가 삭제된 경우 재생성
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = proposals_dir / f"{prefix}_{ts}.json"
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -2163,7 +2163,7 @@ def _write_validation_report(pkg_dir: Path, report: dict, phase: str = "initial"
                phase 레이블 + 밀리초 타임스탬프로 파일명 충돌을 방지한다.
     """
     proposals_dir = pkg_dir / "proposals"
-    proposals_dir.mkdir(exist_ok=True)
+    proposals_dir.mkdir(parents=True, exist_ok=True)  # parents=True: pkg_dir가 삭제된 경우 재생성
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S_%f")   # %f = 마이크로초 6자리
     path = proposals_dir / f"validation_{phase}_{ts}.json"
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
