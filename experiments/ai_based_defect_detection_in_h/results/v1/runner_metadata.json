@@ -1,14 +1,14 @@
 {
-  "runner": "github",
+  "runner": "local",
   "job_id": "",
   "pipeline_id": "",
-  "dispatch_id": "train_5fd95450d20e",
-  "duration_s": 0.0,
+  "dispatch_id": "",
+  "duration_s": 379.43,
   "artifact_uri": "",
   "job_url": "",
   "git_sha": "",
   "git_branch": "",
   "experiment_pkg": "experiments/ai_based_defect_detection_in_h/runs/v1",
-  "started_at": "",
-  "finished_at": ""
+  "started_at": "2026-03-30T05:26:28.545886",
+  "finished_at": "2026-03-30T05:32:47.980559"
 }

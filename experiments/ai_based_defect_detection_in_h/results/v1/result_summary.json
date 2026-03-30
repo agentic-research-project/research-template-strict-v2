@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "run_id": "ai_based_defect_detection_in_h_v1_20260330_052444",
+  "run_id": "ai_based_defect_detection_in_h_v1_20260330_053247",
   "spec_id": "ai_based_defect_detection_in_h_v1_20260330_035621",
   "hypothesis_id": "91e30adb",
   "experiment_version": 1,
@@ -24,9 +24,11 @@
     "lr_schedule_ok": null,
     "plateau_detected": false,
     "overfitting_suspected": false,
-    "undertraining_suspected": false,
+    "undertraining_suspected": true,
     "notes": [
-      "scheduler:not_applicable"
+      "convergence:loss_still_changing",
+      "scheduler:not_applicable",
+      "underfit:still_improving_rapidly"
     ]
   },
   "bottleneck_candidates": [
@@ -38,6 +40,15 @@
         "attainment_ratio=0.00 (<0.5)",
         "loss_converged=false",
         "core implementation mismatch likely"
+      ]
+    },
+    {
+      "name": "optimization bottleneck",
+      "severity": "low",
+      "confidence": 0.5,
+      "evidence": [
+        "loss not fully converged",
+        "more epochs or lr tuning may help"
       ]
     }
   ],
@@ -95,23 +106,34 @@
     "suggested_reframe": ""
   },
   "stderr_tail": [
-    "run 식별 실패: run 식별 timeout: dispatch_id=train_5fd95450d20e (120s 내 dispatch_id 검증 통과 run 미발견, branch=main)"
+    "Using bfloat16 Automatic Mixed Precision (AMP)",
+    "Seed set to 42",
+    "Traceback (most recent call last):",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/ai_based_defect_detection_in_h/runs/v1/train.py\", line 150, in <module>",
+    "    main()",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/ai_based_defect_detection_in_h/runs/v1/train.py\", line 143, in main",
+    "    metrics = train(config)",
+    "              ^^^^^^^^^^^^^",
+    "  File \"/data/2_workspace/2_darkstar0983/claude/experiments/ai_based_defect_detection_in_h/runs/v1/train.py\", line 102, in train",
+    "    with open(epoch_log_path, \"a\") as f:",
+    "         ^^^^^^^^^^^^^^^^^^^^^^^^^",
+    "FileNotFoundError: [Errno 2] No such file or directory: 'artifacts/metrics/per_epoch_metrics.jsonl'"
   ],
   "stdout_tail": [],
   "runner_metadata": {
-    "runner": "github",
+    "runner": "local",
     "job_id": "",
     "pipeline_id": "",
-    "dispatch_id": "train_5fd95450d20e",
-    "duration_s": 0.0,
+    "dispatch_id": "",
+    "duration_s": 379.43,
     "artifact_uri": "",
     "job_url": "",
     "git_sha": "",
     "git_branch": "",
     "experiment_pkg": "experiments/ai_based_defect_detection_in_h/runs/v1",
-    "started_at": "",
-    "finished_at": ""
+    "started_at": "2026-03-30T05:26:28.545886",
+    "finished_at": "2026-03-30T05:32:47.980559"
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-30T05:24:44.765513"
+  "created_at": "2026-03-30T05:32:47.981657"
 }
