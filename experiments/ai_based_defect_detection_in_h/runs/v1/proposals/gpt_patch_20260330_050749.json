@@ -1,0 +1,101 @@
+{
+  "patches": [
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name / Stage-1: Multi-Cue Coarse Gate",
+      "rationale": "Stage-1 in the spec requires all four cues to be GPU-accelerated, including Shannon entropy from an 8-bit histogram. The current entropy path moves every patch to CPU and uses NumPy in a Python loop, which violates the async/GPU intent and will be a major latency bottleneck for ~841 patches/image.",
+      "hypothesis_alignment_check": "Aligns with the hypothesis requirement that Stage-1 combine variance, 8-bit entropy, Sobel-edge max, and Mahalanobis micro-screen in parallel with high recall and low latency. This patch only changes entropy computation implementation, not the cue definition.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 18,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        # C2: Shannon entropy\n        entropy_vals = []\n        for i in range(B*N):\n            patch_np = patches_flat[i, 0].cpu().numpy().astype(np.uint8)\n            hist, _ = np.histogram(patch_np, bins=256, range=(0, 256))\n            hist = hist + 1e-10  # Avoid log(0)\n            prob = hist / hist.sum()\n            entropy = -np.sum(prob * np.log2(prob))\n            entropy_vals.append(entropy)\n        entropy_tensor = torch.tensor(entropy_vals, device=patches.device)\n",
+          "new": "        # C2: Shannon entropy (8-bit histogram, GPU-friendly)\n        patch_u8 = patches_flat[:, 0].clamp(0, 255).to(torch.uint8).view(B * N, -1)\n        hist = torch.zeros(B * N, 256, device=patches.device, dtype=torch.float32)\n        hist.scatter_add_(1, patch_u8.long(), torch.ones_like(patch_u8, dtype=torch.float32))\n        prob = hist / hist.sum(dim=1, keepdim=True).clamp_min(1.0)\n        entropy_tensor = -(prob * torch.log2(prob.clamp_min(1e-10))).sum(dim=1)\n"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name / Stage-1: Multi-Cue Coarse Gate / C3 Sobel-edge maximum",
+      "rationale": "The spec explicitly defines C3 as the maximum of |Sobel-x| and |Sobel-y|. The current code fragment appears malformed/truncated around edge_max and risks incorrect reduction semantics. A targeted replacement should make the cue definition exact and stable.",
+      "hypothesis_alignment_check": "Directly matches the hypothesis statement that thin linear defects are captured by max(|Sobel-x|, |Sobel-y|). No algorithmic deviation is introduced.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 4,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        # C3: Sobel edge maximum\n        edge_x = F.conv2d(patches_flat.float(), self.sobel_x, padding=1)\n        edge_y = F.conv2d(patches_flat.float(), self.sobel_y, padding=1)\n        edge_max = torch.max(torch.max(torch.abs(edge_x).amax(dim=(1,2,3)), \n",
+          "new": "        # C3: Sobel-edge maximum = max(max|Sobel-x|, max|Sobel-y|)\n        edge_x = F.conv2d(patches_flat.float(), self.sobel_x, padding=1)\n        edge_y = F.conv2d(patches_flat.float(), self.sobel_y, padding=1)\n        edge_max = torch.maximum(\n            torch.abs(edge_x).amax(dim=(1, 2, 3)),\n            torch.abs(edge_y).amax(dim=(1, 2, 3))\n        )\n"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism / Stage-1 / C4 Mahalanobis micro-screen",
+      "rationale": "The spec requires a fourth cue: shallow frozen-feature Mahalanobis micro-screen from block-1 statistics. The current class defines a mahal_threshold buffer but does not show any reference statistics buffers, making C4 impossible to compute consistently. Add minimal buffers for offline-loaded reference mean/inv-cov so the generated code can support the required cue without changing the training loop.",
+      "hypothesis_alignment_check": "This is necessary to satisfy the hypothesis contract that Stage-1 include Mahalanobis micro-screening against normal reference block-1 statistics. It does not prescribe how references are fit online; it only enables the required offline-prepared statistics to be stored.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 8,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        self.register_buffer('variance_threshold', torch.tensor(0.0))\n        self.register_buffer('entropy_threshold', torch.tensor(0.0))\n        self.register_buffer('edge_threshold', torch.tensor(0.0))\n        self.register_buffer('mahal_threshold', torch.tensor(0.0))\n",
+          "new": "        self.register_buffer('variance_threshold', torch.tensor(0.0))\n        self.register_buffer('entropy_threshold', torch.tensor(0.0))\n        self.register_buffer('edge_threshold', torch.tensor(0.0))\n        self.register_buffer('mahal_threshold', torch.tensor(0.0))\n        # Offline-loaded shallow reference stats for C4 Mahalanobis micro-screen\n        self.register_buffer('ref_feat_mean', torch.empty(0))\n        self.register_buffer('ref_feat_inv_cov', torch.empty(0))\n"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism / Stage-0 Reference Preparation / robust style profile",
+      "rationale": "The contract explicitly replaces mean/std with channel-wise median/MAD for the style profile used by shallow-layer AdaIN. The current imports and visible code do not provide any robust-stat helper. Adding a tiny utility function is a minimal patch that enables spec-compliant reference preparation and AdaIN later without rewriting the model.",
+      "hypothesis_alignment_check": "Matches the hypothesis requirement for robust median/MAD style statistics to resist outlier references and support shallow-layer AdaIN. This is an enabling patch, not a behavioral rewrite.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 10,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "warnings.filterwarnings('ignore')\n",
+          "new": "warnings.filterwarnings('ignore')\n\n\ndef robust_channel_stats(x: torch.Tensor, eps: float = 1e-6):\n    \"\"\"Channel-wise median/MAD over spatial dims for robust style profiling.\"\"\"\n    flat = x.flatten(2)\n    median = flat.median(dim=-1).values\n    mad = (flat - median.unsqueeze(-1)).abs().median(dim=-1).values.clamp_min(eps)\n    return median, mad\n"
+        }
+      ]
+    },
+    {
+      "target_file": "module.py",
+      "spec_field": "constraints_raw / Training should be minimized (normal-only / few-shot / training-light preferred)",
+      "rationale": "This experiment is reference-preparation-centric and should avoid unnecessary optimizer construction when all model parameters are frozen, which is likely for a frozen encoder + memory-bank pipeline. The current code always instantiates AdamW on a possibly empty parameter list, which can fail or mislead execution.",
+      "hypothesis_alignment_check": "Consistent with the hypothesis that the framework avoids end-to-end fine-tuning of large models and minimizes training. This patch does not alter the training loop structure; it only makes the existing setup safe for frozen/reference-only operation.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 6,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        self.optimizer = optim.AdamW(\n            [p for p in self.model.parameters() if p.requires_grad],\n            lr=config.get('lr', 0.0001),\n            weight_decay=config.get('weight_decay', 0.01)\n        )\n",
+          "new": "        trainable_params = [p for p in self.model.parameters() if p.requires_grad]\n        self.optimizer = None if len(trainable_params) == 0 else optim.AdamW(\n            trainable_params,\n            lr=config.get('lr', 0.0001),\n            weight_decay=config.get('weight_decay', 0.01)\n        )\n"
+        }
+      ]
+    },
+    {
+      "target_file": "data.py",
+      "spec_field": "constraints_raw / Input is 6559x6559 grayscale source image",
+      "rationale": "The synthetic dataset is intended for initial testing of a grayscale semiconductor pipeline, but the visible code is truncated and does not guarantee a valid grayscale tensor output. A minimal completion patch should ensure generated samples are single-channel and normalized consistently with the model contract.",
+      "hypothesis_alignment_check": "Supports the hypothesis setup of grayscale 6559×6559 source images without changing the scientific mechanism.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 12,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        # Normalize to [0, 1]\n        patte\n",
+          "new": "        # Normalize to [0, 1]\n        pattern = np.clip(pattern, 0.0, 1.0).astype(np.float32)\n        return pattern\n\n    def __getitem__(self, idx):\n        sample = self.samples[idx]\n        image = self.generate_base_image(seed=sample['index'])\n        image = torch.from_numpy(image).unsqueeze(0)  # [1, H, W] grayscale\n        label = sample['label']\n        if self.transform is not None:\n            image = self.transform(image)\n        return image, label\n"
+        }
+      ]
+    }
+  ],
+  "overall_assessment": "The generated code is currently incomplete and underspecified relative to the experiment contract. The most critical gap is Stage-1: entropy is CPU-bound, Sobel cue code is malformed/truncated, and the Mahalanobis micro-screen path is not actually supported by stored reference statistics. There is also a practical issue in module.py for frozen/reference-only operation, and data.py is truncated before producing valid grayscale samples. The patches above are intentionally minimal and spec-driven, focused on enabling the required pipeline behavior without rewriting train.py or the training loop.",
+  "critical_issues": [
+    "model.py is truncated/incomplete inside MultiCueCoarseGate.compute_cues, so the current file is unlikely to run as-is.",
+    "Stage-1 entropy computation uses per-patch CPU NumPy loops, which conflicts with the spec's GPU-accelerated coarse gate and likely breaks the <60s/image target.",
+    "C4 Mahalanobis micro-screen is required by the hypothesis contract but is not actually implementable from the visible code because no reference shallow-feature statistics are stored.",
+    "data.py is truncated and does not clearly return valid dataset samples, preventing even smoke-test execution."
+  ]
+}

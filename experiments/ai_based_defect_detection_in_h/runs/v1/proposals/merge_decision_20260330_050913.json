@@ -1,0 +1,87 @@
+{
+  "decisions": [
+    {
+      "patch_index": 0,
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name / Stage-1: Multi-Cue Coarse Gate",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Replaces a slow CPU-based numpy loop with a GPU tensor operation for 8-bit Shannon entropy, aligning with the spec's latency constraint (<0.5ms) and GPU-acceleration requirement.",
+      "claude_reason": "Stage-1의 GPU 가속화 요구사항을 만족. 현재 CPU/NumPy 구현은 841개 패치에서 심각한 병목이 될 것이며, GPU 텐서 연산으로 대체하는 것이 필수적. 8-bit 히스토그램 정의와 Shannon 엔트로피 계산 로직은 수학적으로 동일.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 1,
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name / Stage-1: Multi-Cue Coarse Gate / C3 Sobel-edge maximum",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Fixes a truncated and syntactically broken line of code while correctly implementing the exact maximum of |Sobel-x| and |Sobel-y| as required for C3.",
+      "claude_reason": "Spec에서 명시한 C3 정의(max of |Sobel-x|, |Sobel-y|)와 정확히 일치. 현재 코드가 불완전/잘린 상태이므로 수정 필요. torch.maximum 사용으로 명확한 의미 구현.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 2,
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism / Stage-1 / C4 Mahalanobis micro-screen",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Adds necessary state buffers for reference statistics, without which the Stage-1 Mahalanobis micro-screen (C4) cannot be properly implemented.",
+      "claude_reason": "C4 Mahalanobis 마이크로 스크리닝 구현을 위해 참조 통계 버퍼가 필수. 오프라인 준비된 block-1 통계를 저장할 수단 없이는 4번째 단서 구현 불가능. 최소한의 인프라 추가.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 3,
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism / Stage-0 Reference Preparation / robust style profile",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Provides the essential channel-wise median/MAD robust statistics function needed for reference preparation and Stage-2a AdaIN style profiling.",
+      "claude_reason": "Spec이 명시적으로 mean/std 대신 median/MAD 사용을 요구. 이상값에 강건한 참조 준비와 AdaIN 구현을 위한 필수 유틸리티. 10 LOC 추가로 핵심 기능 지원.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 4,
+      "target_file": "module.py",
+      "spec_field": "constraints_raw / Training should be minimized (normal-only / few-shot / training-light preferred)",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Prevents a ValueError crash when initializing the optimizer if the model's encoder is completely frozen (which is typical for this anomaly detection setup).",
+      "claude_reason": "동결 인코더 기반 파이프라인에서 trainable parameter가 없을 가능성 높음. 빈 parameter 리스트로 optimizer 생성 시 오류 방지. Training-light 제약조건과 일치.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    },
+    {
+      "patch_index": 5,
+      "target_file": "data.py",
+      "spec_field": "constraints_raw / Input is 6559x6559 grayscale source image",
+      "gpt_proposed": true,
+      "gemini_vote": "accept",
+      "claude_vote": "accept",
+      "gemini_reason": "Fixes a truncated file and correctly sets up the __getitem__ method to return single-channel (grayscale) 6559x6559 source images, as specified.",
+      "claude_reason": "6559×6559 그레이스케일 입력 제약조건 만족을 위해 완전한 구현 필요. 현재 코드가 잘려있어 유효한 텐서 반환 불가. 테스트용 합성 데이터셋의 기본 기능 완성.",
+      "comparability_risk": "low",
+      "final_decision": "accept",
+      "decision_rule": "2-of-3 accept (3 accept votes)"
+    }
+  ],
+  "patch_count": 6,
+  "accepted": 6,
+  "rejected": 0,
+  "ambiguous": 0,
+  "created_at": "2026-03-30T05:09:13.708113"
+}
