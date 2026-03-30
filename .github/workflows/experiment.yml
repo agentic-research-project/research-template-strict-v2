@@ -326,6 +326,20 @@ jobs:
               2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
           "
 
+      - name: Sync artifacts to workspace
+        if: always()
+        run: |
+          # Training wrote to PROJECT_DIR; copy back to CI workspace for upload/validate
+          SRC="${TRAIN_PKG_BASE}/${{ env.EXPERIMENT_PKG }}/artifacts"
+          DST="${{ env.EXPERIMENT_PKG }}/artifacts"
+          if [ -d "$SRC" ]; then
+            mkdir -p "$DST"
+            rsync -a "$SRC/" "$DST/"
+            echo "=== artifacts synced: $SRC → $DST ==="
+          else
+            echo "WARNING: no artifacts dir at $SRC"
+          fi
+
       - name: Validate and extract METRICS output
         working-directory: ${{ env.EXPERIMENT_PKG }}
         run: |
