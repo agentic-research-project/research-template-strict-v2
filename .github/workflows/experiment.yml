@@ -117,7 +117,7 @@ jobs:
       - name: Sync checkout to container-accessible path
         run: |
           echo "=== Syncing ${{ github.workspace }} → ${{ env.PROJECT_DIR }} ==="
-          rsync -a --delete \
+          rsync -a \
             --exclude '.git' \
             "${{ github.workspace }}/" "${{ env.PROJECT_DIR }}/"
 

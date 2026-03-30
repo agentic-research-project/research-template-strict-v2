@@ -1,0 +1,1016 @@
+{
+  "timestamp": "2026-03-30T03:27:59.388844",
+  "topic": "AI-based defect detection in high-resolution grayscale semiconductor images using normal-only reference patches",
+  "query_keywords": [
+    "Source ultra high Input 6559x6559",
+    "Develop anomaly detection False Positive",
+    "anomaly detection semiconductor wafer defect-free reference",
+    "patch-based anomaly localization high-resolution industrial inspection",
+    "PatchCore SPADE PaDiM industrial anomaly benchmark",
+    "memory bank feature matching normal-only defect detection",
+    "Source images ultra high",
+    "based defect Input 6559x6559 grayscale",
+    "efficient nearest neighbor retrieval coreset subsampling inference speed",
+    "based defect False Positive Rate on Normal Images",
+    "based defect False Alarm per Image",
+    "based defect Anomalous Area Ratio on Normal Images",
+    "state-of-the-art system should reliably",
+    "benchmark anomaly detection semiconductor wafer defect-free reference",
+    "based defect mechanism",
+    "based defect how it works",
+    "based defect prior work",
+    "based defect previous approach",
+    "based defect limitation failure",
+    "based defect does not work",
+    "based defect failure mode",
+    "based defect common pitfalls",
+    "based defect deployment Input 6559x6559"
+  ],
+  "year_range": "2023~2026",
+  "search_log": [
+    "2025-2026: 8편",
+    "2023-2024: 16편 추가",
+    "citation-expansion: 10편 추가"
+  ],
+  "total_found": 34,
+  "papers": [
+    {
+      "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+      "title": "Exploring Deep Learning-based Unsupervised Image Anomaly Detection and Localization Methods for Industrial Quality Assurance",
+      "authors": [
+        "Pritha Dutta",
+        "Rashmiranjan Nayak",
+        "U. C. Pati"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "The process of automatically finding and localizing the available anomalies (or defects) in the images of the products is known as Image Anomaly Detection and Localization (IADL). The IADL improves the efficiency of industrial quality inspection and ensures the desired quality level of the final products. Further, most of the supervised techniques are unsuitable for the IADL due to inherent data imbalance and ambiguity associated with the anomalies. Hence, this paper investigates key deep learni",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "2024 1st International Conference on Cognitive, Green and Ubiquitous Computing (IC-CGU)",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models",
+        "evaluation_metrics"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "산업 이미지에서의 비지도 이상 탐지 및 위치 파악(IADL) 딥러닝 방법론을 포괄적으로 조사하여, normal-only 학습 기반 결함 탐지의 주요 메커니즘과 기존 접근법을 정리하고 있어 연구 맥락의 방법론적 배경을 제공한다.",
+      "rank": 1
+    },
+    {
+      "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+      "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+      "authors": [
+        "A. Silva",
+        "Francisco Simões",
+        "Danny Kowerko",
+        "Tobias Schlosser",
+        "Felipe Battisti"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "Within (semi-)automated visual industrial inspection, learning-based approaches for assessing visual defects, including deep neural networks, enable the processing of otherwise small defect patterns in pixel size on high-resolution imagery. The emergence of these often rarely occurring defect patterns explains the general need for labeled data corpora. To alleviate this issue and advance the current state of the art in unsupervised visual inspection, this work proposes a DifferNet-based solution",
+      "url": "https://arxiv.org/abs/2311.02747",
+      "arxiv_id": "2311.02747",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Workshop/Winter Conference on Applications of Computer Vision",
+      "source": "SemanticScholar",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "DifferNet 기반 비지도 산업 검사에서 고해상도 이미지의 작은 결함 패턴 처리를 위한 attention 모듈 활용을 제안하여, 고해상도 반도체 이미지에서의 결함 탐지 baseline 및 메커니즘 참고가 된다.",
+      "rank": 2
+    },
+    {
+      "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+      "title": "Simulation of semiconductor wafer dicing induced faults on chips and their application as augmentation method for a deep learning based visual inspection system",
+      "authors": [
+        "Michael Friedrich",
+        "Tobias Schlosser",
+        "Danny Kowerko"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "In semiconductor wafer dicing, one particular area of interest is the process of visual inspection to detect manufacturing defects that occur throughout the manufacturing process. Emerging defect patterns are typically in the micrometer range, translating to barely visible defects in pixel size on high-resolution imagery. The availability of rarely occurring defects is generally limited due to the labor-intensive nature of the related, highly specialized annotation task. Therefore, this contribu",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Journal of Intelligent Manufacturing",
+      "source": "S2-backward",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "constraints",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "반도체 웨이퍼 다이싱 결함의 희소성과 고해상도 이미지에서 미세한 결함 탐지의 어려움을 다루며, 데이터 증강을 통한 해결을 제시하여 결함 샘플 부족이라는 제약 조건과 관련 실패 모드를 뒷받침한다.",
+      "rank": 3
+    },
+    {
+      "paper_id": "b7c08446d59d28b8666d04bac1a3f04a22f12be4",
+      "title": "Benchmarking framework for anomaly localization: Towards real-world deployment of automated visual inspection",
+      "authors": [
+        "Tryambak Gangopadhyay",
+        "Sungmin Hong",
+        "Sujoy Roy",
+        "Y. Shah",
+        "L. Cheong"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "Localizing defects in products is a critical component of industrial pipelines in manufacturing, retail, and many other industries to ensure consistent delivery of high quality products. Automated anomaly localization systems leveraging computer vision have the potential to replace laborious and subjective manual inspection of products. Recently, there have been tremendous e ﬀ orts in this research domain investigating deep learning-based anomaly localization methods. However, such proposed meth",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Journal of manufacturing systems",
+      "source": "SemanticScholar",
+      "evidence_role": "evaluation_reference",
+      "claim_slots_supported": [
+        "evaluation_metrics",
+        "deployment_constraints",
+        "falsification_criteria"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "이상 위치 파악의 실제 배포를 위한 벤치마킹 프레임워크를 제시하여, false positive rate, 추론 시간 등 실세계 배포 기준 평가 메트릭과 제약 조건 참고로 활용 가능하다.",
+      "rank": 4
+    },
+    {
+      "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+      "title": "Image alignment-based patch distribution framework for anomaly detection",
+      "authors": [
+        "Yue Liu",
+        "Ling Ma",
+        "Huiqin Jiang"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Surface quality inspection is a crucial step in industrial manufacturing. However, it is challenging to collect an adequate quantity of abnormal samples in practice. Supervised methods require sample annotation, which is costly, so unsupervised methods that are high-speed and low-cost are more suitable for industrial applications. Among the current unsupervised methods, embedding-similarity methods haven shown excellent performance, but most of them do not preprocess the images and directly use ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International Conference on Computer Vision and Data Mining",
+      "source": "SemanticScholar",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "baseline_models",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "이미지 정렬 기반 패치 분포 프레임워크로 비지도 이상 탐지를 수행하며, 정렬되지 않은 이미지의 전처리와 embedding-similarity 기반 패치 비교를 다루어 normal reference 패치 기반 비교 방식의 가장 가까운 선행 연구이다.",
+      "rank": 5
+    },
+    {
+      "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+      "authors": [
+        "Zilong Zhang",
+        "Zhibin Zhao",
+        "Xingwu Zhang",
+        "Chuang Sun",
+        "Xuefeng Chen"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "Industrial anomaly detection (IAD) is crucial for automating industrial quality inspection. The diversity of the datasets is the foundation for developing comprehensive IAD algorithms. Existing IAD datasets focus on the diversity of data categories, overlooking the diversity of domains within the same data category. In this paper, to bridge this gap, we propose the Aero-engine Blade Anomaly Detection (AeBAD) dataset, consisting of two sub-datasets: the single-blade dataset and the video anomaly ",
+      "url": "https://arxiv.org/abs/2304.02216",
+      "arxiv_id": "2304.02216",
+      "github": "",
+      "sections": {},
+      "venue": "Computers in industry (Print)",
+      "source": "S2-backward",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "도메인 시프트(스타일, 장비 차이 등) 하에서의 산업 이상 탐지 문제를 정의하고 masked multi-scale reconstruction 방법을 제안하여, 스타일/노이즈 변화에 대한 강건성 제약 및 실패 모드를 직접적으로 뒷받침한다.",
+      "rank": 6
+    },
+    {
+      "paper_id": "fe01e1ebffeff96cb1a5a570c48e726846b766ff",
+      "title": "A lightweight high-resolution algorithm based on deep learning for layer-wise defect detection in laser powder bed fusion",
+      "authors": [
+        "Hualin Yan",
+        "Jian-Feng Cai",
+        "Yingjian Zhao",
+        "Zimeng Jiang",
+        "Yingjie Zhang"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "The quality of the powder bed is critical in the laser powder bed fusion (LPBF) process, and defects in the powder bed likely affect the quality of the final part. With the development of artificial intelligence technology, machine learning methods have been widely applied in powder-bed defect detection. However, to achieve high-precision defect detection, it is often necessary to construct complex network models and use high-resolution powder bed image data. To address these issues, this study ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Measurement science and technology",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "constraints",
+        "deployment_constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "고해상도 이미지에서 경량 딥러닝 기반 결함 탐지를 다루며, 고정밀 탐지와 계산 효율성 간의 트레이드오프를 제시하여 제한된 컴퓨팅 환경과 추론 시간 제약에 대한 참고가 된다.",
+      "rank": 7
+    },
+    {
+      "paper_id": "a78ef085c8718703af8dacaafdbcb66bf0a9a6c9",
+      "title": "Combined Anomaly Aware Weakly Supervised Lightweight Model for Surface Defect Inspection",
+      "authors": [
+        "Zhe Zhang",
+        "Zhenqiao Shang",
+        "Xin Wang",
+        "Jie Ma"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Surface defect inspection plays a vital role in the industrial production process. Many detection methods based on deep learning have been gradually applied because of their better generalization performance. However, achieving accurate annotations for training deep learning models remains a challenge due to the difficult definition of defect boundaries and the high cost of manual annotation work. Meanwhile, the detection performance of the current deep-learning methods still cannot meet the nee",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Transactions on Industrial Informatics",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "constraints",
+        "deployment_constraints",
+        "expected_mechanism"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "약지도 경량 모델로 표면 결함 검사를 수행하며 어노테이션 비용 절감과 경량화를 동시에 추구하여, 제한된 라벨과 단일 GPU 환경이라는 제약 조건에 대한 메커니즘적 참고가 된다.",
+      "rank": 8
+    },
+    {
+      "paper_id": "235b16cda1fa0d78a575a5d3d5d0308886904f67",
+      "title": "Ultra-High-Voltage Gain DC–DC Converter Based on Three-Winding Coupled Inductor With Ripple Free Input Current and Soft Switching for Renewable Energy Applications",
+      "authors": [
+        "Qingxin Tian",
+        "Na Wang",
+        "Guohua Zhou",
+        "Shuhan Zhou",
+        "Minrui Leng"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "High-gain dc–dc converters are an important link for connecting low-voltage renewable energy sources, such as photovoltaics, to the high-voltage dc bus. This article presents a nonisolated ultra-high-voltage gain converter based on a three-winding coupled inductor for distributed renewable energy applications. The input inductor and clamping capacitor greatly reduce the input current ripple, so that tiny filter capacitors are required at the input port. Moreover, zero-voltage-switching and zero-",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE transactions on power electronics",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "DC-DC 컨버터 관련 전력 전자 논문으로, AI 기반 결함 탐지와는 전혀 무관하며 연구 맥락에 해당하지 않는다.",
+      "rank": 9
+    },
+    {
+      "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+      "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+      "authors": [
+        "Teruyuki Katsuoka",
+        "Tomohiro Shiraishi",
+        "Daiki Miwa",
+        "Vo Nguyen Le Duy",
+        "Ichiro Takeuchi"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Anomaly localization in images (identifying regions that deviate from expected patterns) is vital in applications such as medical diagnosis and industrial inspection. A recent trend is the use of image generation models in anomaly localization, where these models generate normal-looking counterparts of anomalous images, thereby allowing flexible and adaptive anomaly localization. However, these methods inherit the uncertainty and bias implicitly embedded in the employed generative model, raising",
+      "url": "https://arxiv.org/abs/2402.11789",
+      "arxiv_id": "2402.11789",
+      "github": "",
+      "sections": {
+        "introduction": "Related works Our contributions 2 Anomaly localization by diffusion models 3 Statistical test for diffusion-based anomalous localization Problem formulation Statistical test for diffusion models 4 Selective inference for diffusion-based anomaly localization 4.1 Computing valid p 𝑝 p italic_p -values via selective inference Complexity of sampling distribution Selective p 𝑝 p italic_p -value via conditional sampling distribution 4.2 Identification of subinterval 𝒵 sub superscript 𝒵 sub \\mathcal{Z}^{\\mathrm{sub}} caligraphic_Z start_POSTSUPERSCRIPT roman_sub end_POSTSUPERSCRIPT in 𝒵 𝒵 \\mathcal{Z} caligraphic_Z 4.3 Identification of 𝒵 𝒵 \\mathcal{Z} caligraphic_Z 5 Experiments 5.1 Numerical experiments Experimental setup Results 5.2 Real-world data experiments Experimental setup Results 6 Conclusions, limitations and future works A Proofs A.1 Proof of Theorem 1 A.2 Proof of Theorem 2 B Calculating the subinterval 𝒵 sub superscript 𝒵 sub \\mathcal{Z}^{\\text{sub}} caligraphic_Z start_POSTSUPERSCRIPT sub end_POSTSUPERSCRIPT for diffusion models C Comparison methods for numerical experiments D Architecture of the U-Net E Accelerated reverse processes F Robustness of the proposed method G Experimental settings for the MVTec AD dataset G.1 Experimental settings of Brain Trumor Segmentation 2023 dataset G.2 Experimental settings of Brain Trumor Segmentation 2023 dataset H Experimental results for the real-world datasets Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference Teruyuki Katsuoka 1 1 footnotemark: 1 , Tomohiro Shiraishi , Daiki Miwa , Vo Nguyen Le Duy , Ichiro Takeuchi 1 1 footnotemark: 1 5 5 footnotemark: 5 Nagoya UniversityNagoya Institute of TechnologyUniversity of Information Technology, Ho Chi Minh City, Viet NamVietnam National University, Ho Chi Minh City, Viet NamRIKENCorresponding author. e-mail: ichiro.takeuchi@mae.nagoya-u.ac.jp (May 22, 2025) Abstract Anomaly localization in images—identifying regions that dev",
+        "tables": "q⁢(𝒙1:T|𝒙0):=∏t=1Tq⁢(𝒙t|𝒙t−1),where⁢q⁢(𝒙t|𝒙t−1):=𝒩⁢(1−βt⁢𝒙t−1,βt⁢I).formulae-sequenceassign𝑞conditionalsubscript𝒙:1𝑇subscript𝒙0superscriptsubscriptproduct𝑡1𝑇𝑞conditionalsubscript𝒙𝑡subscript𝒙𝑡1assignwhere𝑞conditionalsubscript𝒙𝑡subscript𝒙𝑡1𝒩1subscript𝛽𝑡subscript𝒙𝑡1subscript𝛽𝑡𝐼q(\\bm{x}_{1:T}|\\bm{x}_{0}):=\\prod_{t=1}^{T}q(\\bm{x}_{t}|\\bm{x}_{t-1}),\\;\\;% \\text{where}\\;\\;q(\\bm{x}_{t}|\\bm{x}_{t-1}):=\\mathcal{N}(\\sqrt{1-\\beta_{t}}\\bm{% x}_{t-1},\\beta_{t}I).italic_q ( bold_italic_x start_POSTSUBSCRIPT 1 :\n---\n𝒙t=αt⁢𝒙0+1−αt⁢ϵt,with⁢ϵt∼𝒩⁢(𝟎,I),formulae-sequencesubscript𝒙𝑡subscript𝛼𝑡subscript𝒙01subscript𝛼𝑡subscriptitalic-ϵ𝑡similar-towithsubscriptitalic-ϵ𝑡𝒩0𝐼\\bm{x}_{t}=\\sqrt{\\alpha_{t}}\\bm{x}_{0}+\\sqrt{1-\\alpha_{t}}\\epsilon_{t},\\;\\;% \\text{with}\\;\\;\\epsilon_{t}\\sim\\mathcal{N}(\\mathbf{0},I),bold_italic_x start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT = square-root start_ARG italic_α start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT end_ARG bold_italic_x start_POSTSUBSCRIPT 0 end_POSTSUBSCRIPT + square-root s\n---\n𝒙t−1=αt−1⋅fθ(t)⁢(𝒙t)+1−αt−1−σt2⋅ϵθ(t)⁢(𝒙t)+σt⁢ϵt,subscript𝒙𝑡1⋅subscript𝛼𝑡1subscriptsuperscript𝑓𝑡𝜃subscript𝒙𝑡⋅1subscript𝛼𝑡1superscriptsubscript𝜎𝑡2superscriptsubscriptitalic-ϵ𝜃𝑡subscript𝒙𝑡subscript𝜎𝑡subscriptitalic-ϵ𝑡\\bm{x}_{t-1}=\\sqrt{\\alpha_{t-1}}\\cdot f^{(t)}_{\\theta}(\\bm{x}_{t})+\\sqrt{1-% \\alpha_{t-1}-\\sigma_{t}^{2}}\\cdot\\epsilon_{\\theta}^{(t)}(\\bm{x}_{t})+\\sigma_{t% }\\epsilon_{t},bold_italic_x start_POSTSUBSCRIPT italic_t - 1 end_POSTSUBSCRIPT = square-root start_ARG italic_α start_POSTSUBSCR\n---\nfθ(t)⁢(𝒙t):=(𝒙t−1−αt⋅ϵθ(t)⁢(𝒙t))/αt,assignsubscriptsuperscript𝑓𝑡𝜃subscript𝒙𝑡subscript𝒙𝑡⋅1subscript𝛼𝑡subscriptsuperscriptitalic-ϵ𝑡𝜃subscript𝒙𝑡subscript𝛼𝑡f^{(t)}_{\\theta}(\\bm{x}_{t}):=(\\bm{x}_{t}-\\sqrt{1-\\alpha_{t}}\\cdot\\epsilon^{(t% )}_{\\theta}(\\bm{x}_{t}))/\\sqrt{\\alpha_{t}},italic_f start_POSTSUPERSCRIPT ( italic_t ) end_POSTSUPERSCRIPT start_POSTSUBSCRIPT italic_θ end_POSTSUBSCRIPT ( bold_italic_x start_POSTSUBSCRIPT italic_t end_POSTSUBSCRIPT ) := ( bold_italic_x start_POSTSUBSC"
+      },
+      "venue": "",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism",
+        "falsification_criteria",
+        "evaluation_metrics"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections에서 diffusion 기반 이상 위치 파악의 통계적 유의성 검증(selective inference)을 상세히 다루며, MVTec AD 실험을 통해 anomaly localization의 false positive 제어 메커니즘을 제시하여 평가 메트릭 및 falsification 기준의 직접적 근거가 된다.",
+      "rank": 10
+    },
+    {
+      "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+      "title": "Revisiting Reverse Distillation for Anomaly Detection",
+      "authors": [
+        "Tran Dinh Tien",
+        "Anh Tuan Nguyen",
+        "Nguyen H. Tran",
+        "Ta Duc Huy",
+        "S. T. Duong"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "Anomaly detection is an important application in large-scale industrial manufacturing. Recent methods for this task have demonstrated excellent accuracy but come with a latency trade-off. Memory based approaches with dominant performances like PatchCore or Coupled-hypersphere-based Feature Adaptation (CFA) require an external memory bank, which significantly lengthens the execution time. Another approach that employs Reversed Distillation (RD) can perform well while maintaining low latency. In t",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Computer Vision and Pattern Recognition",
+      "source": "S2-backward",
+      "evidence_role": "baseline_reference",
+      "claim_slots_supported": [
+        "baseline_models",
+        "expected_mechanism",
+        "deployment_constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "Reverse Distillation 기반 이상 탐지를 재검토하며 PatchCore 등 메모리 기반 방법 대비 저지연 성능을 제시하여, 추론 시간 제약 하의 baseline 모델 참고로 활용 가능하다.",
+      "rank": 11
+    },
+    {
+      "paper_id": "77e433c1baaf553dcffe0aa28cd0403d9b72eabf",
+      "title": "Towards Zero-shot 3D Anomaly Localization",
+      "authors": [
+        "Yizhou Wang",
+        "Kuan-Chuan Peng",
+        "Yun Fu"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "3D anomaly detection and localization is of great significancefor industrial inspection. Prior 3D anomaly detection and localization methods focus on the setting that the testing data share the same category as the training data which is normal. However, in real-world applications, the normal training data for the target 3D objects can be unavailable due to issues like data privacy or export control regulation. To tackle these challenges, we identify a new task -zero-shot 3D anomaly detection an",
+      "url": "https://arxiv.org/abs/2412.04304",
+      "arxiv_id": "2412.04304",
+      "github": "",
+      "sections": {
+        "introduction": "2 Related works",
+        "method": "3DzAL framework 3.1 Normal feature extraction 3.2 Learning discriminative 3D representations 3.3 3D normalcy classifier 3.4 Anomaly score design 4 Experiments",
+        "limitation": "Limitation Towards Zero-shot 3D Anomaly Localization Yizhou Wang 1∗ Kuan-Chuan Peng 2 Yun Fu 1 1 Northeastern University 2 Mitsubishi Electric Research Laboratories wyzjack990122@gmail.com kpeng@merl.com yunfu@ece.neu.edu Abstract 3D anomaly detection and localization is of great significance for industrial inspection. Prior 3D anomaly detection and localization methods focus on the setting that the testing data share the same category as the training data which is normal. However, in real-world applications, the normal training data for the target 3D objects can be unavailable due to issues like data privacy or export control regulation. To tackle these challenges, we identify a new task – zero-shot 3D anomaly detection and localization, where the training and testing classes do not overlap. To this end, we design 3DzAL , a novel patch-level contrastive learning framework based on pseudo anomalies generated using the inductive bias from task-irrelevant 3D xyz data to learn more representative feature representations. Furthermore, we train a normalcy classifier network to classify the normal patches and pseudo anomalies and utilize the classification result jointly with feature distance to design anomaly scores. Instead of directly using the patch point clouds, we introduce adversarial perturbations to the input patch xyz data before feeding into the 3D normalcy classifier for the classification-based anomaly score. We show that 3DzAL outperforms the state-of-the-art anomaly detection and localization performance. † † footnotetext: *This work was done when Yizhou Wang was an intern at Mitsubishi Electric Research Laboratories. 1 Introduction Figure 1 : Problem overview. Current 3D anomaly detection and localization works entail training on the normal data of one class and testing on the normal and abnormal data of the same class. We extend such setting by testing on other classes without the corresponding normal training data. This zero-shot setting is practical whe",
+        "tables": "ℒcon=subscriptℒconabsent\\displaystyle\\mathcal{L}_{\\text{con}}=caligraphic_L start_POSTSUBSCRIPT con end_POSTSUBSCRIPT = | ∑xj∈𝒳p−1|𝒫⁢(xj)|∗\\displaystyle\\sum_{x_{j}\\in\\mathcal{X}_{p}}\\frac{-1}{|\\mathcal{P}(x_{j})|}*∑ start_POSTSUBSCRIPT italic_x start_POSTSUBSCRIPT italic_j end_POSTSUBSCRIPT ∈ caligraphic_X start_POSTSUBSCRIPT italic_p end_POSTSUBSCRIPT end_POSTSUBSCRIPT divide start_ARG - 1 end_ARG start_ARG | caligraphic_P ( italic_x start_POSTSUBSCRIPT italic_j end_POSTSUBSCRIPT ) | end_ARG ∗\n\n---\nℒrd=cos⁢(F⁢(x),Eθ⁢(x))=F⁢(x)⋅Eθ⁢(x)‖F⁢(x)‖2⋅‖Eθ⁢(x)‖2.subscriptℒrdcos𝐹𝑥subscript𝐸𝜃𝑥⋅𝐹𝑥subscript𝐸𝜃𝑥⋅subscriptnorm𝐹𝑥2subscriptnormsubscript𝐸𝜃𝑥2\\mathcal{L}_{\\text{rd}}=\\text{cos}(F(x),E_{\\theta}(x))=\\frac{F(x)\\cdot E_{% \\theta}(x)}{\\left\\|F(x)\\right\\|_{2}\\cdot\\left\\|E_{\\theta}(x)\\right\\|_{2}}.caligraphic_L start_POSTSUBSCRIPT rd end_POSTSUBSCRIPT = cos ( italic_F ( italic_x ) , italic_E start_POSTSUBSCRIPT italic_θ end_POSTSUBSCRIPT ( italic_x ) ) = divide start_ARG italic_F ( italic_x ) ⋅ italic_E\n---\nℒbce=−1N⁢∑i=1Nlog⁡(p⁢(xi|w))⋅yi+log⁡(1−p⁢(xi|w))⋅(1−yi),subscriptℒbce1𝑁superscriptsubscript𝑖1𝑁⋅𝑝conditionalsubscript𝑥𝑖𝑤subscript𝑦𝑖⋅1𝑝conditionalsubscript𝑥𝑖𝑤1subscript𝑦𝑖\\mathcal{L}_{\\text{bce}}=-\\frac{1}{N}\\sum_{i=1}^{N}\\log(p(x_{i}|w))\\cdot y_{i}% +\\log(1-p(x_{i}|w))\\cdot(1-y_{i}),caligraphic_L start_POSTSUBSCRIPT bce end_POSTSUBSCRIPT = - divide start_ARG 1 end_ARG start_ARG italic_N end_ARG ∑ start_POSTSUBSCRIPT italic_i = 1 end_POSTSUBSCRIPT start_POSTSUPERSCRIPT italic_N end_POSTSUPERSCRIPT \n---\nf⁢(xtest,∗),f∗𝑓superscript𝑥testsuperscript𝑓\\displaystyle f(x^{\\text{test},*}),f^{*}italic_f ( italic_x start_POSTSUPERSCRIPT test , ∗ end_POSTSUPERSCRIPT ) , italic_f start_POSTSUPERSCRIPT ∗ end_POSTSUPERSCRIPT | =argmaxf⁢(xtest)∈f⁢(𝒳test)argminf∈ℳ‖f⁢(xtest)−f‖2,absentsubscriptargmax𝑓superscript𝑥test𝑓superscript𝒳testsubscriptargmin𝑓ℳsubscriptnorm𝑓superscript𝑥test𝑓2\\displaystyle=\\mathop{\\mathrm{argmax}}_{f(x^{\\text{test}})\\in f(\\mathcal{X}^{% \\text{test}})}\\mathop{\\mathrm{argmin}}_"
+      },
+      "venue": "IEEE Workshop/Winter Conference on Applications of Computer Vision",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections에서 zero-shot 3D 이상 탐지를 위해 정상 데이터 없이 패치 수준 대조 학습과 pseudo anomaly를 활용하는 방법을 상세히 기술하여, normal-only 참조 기반으로 재학습 없이 새로운 대상에 적응해야 하는 제약과 메커니즘에 대한 직접적 근거를 제공한다.",
+      "rank": 12
+    },
+    {
+      "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+      "title": "Unsupervised Anomaly Detection via Multi-Frequency Structure and Visual Sampling",
+      "authors": [
+        "Jia Wei",
+        "Xiaoyuan Liu",
+        "He Ren",
+        "Xinying Xu"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "Unsupervised anomaly detection plays a critical role in industrial inspection, where anomalous samples are scarce and manual annotation is costly. However, detection performance often deteriorates in wild scenarios due to complex backgrounds and diverse anomaly appearances. To address the challenge, we propose a novel unsupervised image-level anomaly detection framework based on normalizing flows. First, a multi-frequency structural guidance module is introduced to separate irrelevant background",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "2025 2nd International Conference on Image Processing, Multimedia Technology and Machine Learning (IPMML)",
+      "source": "S2-forward",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "복잡한 배경과 다양한 이상 패턴이 있는 wild 시나리오에서 다중 주파수 구조 기반 비지도 이상 탐지를 제안하여, 스타일/노이즈 변화에 의한 성능 저하 문제(failure mode)와 관련 메커니즘을 뒷받침한다.",
+      "rank": 13
+    },
+    {
+      "paper_id": "1ae1becd40bd87b4fff0787d85f40dd5f9b2ab6a",
+      "title": "An ultra‐high voltage gain interleaved converter based on three‐winding coupled inductor with reduced input current ripple for renewable energy applications",
+      "authors": [
+        "S. Hashemzadeh",
+        "M. Al-Hitmi",
+        "H. Aghaei",
+        "Vafa Marzang",
+        "Atif Iqbal"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "This article proposes an interleaved high step‐up DC–DC converter topology designed for renewable energy applications, featuring an ultra‐high voltage conversion ratio. The converter employs an interleaved structure, resulting in a low peak‐to‐peak ripple in the input source current, which is particularly advantageous for solar PV sources. To enhance the output voltage, the topology utilizes voltage multiplier cells (VMC) and coupled inductor techniques. Two coupled inductors with three windings",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IET Renewable Power Generation",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "인터리브 고승압 DC-DC 컨버터 관련 전력 전자 논문으로, 반도체 이미지 결함 탐지와 무관하다.",
+      "rank": 14
+    },
+    {
+      "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+      "title": "Deep Industrial Image Anomaly Detection: A Survey",
+      "authors": [
+        "Jiaqi Liu",
+        "Guoyang Xie",
+        "Jingbao Wang",
+        "Shangwen Li",
+        "Chengjie Wang"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "The recent rapid development of deep learning has laid a milestone in industrial image anomaly detection (IAD). In this paper, we provide a comprehensive review of deep learning-based image anomaly detection techniques, from the perspectives of neural network architectures, levels of supervision, loss functions, metrics and datasets. In addition, we extract the promising setting from industrial manufacturing and review the current IAD approaches under our proposed setting. Moreover, we highlight",
+      "url": "https://arxiv.org/abs/2301.11514",
+      "arxiv_id": "2301.11514",
+      "github": "",
+      "sections": {},
+      "venue": "Machine Intelligence Research",
+      "source": "S2-backward",
+      "evidence_role": "evaluation_reference",
+      "claim_slots_supported": [
+        "baseline_models",
+        "evaluation_metrics",
+        "key_innovation",
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "산업 이미지 이상 탐지의 딥러닝 기법을 네트워크 구조, 지도 수준, 손실 함수, 메트릭, 데이터셋 관점에서 포괄적으로 서베이하여, baseline 모델과 평가 메트릭의 종합적 참고 자료로 활용 가능하다.",
+      "rank": 15
+    },
+    {
+      "paper_id": "556de55e1c42d9b537d2c9ca04f642a1a69ac132",
+      "title": "InsPLAD: A Dataset and Benchmark for Power Line Asset Inspection in UAV Images",
+      "authors": [
+        "A. Silva",
+        "H. Felix",
+        "Franscisco Paulo Magalhaes Simoes",
+        "Veronica Teichrieb",
+        "Michel Mozinho dos Santos"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "ABSTRACT Power line maintenance and inspection are essential to avoid power supply interruptions, reducing its high social and financial impacts yearly. Automating power line visual inspections remains a relevant open problem for the industry due to the lack of public real-world datasets of power line components and their various defects to foster new research. This paper introduces InsPLAD, a Power Line Asset Inspection Dataset and Benchmark containing 10,607 high-resolution Unmanned Aerial Veh",
+      "url": "https://arxiv.org/abs/2311.01619",
+      "arxiv_id": "2311.01619",
+      "github": "",
+      "sections": {},
+      "venue": "International Journal of Remote Sensing",
+      "source": "S2-backward",
+      "evidence_role": "evaluation_reference",
+      "claim_slots_supported": [
+        "evaluation_metrics",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "고해상도 UAV 이미지 기반 전력선 자산 검사 데이터셋과 벤치마크를 제공하여, 고해상도 산업 이미지 결함 탐지의 평가 방법론 및 baseline 참고가 된다.",
+      "rank": 16
+    },
+    {
+      "paper_id": "7a520f81fddf1057325ffb6f8b259789930b5851",
+      "title": "Active power decoupling scheme of symmetrical LCL structure in single‐phase grid‐connected voltage source inverter for ultra‐high voltage transmission",
+      "authors": [
+        "Jiacheng Luo",
+        "Bo Zhang",
+        "Wenxun Xiao",
+        "Fan Xie"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "The voltage source converter (VSC) is an important component of ultra‐high voltage (UHV) technology, where the former is responsible for converting new energy sources into electricity and the latter enables the transmission of electricity over long distances. However, the VSC has a serious problem of oscillation power under three‐phase unbalance, which comes from the single‐phase voltage source inverter (VSI) that is the basic structure of VSC. So there is always the requirement for active power",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International journal of circuit theory and applications",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "초고압 송전 관련 전력 전자 논문으로, AI 기반 이미지 결함 탐지와 전혀 관련이 없다.",
+      "rank": 17
+    },
+    {
+      "paper_id": "ef9886a077d72061854164dd6a45c8354741bce2",
+      "title": "Dual Coupled Inductors Based Ultra-High Voltage Gain DC-DC Converter with Continuous Input Current",
+      "authors": [
+        "Na Wang",
+        "Qingxin Tian",
+        "Guohua Zhou",
+        "Yunuo He"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "The high-gain dc-dc converter plays a crucial role in the interface between the low-voltage renewable energy and the high-voltage dc bus. This paper presents a single active switched dc converter with ultra-high voltage boost capability for renewable energy system applications. Dual coupled inductors are used in the proposed converter to achieve an ultra-high voltage gain, which also allows lower voltage stress of semiconductor devices to be obtained to improve system efficiency. Furthermore, th",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International Symposium on Power Electronics for Distributed Generation Systems",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "이중 결합 인덕터 기반 초고승압 DC-DC 컨버터 논문으로, 본 연구 맥락과 무관하다.",
+      "rank": 18
+    },
+    {
+      "paper_id": "016e8daef1bf81f6bc9fe4119c11efa1a6d799e5",
+      "title": "Design of Ultra-High Throughput and Resource Efficiency TRNG Based on NAND-XOR and Feedback XOR Ring Oscillators",
+      "authors": [
+        "Junjun Wang",
+        "Zhao Huang",
+        "Hongxu Gao",
+        "Jia Zhou",
+        "Quan Wang"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Recently, true random number generators (TRNGs) have received much attention from academia and industry. In this article, we propose a highly random and resource-efficient entropy source for TRNG. Two new ring oscillator (RO) structures, namely NAND-XOR RO (NXRO) and feedback-XOR RO (FXORRO), are designed as entropy sources for TRNG. The basic principle of the entropy sources is that all RO outputs are cross-XORed to generate random signals and also feedback to the FXORRO enable input, so as to ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International Test Conference in Asia",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "TRNG(진난수 생성기) 설계에 관한 논문으로, 반도체 이미지 결함 탐지와 관련이 없다.",
+      "rank": 19
+    },
+    {
+      "paper_id": "7954f15257b9bf33cf156601af2fd32dd5816247",
+      "title": "Coupled Inductor-Based Current-Fed Ultra-High Step-Up DC-DC Converter Featuring Low Input Current Ripple",
+      "authors": [
+        "H. Gohari",
+        "Sohrab Abbasian",
+        "Naghi Abbasi Mardakheh",
+        "K. Abbaszadeh",
+        "F. Blaabjerg"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "A DC-DC converter with ultra-high voltage gain is presented in this brief. The current-fed structure of the proposed converter provides outstanding performance for sensitive source applications due to its continuous input current with minimal ripple. Using two double-winding coupled inductors in the suggested structure provides more degree of freedom arising from the turn ratios. Simultaneous operation of the two switches causes a simple operation and a simple control system in addition to the n",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Transactions on Circuits and Systems - II - Express Briefs",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "전류 급전형 초고승압 DC-DC 컨버터 논문으로, 본 연구의 AI 기반 결함 탐지 주제와 무관하다.",
+      "rank": 20
+    },
+    {
+      "paper_id": "794f19f3b589768fa6b9755dbb08d9d9ccf4cf53",
+      "title": "A novel soft-switched trans-inverse ultra-high-gain DC/DC converter with low switch voltage stress",
+      "authors": [
+        "S. Hasanpour"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "This paper proposes a novel single-switch, soft-switched, ultra-high-gain DC–DC converter featuring a trans-inverse structure and low input current ripple for renewable energy source applications. This circuit employs a three-winding coupled inductor (TWCI) and a voltage multiplier circuit to achieve a high voltage conversion ratio without requiring a large duty cycle. Unlike typical coupled-inductor-based converters, the proposed topology leverages a trans-inverse configuration, allowing higher",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Scientific Reports",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 21
+    },
+    {
+      "paper_id": "4b9605ccb17e6e0726219500538f0de62320b0e8",
+      "title": "Unleashing Foundation Vision Models: Adaptive Transfer for Diverse Data-Limited Scientific Domains",
+      "authors": [
+        "Qiankun Li",
+        "Feng He",
+        "Huabao Chen",
+        "Xin Ning",
+        "Kun Wang"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "In the big data era, the computer vision field benefits from large-scale datasets such as LAION-2B, LAION-400M, and ImageNet-21K, Kinetics, on which popular models like the ViT and ConvNeXt series have been pre-trained, acquiring substantial knowledge. However, numerous downstream tasks in specialized and data-limited scientific domains continue to pose significant challenges. In this paper, we propose a novel Cluster Attention Adapter (CLAdapter), which refines and adapts the rich representatio",
+      "url": "https://arxiv.org/abs/2512.22664",
+      "arxiv_id": "2512.22664",
+      "github": "",
+      "sections": {},
+      "venue": "arXiv.org",
+      "source": "S2-forward",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 22
+    },
+    {
+      "paper_id": "8b103376a48a1015b08cb668b6216156afa41833",
+      "title": "A new ultra-high voltage gain DC/DC converter based on coupled-inductor",
+      "authors": [
+        "Sayed Jamal-Aldin Hosseini",
+        "S. Hasanpour",
+        "G. Shahgholian",
+        "M. Moazzami",
+        "Amir Baktash"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "In this paper, a new ultra-high voltage gain quadratic DC-DC converter based on coupled-inductor is introduced for renewable energy applications. In this presented topology, a two-winding coupled-inductor along with voltage multiplier cells are combined with a quadratic boost converter to enhance the voltage gain ratio. The main features of the suggested converter are its ultra-high voltage conversion ratio, low voltage stress across switching devices, continuous input current with low ripple, a",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Scientific Reports",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 23
+    },
+    {
+      "paper_id": "e573b3bbabafe89551542e6e8cc81ba29149cf00",
+      "title": "An ultra-high gain boost converter with reduced switching voltage stress for PV applications integrated with cv control",
+      "authors": [
+        "Mohammad Areefa Begum"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "In this report an ultra-high gain boost converter is proposed with ten times gain achieved at the output with operating loads in the range of 200-400W. The converter is incorporated with two high frequency switching capable MOSFET switches. The converter is included with only one boosting inductor which charges and discharges as per duty cycle of the MOSFET switches. The input to the converter can be lower voltage sources like PV panel or battery which need high voltage gain for operating the lo",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "World Journal of Advanced Engineering Technology and Sciences",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 24
+    },
+    {
+      "paper_id": "d6ec36a1d835691c7ee175e15266d37bcd0b6571",
+      "title": "An Ultra-Wideband Source Module with High Port Isolation Applied to Vector Network Analyzer",
+      "authors": [
+        "Shibin Zhang",
+        "Xitong Wang",
+        "Benqi Xie",
+        "X. Bian",
+        "X. Duan"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "Network parameter measuring technology is developing rapidly in recent years, and wideband signal generation modules are key components in vector network analyzer. An ultra-wideband source module with high port isolation is presented in this paper. Principle, design, simulation, fabrication and test results of source module are described in detail. Input signal of ultra-wideband source module is 10 MHz 22 GHz, and two-channel output signals are $10 \\text{MHz}-70 \\text{GHz}$. Power combining circ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "UK, Europe, China Millimeter Waves and THz Technology Workshop",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 25
+    },
+    {
+      "paper_id": "9070b8aa0c9051c4a55103dedd73a9b47c33dd06",
+      "title": "Comparative evaluation of pretrained convolutional neural networks with attention enhancements for defect detection in injection-molded products",
+      "authors": [
+        "Chibueze Onukelobi",
+        "Kesiena Owebor",
+        "Okoi P Obeten"
+      ],
+      "year": "2026",
+      "published": "2026",
+      "abstract": "",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "The International Journal of Advanced Manufacturing Technology",
+      "source": "S2-forward",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 26
+    },
+    {
+      "paper_id": "4f2ca7646f891335f818c7360dc282cfd517a7b2",
+      "title": "Emphasizing Discrepancies: A Hierarchical Discrepancy-Aware Framework for Industrial Anomaly Detection",
+      "authors": [
+        "Hao Wei",
+        "Linchang Zhao",
+        "Ruiping Li",
+        "Guoqing Hu",
+        "Mu Zhang"
+      ],
+      "year": "2026",
+      "published": "2026",
+      "abstract": "",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Results in Engineering",
+      "source": "S2-forward",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 27
+    },
+    {
+      "paper_id": "aa6eeb20d4d0bcd0630bf13fae5344a4cf63a35b",
+      "title": "A Single Switch Non-Isolated Ultra High Step-Up DC-DC Converter with Semiconductors Low Voltage Stress",
+      "authors": [
+        "Hossein Gholizadeh",
+        "Mohammadfazel Dehghan",
+        "G. Gharehpetian",
+        "Navid Bayati"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Non-isolated DC-DC converters are suitable for most of applications. Moreover, isolated converters suffer from electromagnetic interference (EMI), discontinuity of the input current, high voltage stress of semiconductors, and leakage inductances. This study proposes a non-isolated DC-DC converter with ultra-high voltage gain value. Moreover, the input current is continuous, and the input filter capacitor experiences a low current stress. Besides the high voltage gain, the converter switch is low",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "2024 12th International Conference on Smart Grid (icSmartGrid)",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 28
+    },
+    {
+      "paper_id": "5beedd9f9734441cd9811a16ac4655111b661754",
+      "title": "An Improved Cascaded Boost Converter with an Ultra-High Voltage Gain Suitable for Dielectric Quality Tests",
+      "authors": [
+        "Hossein Gholizadeh",
+        "R. Shahrivar",
+        "Saeed Amini",
+        "Tohid Rahimi"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Dielectric quality tests require a high AC voltage with a frequency range of 0.0001 Hz to 1000 Hz. However, providing a high AC voltage with such a frequency variety is challenging. Providing a high DC voltage and then applying such a voltage to an inverter to adjust the frequency can be an acceptable solution for such a challenge. Notably, a high DC voltage is required for DC tests. This study proposes an improved form of the cascaded boost converter, whose merits are as follows: (i) the high v",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Energies",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 29
+    },
+    {
+      "paper_id": "b90fb063bc4095f305189f57dd452faad2d24774",
+      "title": "Modeling Ultra-High-Energy Cosmic Rays propagation using the input from Configuration Interaction Shell Model",
+      "authors": [
+        "O. L. Noan",
+        "E. Khan",
+        "S. Goriely",
+        "K. Sieja"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "The dipole response of a nuclear system, characterized by its photon strength function (PSF), is a key ingredient of many applications of nuclear structure, ranging from nuclear reactor design and nuclear waste transmutation to astrophysical models of nucleosynthesis and stellar evolution. While the majority of those applications require the knowledge of PSF of mid-mass and heavy nuclei, there is now renewed interest in $E1$ strength distributions of light nuclei in the framework of the PANDORA ",
+      "url": "https://arxiv.org/abs/2512.16329",
+      "arxiv_id": "2512.16329",
+      "github": "",
+      "sections": {},
+      "venue": "",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 30
+    },
+    {
+      "paper_id": "417c6c3e026bf15bb61cd90c4fa19ac221c047b6",
+      "title": "A Single-Switch Non-Isolated Ripple-Less Step-Up DC-DC Converter With Ultra-High Gain Capability",
+      "authors": [
+        "F. Falahi",
+        "Masoud Nikbakht",
+        "Ebrahim Babaei"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "This article introduces a nonisolated ultrahigh step-up dc–dc converter that utilizes one coupled-inductor (CI) and a voltage multiplier circuit to enhance the voltage gain. The proposed topology integrates a quadratic boost converter with a voltage multiplier circuit (diode-capacitor cell). Furthermore, the recommended converter uses one coup CI led-inductor in a small turn ratio which has achieved high voltage gain and is classified as an ultrahigh step-up dc–dc converter. In addition, the pro",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE transactions on power electronics",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 31
+    },
+    {
+      "paper_id": "e70bb84ff237f4378f417f636e837be656de8fc1",
+      "title": "Ultra-high voltage gain achieved with quadratic DC/DC converter design",
+      "authors": [
+        "Preeti Sharma",
+        "S. Hasanpour",
+        "Rajneesh Kumar"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "This work introduces a novel DC/DC converter with an incredibly high voltage gain, specifically designed for renewable energy generating systems. The proposed circuit features a coupled inductor integrated with a quadratic boost circuit and a voltage multiplier cell to achieve a substantial step-up in voltage gain. Ultra-high voltage gain, minimum reverse recovery in diodes, low voltage stress on switching devices, continuous input current, and a shared ground between the input source and output",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Scientific Reports",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 32
+    },
+    {
+      "paper_id": "3b1d1c7d8fc5c2bc7e30a46b8a5c5f232f6e0b5f",
+      "title": "A non‐isolated modified ultra high step‐up quadratic boost converter with classical voltage doubler circuit",
+      "authors": [
+        "Abdullah Al Mahbub Emon",
+        "M. Tabassum",
+        "N. Subhani",
+        "Kishore Bingi"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "This paper proposes a modified ultra‐high gain DC–DC boost converter. The proposed converter has improved the performance of the conventional converter by reducing the total number of components (1 Capacitor and 1 Inductor) in the design structure. In addition, the continuous input current and high voltage gain features are retained in the proposed structure. The steady‐state modelling including the operating principles and the stress calculation along with the cost analysis of the components ha",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Jurnal Engineering",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 33
+    },
+    {
+      "paper_id": "50b4445a8c44127394b360033dd096efcf56954f",
+      "title": "Toward Efficient Network Traffic Classifications via Multimodal Learning",
+      "authors": [
+        "Liyuan Chang",
+        "Bin Cao"
+      ],
+      "year": "2025",
+      "published": "2025",
+      "abstract": "With revolutionized various real-time and cyber-physical applications, today’s networked systems face more threats of cyberattacks due to their expansive networking attack surface. One promising trend is to deploy deep learning network (DNN) models to classify and identify cyberattacks at the network layer to identify either malicious traffic or anomaly traffic as alerts. However, deploying DNN models to classify network traffic will compromise the efficiency requirements of networked systems si",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Internet of Things Journal",
+      "source": "S2-forward",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 34
+    }
+  ],
+  "evidence_coverage": {
+    "coverage": {
+      "key_innovation": true,
+      "expected_mechanism": true,
+      "closest_prior_art": false,
+      "baseline_models": true,
+      "evaluation_metrics": true,
+      "constraints": true,
+      "falsification_criteria": true,
+      "failure_modes": true,
+      "deployment_constraints": true
+    },
+    "sufficient": true,
+    "missing_slots": [
+      "closest_prior_art"
+    ],
+    "slot_paper_counts": {
+      "key_innovation": 7,
+      "expected_mechanism": 10,
+      "closest_prior_art": 0,
+      "baseline_models": 6,
+      "evaluation_metrics": 5,
+      "constraints": 7,
+      "falsification_criteria": 2,
+      "failure_modes": 3,
+      "deployment_constraints": 4
+    },
+    "group_coverage": {
+      "novelty_ok": true,
+      "validity_ok": true,
+      "feasibility_ok": true
+    }
+  },
+  "decisive_evidence": {
+    "support": [
+      {
+        "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+        "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+        "reason": "Sections에서 diffusion 기반 이상 위치 파악의 통계적 유의성 검증(selective inference)을 상세히 다루며, MVTec AD 실험을 통해 anomaly localization의 false positive 제어 메커니즘을 제시하여 평가 메트릭 및 falsification 기준의 직접적 근거가 된다.",
+        "importance_score": 0.555,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+        "title": "Exploring Deep Learning-based Unsupervised Image Anomaly Detection and Localization Methods for Industrial Quality Assurance",
+        "reason": "산업 이미지에서의 비지도 이상 탐지 및 위치 파악(IADL) 딥러닝 방법론을 포괄적으로 조사하여, normal-only 학습 기반 결함 탐지의 주요 메커니즘과 기존 접근법을 정리하고 있어 연구 맥락의 방법론적 배경을 제공한다.",
+        "importance_score": 0.5475,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "77e433c1baaf553dcffe0aa28cd0403d9b72eabf",
+        "title": "Towards Zero-shot 3D Anomaly Localization",
+        "reason": "Sections에서 zero-shot 3D 이상 탐지를 위해 정상 데이터 없이 패치 수준 대조 학습과 pseudo anomaly를 활용하는 방법을 상세히 기술하여, normal-only 참조 기반으로 재학습 없이 새로운 대상에 적응해야 하는 제약과 메커니즘에 대한 직접적 근거를 제공한다.",
+        "importance_score": 0.535,
+        "supports_dimension": "novelty"
+      }
+    ],
+    "contra": [
+      {
+        "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+        "title": "Image alignment-based patch distribution framework for anomaly detection",
+        "reason": "이미지 정렬 기반 패치 분포 프레임워크로 비지도 이상 탐지를 수행하며, 정렬되지 않은 이미지의 전처리와 embedding-similarity 기반 패치 비교를 다루어 normal reference 패치 기반 비교 방식의 가장 가까운 선행 연구이다.",
+        "importance_score": 0.5425,
+        "threatens_dimension": "novelty"
+      }
+    ],
+    "swing": [
+      {
+        "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+        "title": "Image alignment-based patch distribution framework for anomaly detection",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->approve",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This is the designated closest_prior_art paper, which is currently the only contra signal and directly targets the uncovered slot. If its claims are confirmed, the hypothesis loses novelty/distinctiveness against prior art while also filling the only uncovered must-cover gap with adverse evidence, pushing the verdict from a mixed but repairable state to reject.",
+        "gemini_reason": "This paper is the sole source providing the 'closest_prior_art' evidence role. Since 'closest_prior_art' is currently an uncovered evidence slot holding the hypothesis verdict at 'revise', confirming this paper's validity would fulfill the critical gap and elevate the verdict to 'approve'.",
+        "final_reason": "[weak] This is the designated closest_prior_art paper, which is currently the only contra signal and directly targets the uncovered slot. If its claims are confirmed, the hypothesis loses novelty/distinctiveness against prior art while also filling the only uncovered must-cover gap with adverse evidence, pushing the verdict from a mixed but repairable state to reject.",
+        "consensus_level": "weak",
+        "importance_score": 0.5425,
+        "confidence": 0.95
+      },
+      {
+        "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+        "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+        "reason": "Sections에서 diffusion 기반 이상 위치 파악의 통계적 유의성 검증(selective inference)을 상세히 다루며, MVTec AD 실험을 통해 anomaly localization의 false positive 제어 메커니즘을 제시하여 평가 메트릭 및 falsification 기준의 직접적 근거가 된다.",
+        "importance_score": 0.555,
+        "supports_dimension": "novelty",
+        "if_confirmed_changes": "revise->approve",
+        "swing_reason": "[rule-based] dual role: supports novelty but covers falsification/failure"
+      }
+    ],
+    "decision_pressure": {
+      "primary_dimension": "feasibility",
+      "reason": "Uncovered slots: closest_prior_art"
+    }
+  }
+}

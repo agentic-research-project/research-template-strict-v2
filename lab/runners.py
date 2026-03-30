@@ -439,6 +439,13 @@ class GitHubActionsRunner(BaseRunner):
         subprocess.run(["git", "config", "user.name"], capture_output=True).returncode != 0 and \
             subprocess.run(["git", "config", "user.name", "research-pipeline"], capture_output=True)
 
+        # 패키지 디렉토리가 실제로 존재하는지 확인 (rsync --delete로 삭제됐을 경우 대비)
+        if not Path(pkg_dir).exists():
+            raise RuntimeError(
+                f"_push_pkg: pkg_dir이 존재하지 않습니다: {pkg_dir}\n"
+                "CI rsync 또는 다른 프로세스에 의해 삭제된 것으로 보입니다."
+            )
+
         # git add
         result = subprocess.run(
             ["git", "add", str(pkg_dir)],
@@ -446,6 +453,15 @@ class GitHubActionsRunner(BaseRunner):
         )
         if result.returncode != 0:
             raise RuntimeError(f"git add 실패: {result.stderr.strip()}")
+
+        # 삭제만 staged된 경우(파일이 지워진 경우) 방어: 삭제 staged 항목을 unstage
+        deletions = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=D"],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        if deletions:
+            print(f"  [GitHubRunner] ⚠️ 삭제 staged 감지 — unstage 후 skip: {deletions[:200]}")
+            subprocess.run(["git", "restore", "--staged", str(pkg_dir)], capture_output=True)
 
         changed = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
