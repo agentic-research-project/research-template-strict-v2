@@ -1,0 +1,46 @@
+{
+  "ballots": [
+    {
+      "patch_index": 0,
+      "vote": "accept",
+      "reason": "완전히 불완전한 코드를 올바른 Gaussian 가중 패치 병합으로 수정. spec의 (G) Patch Merging 요구사항과 가설의 step (5) overlap-tile stitching을 정확히 구현함. 24 LOC 추가는 핵심 기능 구현에 비해 합리적임",
+      "spec_risk": "none",
+      "mechanism_alignment": "가설 step (5)의 overlap-tile stitching with Gaussian-weighted blending을 직접 구현하여 완벽히 정렬됨",
+      "comparability_risk": "low"
+    },
+    {
+      "patch_index": 1,
+      "vote": "accept",
+      "reason": "작은 이미지에서 인덱스 오류를 방지하는 최소 가드 추가. constraints_raw에서 허용하는 가변 크기 입력을 안전하게 처리하면서 6559x6559 메인 경로는 변경 없음. 8 LOC로 매우 효율적",
+      "spec_risk": "none",
+      "mechanism_alignment": "256x256 오버랩 타일링의 핵심 메커니즘 보존하면서 robustness만 향상",
+      "comparability_risk": "low"
+    },
+    {
+      "patch_index": 2,
+      "vote": "accept",
+      "reason": "LoSAIN의 수치적 안정성을 위한 최소 변경. 작은 spatial maps에서 unbiased=False가 더 안정적이며, 가설의 스타일/노이즈 섭동 하 강건성 요구사항 지원. 1 LOC 변경으로 매우 효율적",
+      "spec_risk": "none",
+      "mechanism_alignment": "가설의 LoSAIN 메커니즘 z_normalized = gamma_ref * (z_query - mu_query) / sigma_query + beta_ref를 정확히 유지하면서 수치 안정성만 향상",
+      "comparability_risk": "low"
+    },
+    {
+      "patch_index": 3,
+      "vote": "weak_reject",
+      "reason": "패치 설명과 실제 변경사항이 불일치. 설명은 normal_patches를 self에 할당한다고 하지만, 실제 changes는 의미있는 수정을 보여주지 않음. reference bank 구축 로직이 실제로는 수정되지 않음",
+      "spec_risk": "model_architecture.name.(C) Normal Reference Bank",
+      "mechanism_alignment": "의도는 좋으나 실제 구현이 불완전하여 가설 step (2)의 reference bank 요구사항을 제대로 해결하지 못함",
+      "comparability_risk": "medium"
+    },
+    {
+      "patch_index": 4,
+      "vote": "accept",
+      "reason": "6559x6559 풀 해상도 synthetic 생성의 메모리/시간 오버헤드를 해결하는 실용적 최적화. 1024 크기로 합성 후 리사이징하여 텍스처 특성은 보존하면서 constraints의 추론 시간 요구사항 지원",
+      "spec_risk": "none",
+      "mechanism_alignment": "테스트용 그레이스케일 반도체 텍스처 생성 본질은 유지하면서 실행 가능성만 개선",
+      "comparability_risk": "low"
+    }
+  ],
+  "patch_count": 5,
+  "created_at": "2026-03-30T10:02:39.332571"
+}

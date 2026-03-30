@@ -1,0 +1,233 @@
+{
+  "schema_version": "1.0",
+  "spec_id": "ai_based_automatic_defect_dete_v1_20260330_101445",
+  "hypothesis_id": "c15cd86a",
+  "experiment_version": 1,
+  "topic_slug": "ai_based_automatic_defect_dete",
+  "created_at": "2026-03-30T10:14:45.014203",
+  "revised_from_spec_id": null,
+  "revision_path": null,
+  "model_architecture": {
+    "name": "Pipeline: (A) Patch Extraction — 6559×6559 image is tiled into 256×256 patches with 32-pixel overlap (yielding ~729 patches per image). (B) Feature Extraction — Frozen WideResNet-50 (pretrained on ImageNet, grayscale-adapted by channel replication or 1-channel fine-tuned first conv) extracts features at layers 2 and 3 (spatial resolutions 64×64 and 32×32 relative to input). (C) Normal Reference Bank — All normal reference patches are pre-encoded and stored in a FAISS IVF-PQ index for sub-linear retrieval. Bank size: ~10,000–50,000 reference features per condition. (D) Dynamic Top-k Retrieval — For each query patch feature, retrieve k=8 nearest normal references from FAISS index (approximate NN, <1ms per query). (E) LoSAIN Module — Per-channel adaptive instance normalization using retrieved reference statistics: mu_ref = mean of k reference channel means, sigma_ref = mean of k reference channel stds. Normalize query features channel-wise, then rescale to reference distribution. Applied at each feature layer independently. (F) Anomaly Scoring — Multi-scale L2 distance between LoSAIN-normalized query features and nearest retrieved reference features, aggregated across layers with learned-free equal weighting. Produces a per-pixel anomaly score map for each patch. (G) Patch Merging — Overlap regions blended using 2D Gaussian weighting kernel; produces seamless 6559×6559 anomaly heatmap. (H) EVT Threshold — GPD fitted on top-5% normal scores from calibration set; threshold set at target FPR. (I) Post-processing — Morphological operations (opening/closing), connected component analysis, minimum area filtering to produce final bounding boxes/masks.",
+    "description": "FAISS 인덱스 기반 동적 상위-k 정상 참조 검색, 검색된 참조 통계에 조건화된 국소 스타일 적응형 인스턴스 정규화(LoSAIN), 그리고 극단값 이론(EVT) 기반 조건별 임계값 보정을 통합한 무학습 이상탐지 프레임워크가, 결함 라벨 데이터 없이 6559×6559 초고해상도 그레이스케일 반도체 이미지에서 FPR ≤ 1%, 스타일/노이즈 섭동 하 점수 편이 ≤ 0.05, 단일 16 GB GPU에서 추론 시간 ≤ 120초의 조건으로 결함을 강건하게 국소화할 것이다.",
+    "key_components": [],
+    "param_budget_M": 2.0
+  },
+  "training_config": {
+    "epochs": 50,
+    "batch_size": 16,
+    "optimizer": "adamw",
+    "lr": 0.0001,
+    "loss_function": "auto",
+    "seed": 42,
+    "precision": "bf16-mixed",
+    "gradient_clip": 1.0
+  },
+  "evaluation_config": {
+    "primary_metric": "false",
+    "target_value": 0.0,
+    "secondary_metrics": [
+      "false",
+      "anomalous",
+      "defect",
+      "auroc",
+      "mean",
+      "normal",
+      "threshold",
+      "inference",
+      "peak",
+      "throughput"
+    ],
+    "metric_units": {
+      "false": "FAI",
+      "anomalous": "fraction of pixels above threshold",
+      "defect": "region-level IoU ≥ 0.3 and pixel-level",
+      "auroc": "per-pixel anomaly detection, per-region overlap",
+      "mean": "MASS",
+      "normal": "NAR",
+      "threshold": "",
+      "inference": "seconds, single GPU",
+      "peak": "GB",
+      "throughput": "images per hour"
+    },
+    "test_set": "val_split",
+    "eval_frequency": 1
+  },
+  "hypothesis_contract": {
+    "mechanism": "For each 256×256 patch extracted from the 6559×6559 source image: (1) A frozen pretrained feature extractor (e.g., WideResNet-50 from ImageNet, as used in PatchCore) produces multi-layer feature maps. (2) FAISS indexes the normal reference bank features; for each query patch feature, the top-k (k=5–10) nearest normal reference features are retrieved in sub-millisecond time. (3) LoSAIN computes per-channel mean and variance from the retrieved k references and applies adaptive instance normalization: z_normalized = gamma_ref * (z_query - mu_query) / sigma_query + beta_ref, where gamma_ref and beta_ref are derived from the retrieved reference statistics. This aligns style while preserving spatial anomaly structure because defective regions have feature activations with no close normal match — the normalization shifts the baseline but the residual anomaly remains. (4) The anomaly score per patch is computed as the minimum L2 distance between the LoSAIN-normalized query features and the corresponding retrieved reference features in the multi-scale feature space. (5) Patch-level scores are assembled into a full-resolution anomaly map using overlap-tile stitching with Gaussian-weighted blending at boundaries to eliminate tiling artifacts. (6) Per-condition EVT calibration fits a Generalized Pareto Distribution (GPD) to the upper tail of normal anomaly scores from a small calibration set (~50–100 normal images per condition), yielding a threshold at a target FPR (e.g., 1%) that automatically adapts to each equipment/lot condition. (7) Connected component analysis on the thresholded map produces bounding boxes and masks for detected defects.",
+    "target_metric_raw": "False Positive Rate on Normal Images, False Alarm per Image, Anomalous Area Ratio on Normal Images, Score Stability under Style/Noise Perturbation (Mean Absolute Score Shift and Normal Acceptance Rate under Perturbation), Threshold Robustness, Inference Time per Source Image, Peak Memory Usage, Throughput",
+    "constraints_raw": "Input is 6559x6559 grayscale source image, Reference images are defect-free normal grayscale patches (256x256 or 512x512 or smaller), Input and output images may differ in height and width, Defect annotations are very limited or unavailable, Training must be minimized (normal-only / few-shot / training-light preferred), Inspection time per source image must be within 1-2 minutes, Must be robust to image style and contrast and noise level changes, Must avoid excessive false positive increase for real-world deployment",
+    "architecture_hint": "Pipeline: (A) Patch Extraction — 6559×6559 image is tiled into 256×256 patches with 32-pixel overlap (yielding ~729 patches per image). (B) Feature Extraction — Frozen WideResNet-50 (pretrained on ImageNet, grayscale-adapted by channel replication or 1-channel fine-tuned first conv) extracts features at layers 2 and 3 (spatial resolutions 64×64 and 32×32 relative to input). (C) Normal Reference Bank — All normal reference patches are pre-encoded and stored in a FAISS IVF-PQ index for sub-linear retrieval. Bank size: ~10,000–50,000 reference features per condition. (D) Dynamic Top-k Retrieval — For each query patch feature, retrieve k=8 nearest normal references from FAISS index (approximate NN, <1ms per query). (E) LoSAIN Module — Per-channel adaptive instance normalization using retrieved reference statistics: mu_ref = mean of k reference channel means, sigma_ref = mean of k reference channel stds. Normalize query features channel-wise, then rescale to reference distribution. Applied at each feature layer independently. (F) Anomaly Scoring — Multi-scale L2 distance between LoSAIN-normalized query features and nearest retrieved reference features, aggregated across layers with learned-free equal weighting. Produces a per-pixel anomaly score map for each patch. (G) Patch Merging — Overlap regions blended using 2D Gaussian weighting kernel; produces seamless 6559×6559 anomaly heatmap. (H) EVT Threshold — GPD fitted on top-5% normal scores from calibration set; threshold set at target FPR. (I) Post-processing — Morphological operations (opening/closing), connected component analysis, minimum area filtering to produce final bounding boxes/masks."
+  },
+  "constraints_structured": {},
+  "data_config": {
+    "data_path": "",
+    "dataset_name": "Primary: Proprietary semiconductor fab dataset — 6559×6559 grayscale source images from ≥3 different equipment/lot conditions, with normal reference patches (256×256) per condition. Minimum 200 normal images and 50 defect-annotated images per condition for evaluation. Secondary (public benchmarks for method validation): (1) MVTec AD — for validating the LoSAIN and EVT modules on standard anomaly detection benchmarks, (2) DAGM 2007 Texture Dataset — grayscale industrial textures with defects, closer to semiconductor domain, (3) KolektorSDD2 — surface defect dataset with limited annotations. For style/noise robustness testing: synthetic augmentations (brightness shift ±20%, Gaussian noise σ∈{0.02, 0.05, 0.08}, contrast scaling ×{0.7, 0.85, 1.0, 1.15, 1.3}) applied to normal and defect images from each condition."
+  },
+  "task_family": "classification",
+  "pattern_candidates": [
+    {
+      "pattern_id": "cls_cnn_lite",
+      "core_blocks": [
+        "conv_block",
+        "fc_head"
+      ],
+      "training_defaults": {
+        "optimizer": "adam",
+        "loss_function": "cross_entropy"
+      },
+      "evaluation_defaults": {
+        "primary_metric": "accuracy"
+      },
+      "strengths": [
+        "simple",
+        "fast training"
+      ],
+      "weaknesses": [
+        "limited capacity"
+      ],
+      "must_not_do": [
+        "oversized backbone under param budget"
+      ],
+      "task_family": "classification",
+      "modality": "image"
+    },
+    {
+      "pattern_id": "cls_residual_small",
+      "core_blocks": [
+        "residual_block",
+        "global_avg_pool",
+        "fc_head"
+      ],
+      "training_defaults": {
+        "optimizer": "adam",
+        "loss_function": "cross_entropy"
+      },
+      "evaluation_defaults": {
+        "primary_metric": "accuracy"
+      },
+      "strengths": [
+        "stable gradient flow",
+        "good baseline"
+      ],
+      "weaknesses": [
+        "may need more depth"
+      ],
+      "must_not_do": [
+        "skip connections without batch norm"
+      ],
+      "task_family": "classification",
+      "modality": "image"
+    }
+  ],
+  "family_contract": {},
+  "generation_prior": {
+    "task_family": "classification",
+    "recommended_patterns": [
+      "cls_cnn_lite",
+      "cls_residual_small"
+    ],
+    "baseline_families": [
+      "simple_cnn_baseline",
+      "residual_cnn_baseline"
+    ],
+    "critical_interfaces": [
+      "forward",
+      "loss_computation",
+      "metric_computation"
+    ],
+    "likely_failure_modes": [
+      "overfitting on small data",
+      "class imbalance"
+    ],
+    "must_not_do": [
+      "oversized backbone under param budget"
+    ]
+  },
+  "literature_code_prior": {},
+  "contract_tests": [
+    "param_budget_test",
+    "dummy_batch_shape_test",
+    "metric_key_sanity_test",
+    "optimizer_loss_wiring_test",
+    "output_contract_completeness_test"
+  ],
+  "starter_skeleton_path": "experiments/template",
+  "must_not_do": [
+    "oversized backbone under param budget"
+  ],
+  "synthesized_baselines": [
+    {
+      "name": "simple_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "weak baseline",
+      "complexity": "low",
+      "task_family": "classification"
+    },
+    {
+      "name": "residual_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "strong baseline",
+      "complexity": "medium",
+      "task_family": "classification"
+    }
+  ],
+  "latest_trends": {
+    "modern_optimizers": [
+      "LoRA / QLoRA — parameter-efficient fine-tuning",
+      "Lion / Sophia optimizer — modern alternatives to AdamW",
+      "Cosine annealing with warm restarts (SGDR)"
+    ],
+    "modern_augmentation": [
+      "TrivialAugment — zero-hyperparameter augmentation",
+      "RandAugment — simplified AutoAugment"
+    ],
+    "modern_architectures": [
+      "State Space Models — Mamba/Mamba2 (linear-time), MambaVision (SSM+ViT hybrid), Vim (Vision Mamba)",
+      "DINOv2/DINOv3 — self-supervised ViT, strongest general-purpose vision features",
+      "SigLIP 2 — improved vision-language model, better than CLIP for zero-shot"
+    ],
+    "modern_losses": [
+      "Label smoothing cross-entropy",
+      "Focal loss — class imbalance handling",
+      "Poly loss — polynomial cross-entropy"
+    ]
+  },
+  "ablations": [],
+  "baselines": [
+    {
+      "name": "코드를 찾지 못했습니다. 직접 구현이 필요합니다.",
+      "source": "literature"
+    },
+    {
+      "name": "simple_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "weak baseline",
+      "complexity": "low",
+      "task_family": "classification"
+    },
+    {
+      "name": "residual_cnn_baseline",
+      "source": "internal_prior",
+      "expected_role": "strong baseline",
+      "complexity": "medium",
+      "task_family": "classification"
+    }
+  ],
+  "output_contract": {
+    "stdout_pattern": "^METRICS:\\{.*\\}$",
+    "required_keys": [
+      "false",
+      "false",
+      "anomalous",
+      "defect",
+      "auroc",
+      "mean",
+      "normal",
+      "threshold",
+      "inference",
+      "peak",
+      "throughput"
+    ]
+  }
+}

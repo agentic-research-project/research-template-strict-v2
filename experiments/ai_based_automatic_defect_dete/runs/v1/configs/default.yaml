@@ -1,0 +1,60 @@
+# AI-based Automatic Defect Detection Configuration
+
+# Model architecture
+model:
+  name: "DefectDetectionModel"
+  backbone: "wide_resnet50_2"
+  pretrained: true
+  patch_size: 256
+  patch_overlap: 32
+  feature_layers: ["layer2", "layer3"]
+  faiss_k: 8
+  target_fpr: 0.01
+
+# Training configuration
+training:
+  optimizer: "adamw"
+  learning_rate: 0.0001
+  epochs: 50
+  batch_size: 16
+  gradient_clip: 1.0
+  precision: "bf16-mixed"
+  seed: 42
+  num_workers: 4
+
+# Loss function (not used in training-free approach)
+loss:
+  function: "auto"
+  weight: 1.0
+
+# Data configuration
+data:
+  image_size: 512  # Use 512 for testing, 6559 for production
+  train_samples: 500
+  val_samples: 200
+  num_conditions: 3
+  augmentation: false
+
+# Evaluation configuration
+evaluation:
+  primary_metric: "false"
+  target_false_positive_rate: 0.01
+  min_defect_area: 100
+  post_process: true
+  
+# Hardware constraints
+hardware:
+  max_memory_gb: 16
+  target_inference_time: 120.0  # seconds per 6559x6559 image
+  
+# EVT calibration
+evt:
+  target_fpr: 0.01
+  calibration_quantile: 0.95
+  min_samples: 10
+
+# Output settings
+output:
+  save_anomaly_maps: true
+  save_bounding_boxes: true
+  verbose: true
