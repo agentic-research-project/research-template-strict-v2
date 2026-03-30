@@ -15,10 +15,9 @@ __pycache__/
 *.h5
 *.onnx
 
-# Experiments - 체크포인트/로그/데이터캐시만 제외
-# 결과(results/), 보고서(reports/), 코드(runs/) 는 전부 추적
-experiments/*/runs/*/artifacts/checkpoints/
-experiments/*/runs/*/artifacts/logs/
+# Experiments - 런타임 아티팩트 전체 제외 (CI 학습 결과 파일)
+# runs/*/artifacts/: CI가 생성하는 모든 artifacts는 git 추적 불필요
+experiments/*/runs/*/artifacts/
 experiments/*/runs/*/data/
 
 # IDE
