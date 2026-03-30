@@ -3034,7 +3034,7 @@ def run_research_loop(
         # 통합 report.pdf (가설 + 결과 + 분석 + 참고문헌)
         try:
             from lab.user_approval import generate_pdf
-            from lab.config import slug_from_pkg, reports_dir as _rdir
+            from lab.config import reports_dir as _rdir  # slug_from_pkg already imported at module level
             _topic = json.loads(Path(topic_file).read_text(encoding="utf-8"))
             _hyp   = json.loads(Path(hypothesis_file).read_text(encoding="utf-8"))
             _slug  = slug_from_pkg(pkg)
