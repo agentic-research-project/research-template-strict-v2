@@ -67,10 +67,12 @@ def train(config: dict) -> dict:
 
     module = TrainingModule(model, config)
 
-    # ── 아티팩트 디렉토리 ────────────────
-    ckpt_dir = Path("artifacts/checkpoints")
-    log_dir  = Path("artifacts/logs")
-    met_dir  = Path("artifacts/metrics")
+    # ── 아티팩트 디렉토리 (절대경로) ──────────────
+    # __file__ 기준 절대경로 사용 — CWD 변경 방어
+    _pkg_dir = Path(__file__).resolve().parent
+    ckpt_dir = _pkg_dir / "artifacts" / "checkpoints"
+    log_dir  = _pkg_dir / "artifacts" / "logs"
+    met_dir  = _pkg_dir / "artifacts" / "metrics"
     for d in [ckpt_dir, log_dir, met_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
