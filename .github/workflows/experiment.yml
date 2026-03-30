@@ -121,29 +121,7 @@ jobs:
             --exclude '.git' \
             "${{ github.workspace }}/" "${{ env.PROJECT_DIR }}/"
 
-      # ── 작업 3: tini 설치 + 컨테이너/conda 환경 검증 ──
-      - name: Ensure tini is installed (zombie reaper)
-        run: |
-          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            if tini -s -- true 2>/dev/null; then
-              echo "=== tini (subreaper) OK ==="
-            else
-              echo "=== Installing tini-static (subreaper support) ==="
-              mkdir -p ~/bin
-              python -c "
-import urllib.request, os
-url = \"https://github.com/krallin/tini/releases/download/v0.19.0/tini-static\"
-dest = os.path.expanduser(\"~/bin/tini\")
-urllib.request.urlretrieve(url, dest)
-os.chmod(dest, 0o755)
-print(\"tini-static installed\")
-"
-              grep -q "HOME/bin" ~/.bashrc || echo "export PATH=\"\$HOME/bin:\$PATH\"" >> ~/.bashrc
-              export PATH="$HOME/bin:$PATH"
-              tini -s -- true && echo "=== tini (subreaper) OK ==="
-            fi
-          '
-
+      # ── 작업 3: 컨테이너/conda 환경 검증 ──
       - name: Verify container and conda env
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
@@ -263,8 +241,11 @@ print(\"tini-static installed\")
           docker exec ${{ env.CONTAINER_NAME }} bash -lc "
             cd \"${PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
-            tini -s -- conda run -n ${{ env.CONDA_ENV_NAME }} \
-              python scripts/smoke_test.py --config configs/fast.yaml
+            conda run -n ${{ env.CONDA_ENV_NAME }} \
+              python scripts/smoke_test.py --config configs/fast.yaml &
+            PID=\$!
+            trap \"kill -TERM -- -\$PID 2>/dev/null; wait \$PID 2>/dev/null\" TERM INT
+            wait \$PID
           "
 
       - name: Write smoke_failed status
@@ -343,9 +324,12 @@ print(\"tini-static installed\")
             cd \"${TRAIN_PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             mkdir -p artifacts/logs
-            tini -s -- conda run -n ${{ env.CONDA_ENV_NAME }} \
+            conda run -n ${{ env.CONDA_ENV_NAME }} \
               python train.py --config ${{ env.CONFIG_FILE }} \
-              2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
+              2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt &
+            PID=\$!
+            trap \"kill -TERM -- -\$PID 2>/dev/null; wait \$PID 2>/dev/null\" TERM INT
+            wait \$PID
           "
 
       - name: Sync artifacts to workspace
