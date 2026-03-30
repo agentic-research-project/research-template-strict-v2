@@ -390,7 +390,7 @@ class GitHubActionsRunner(BaseRunner):
         if not (token and owner and repo):
             detected = self._detect_from_git_remote()
 
-        self.token         = (token or os.environ.get("GITHUB_TOKEN", "") or detected.get("token", "")).strip()
+        self.token         = token or os.environ.get("GITHUB_TOKEN", "") or detected.get("token", "")
         self.owner         = owner or os.environ.get("GITHUB_OWNER", "") or detected.get("owner", "")
         self.repo          = repo  or os.environ.get("GITHUB_REPO", "")  or detected.get("repo", "")
         self.ref           = ref
@@ -460,6 +460,26 @@ class GitHubActionsRunner(BaseRunner):
             print(f"  [GitHubRunner] 패키지 push 완료: {pkg_dir}")
         else:
             print(f"  [GitHubRunner] 변경사항 없음 — 기존 commit 사용")
+
+        # CI workflow repo (ati-v2) 동기화: rsync --delete로 삭제되는 것을 방지
+        _ci_remote = f"https://github.com/{self.owner}/{self.repo}.git"
+        _remotes_raw = subprocess.run(
+            ["git", "remote", "-v"], capture_output=True, text=True
+        ).stdout
+        _ci_remote_name = next(
+            (line.split()[0] for line in _remotes_raw.splitlines()
+             if _ci_remote.split("@")[-1] in line and "(push)" in line),
+            None,
+        )
+        if _ci_remote_name and _ci_remote_name != "origin":
+            _push2 = subprocess.run(
+                ["git", "push", _ci_remote_name, self.ref, "--force"],
+                capture_output=True, text=True,
+            )
+            if _push2.returncode == 0:
+                print(f"  [GitHubRunner] CI 레포({_ci_remote_name}) 동기화 완료")
+            else:
+                print(f"  [GitHubRunner] CI 레포 동기화 실패 (무시): {_push2.stderr[:100]}")
 
         sha = subprocess.run(
             ["git", "rev-parse", "HEAD"],
