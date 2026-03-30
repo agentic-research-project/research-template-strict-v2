@@ -125,13 +125,22 @@ jobs:
       - name: Ensure tini is installed (zombie reaper)
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            if command -v tini &>/dev/null; then
-              echo "=== tini already installed: $(tini --version) ==="
+            if tini -s -- true 2>/dev/null; then
+              echo "=== tini (subreaper) OK ==="
             else
-              echo "=== Installing tini ==="
-              apt-get update -qq && apt-get install -y -qq tini \
-                || (echo "ERROR: tini 설치 실패" && exit 1)
-              echo "=== tini installed: $(tini --version) ==="
+              echo "=== Installing tini-static (subreaper support) ==="
+              mkdir -p ~/bin
+              python -c "
+import urllib.request, os
+url = \"https://github.com/krallin/tini/releases/download/v0.19.0/tini-static\"
+dest = os.path.expanduser(\"~/bin/tini\")
+urllib.request.urlretrieve(url, dest)
+os.chmod(dest, 0o755)
+print(\"tini-static installed\")
+"
+              grep -q "HOME/bin" ~/.bashrc || echo "export PATH=\"\$HOME/bin:\$PATH\"" >> ~/.bashrc
+              export PATH="$HOME/bin:$PATH"
+              tini -s -- true && echo "=== tini (subreaper) OK ==="
             fi
           '
 
