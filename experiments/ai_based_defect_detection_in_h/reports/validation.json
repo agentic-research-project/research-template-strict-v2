@@ -1,0 +1,1370 @@
+{
+  "gpt4o": {
+    "score": 8.3,
+    "score_breakdown": {
+      "novelty": 8.4,
+      "validity": 8.2,
+      "feasibility": 7.9,
+      "impact": 8.8
+    },
+    "prior_art_comparison": [
+      {
+        "paper": "Image alignment-based patch distribution framework for anomaly detection",
+        "method": "정렬 기반 패치 분포 비교 후 임베딩 유사도로 이상 탐지",
+        "difference": "본 가설은 정밀 정렬을 전제하지 않고 local max-pooling + ±r neighborhood search로 경량 정렬 완화를 수행하며, 여기에 shallow-layer AdaIN과 two-level EVT를 결합한다.",
+        "competes_on": "mechanism",
+        "stronger_than_hypothesis_in": "정렬이 잘 맞는 환경에서는 위치 대응이 명확해 비교 해석성이 높고, 패치 대응 관계가 직접적이다.",
+        "weaker_than_hypothesis_in": "계산 비용과 배포 유연성이 낮고, lot/equipment style shift 및 무재학습 적응성 측면이 약하다.",
+        "residual_risk": "±r search가 실제 반도체의 주기 구조 misregistration과 소회전에는 충분할 수 있으나, 구조적 왜곡이나 반복 패턴 aliasing에서는 오히려 오매칭을 늘릴 수 있다."
+      },
+      {
+        "paper": "Revisiting Reverse Distillation for Anomaly Detection",
+        "method": "teacher-student/reverse distillation 기반의 빠른 이상 탐지",
+        "difference": "본 가설은 학습 기반 distillation 대신 reference-only 메모리 검색을 유지하되 coarse gate와 2.5-stage scoring으로 연산량을 줄이고 EVT로 배포형 FPR 제어를 노린다.",
+        "competes_on": "efficiency",
+        "stronger_than_hypothesis_in": "추론 지연시간 구조가 단순하고 메모리뱅크 검색 의존성이 적어 latency 예측이 쉽다.",
+        "weaker_than_hypothesis_in": "새 lot/style 적응을 위해 재학습 또는 추가 최적화가 필요할 가능성이 높고, reference-only 운영 유연성이 떨어진다.",
+        "residual_risk": "제안법의 Stage-2b dense k-NN가 병목이 되면 실제 속도는 RD류보다 불리할 수 있으며, coarse gate가 충분히 많이 걸러주지 못하면 전체 설계 이점이 약해진다."
+      },
+      {
+        "paper": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+        "method": "도메인 시프트 환경에서 masked multi-scale reconstruction 기반 이상 탐지",
+        "difference": "본 가설은 reconstruction 대신 frozen feature matching과 shallow AdaIN으로 style drift를 직접 보정하고, 재학습 없이 lot별 reference 추가만으로 적응하려 한다.",
+        "competes_on": "deployment",
+        "stronger_than_hypothesis_in": "도메인 시프트 문제를 명시적으로 다루는 데이터셋/실험 프레임이 이미 존재하고, 학습된 표현이 더 전역적 문맥 복원을 활용할 수 있다.",
+        "weaker_than_hypothesis_in": "재구성 기반은 미세 결함을 정상으로 복원하는 false negative 위험이 있고, 재학습 없는 현장 적응성이 약하다.",
+        "residual_risk": "AdaIN이 스타일 변화는 줄여도 장비별 노이즈 통계나 비선형 intensity transfer까지 다루지 못할 수 있어, reconstruction 계열보다 항상 robust하다고 단정하기 어렵다."
+      },
+      {
+        "paper": "Unsupervised Anomaly Detection via Multi-Frequency Structure and Visual Sampling",
+        "method": "다주파수 구조 유도 기반 비지도 이상 탐지",
+        "difference": "본 가설은 다주파수 분해 자체를 쓰기보다 shallow-layer AdaIN의 효과를 스펙트럼 보존 지표로 검증하는 방식이며, 주된 엔진은 hierarchical memory-bank + EVT이다.",
+        "competes_on": "mechanism",
+        "stronger_than_hypothesis_in": "주파수 관점에서 결함/배경 분리를 모델 구조에 직접 내장해 메커니즘 정합성이 더 강할 수 있다.",
+        "weaker_than_hypothesis_in": "메모리/계산 부담이 더 크고, 초고해상도 단일 GPU·무재학습 배포 제약에는 덜 적합하다.",
+        "residual_risk": "스펙트럼 검증은 설명 도구이지 성능 메커니즘 그 자체는 아니므로, 실제로는 multi-frequency 모델보다 도메인 강건성이 약할 수 있다."
+      },
+      {
+        "paper": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+        "method": "diffusion 기반 anomaly localization의 통계적 유의성 검증",
+        "difference": "본 가설은 계산량이 큰 selective inference 대신 patch-level과 image-level의 two-level EVT로 통계적 thresholding을 경량 근사한다.",
+        "competes_on": "deployment",
+        "stronger_than_hypothesis_in": "통계적 엄밀성 측면에서 p-value 해석 가능성이 더 강하고, 선택 편향 보정이 더 직접적이다.",
+        "weaker_than_hypothesis_in": "실시간성/단일 GPU 제약에서는 과도하게 무겁고, semiconductor-scale deployment에는 비현실적일 가능성이 높다.",
+        "residual_risk": "EVT가 공간 상관성과 lot 간 tail-shape 변동을 충분히 포착하지 못하면, 엄밀성은 selective inference보다 훨씬 약해 image-level FPR 보장이 흔들릴 수 있다."
+      }
+    ],
+    "evidence_used": [
+      "2fc4bc71a6443f1af34e7674427901038c537bed",
+      "7617c7c3760a530679045206ec959f52195c37ee",
+      "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "871aa8be308624bd120bd2db854dc093f4ceac8d",
+      "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+      "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+      "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+      "b7c08446d59d28b8666d04bac1a3f04a22f12be4"
+    ],
+    "constraint_considered": true,
+    "feasibility": "제안은 현재 기술로 구현 가능하나, 제시된 성능 조합을 동시에 달성할 가능성은 중상 정도다. 강한 점은 모든 단계가 코드화 가능한 모듈로 정의되어 있고 단일 GPU, 24GB, 60초 제약을 명시적으로 반영했다는 점이다. 다만 실제 병목은 Stage-2b dense neighborhood k-NN, lot별 EVT 안정성, 그리고 coarse gate의 저대비 결함 보존이다. 6559×6559에서 stride 224면 패치 수가 많고, 후보 패치 비율이 예상보다 높아지면 60초 내 추론이 급격히 어려워질 수 있다. 또한 reference patches만으로 image-level EVT를 안정적으로 맞추려면 lot별 정상 분포 샘플 수가 실제로 충분해야 한다. 따라서 '구현 가능'은 맞지만, 목표 수치의 동시 달성은 추가 단순화와 강한 실험 검증이 필요하다.",
+    "strengths": [
+      "문제-제약-평가-반증이 잘 연결되어 있어 연구 가설로서 구조적 완성도가 높다.",
+      "도메인 시프트, 계산량, threshold 안정성이라는 실제 배포 병목을 동시에 겨냥한 점은 산업적 의미가 크다.",
+      "shallow-layer AdaIN에 대해 spectral validation과 FDR 보존을 명시해 직관적 주장에 그치지 않고 검증 가능하게 만들었다.",
+      "two-level EVT와 image-level FPR 중심 평가는 실제 현장 배포 요구와 잘 맞는다.",
+      "coarse-to-fine, selective blending, async pipelining 등 구현 수준의 세부 설계가 구체적이다."
+    ],
+    "weaknesses": [
+      "참신성은 '새 알고리즘 하나'라기보다 기존 아이디어들의 강한 시스템 통합에 가깝다. 각 구성요소 단독으로는 선행연구와의 중복 위험이 있다.",
+      "Stage-1에서 ALL 4 cues가 정상일 때만 reject하는 보수적 설계는 recall에는 유리하지만 실제 rejection rate 40–60%를 안정적으로 달성하지 못할 수 있다.",
+      "Mahalanobis micro-screen과 Stage-2a/2b encoder 경로가 사실상 중복 feature extraction 요구를 만들 수 있어 실제 latency 이점이 과대추정되었을 가능성이 있다.",
+      "AdaIN의 median/MAD 정렬이 반도체 grayscale 텍스처의 미세 결함 대비를 보존한다는 보장은 아직 약하며, 특히 point defect나 faint mura에서 신호가 약화될 수 있다.",
+      "two-level EVT는 개념적으로 타당하지만 patch 간 공간 상관, heavy-tail 불안정성, lot 소표본 문제 때문에 threshold robustness가 생각보다 취약할 수 있다.",
+      "public benchmark와 실제 semiconductor 데이터 간 간극이 크므로 MVTec/AeBAD 성능이 높아도 핵심 주장 검증에는 제한적이다."
+    ],
+    "suggestions": [
+      "Stage-1 coarse gate는 현재의 hard rule 대신 '절대 reject 금지 결함 보호 규칙'을 추가하세요. 예: Sobel-max 또는 micro-screen이 상위 q%면 다른 cue와 무관하게 Stage-2로 강제 통과. 이렇게 해야 저대비 선형 결함 손실 위험을 더 줄일 수 있습니다.",
+      "Stage-2b의 계산량을 줄이기 위해 모든 suspicious patch에 dense k-NN를 하지 말고, patch 내부 saliency seeds나 low-res anomaly prior를 먼저 만든 뒤 top-m spatial cells만 neighborhood search하도록 바꾸세요.",
+      "EVT는 lot별 완전 독립 추정보다 hierarchical Bayesian EVT 또는 conformal calibration을 함께 비교하세요. 특히 image-level FPR 보장 측면에서 conformal p-value가 더 실용적일 수 있습니다.",
+      "encoder는 하나를 미리 정하지 말고 ResNet/EfficientNet 계열과 DINOv2-Small 둘 다 pilot profiling으로 먼저 줄이세요. ViT는 patch-token search와 shallow AdaIN 정의가 CNN보다 까다롭습니다.",
+      "6559×6559 전체 이미지 기준 latency 예산표를 사전에 수치화하세요. 예: Stage-1 최대 5s, Stage-2a 최대 20s, Stage-2b 최대 25s, assembly/EVT 최대 5s. 각 단계가 이 예산을 넘으면 즉시 설계를 수정하는 식의 engineering gate가 필요합니다.",
+      "실제 deployment를 위해 정상 이미지 500장 기준 FPR 외에도 lot drift 시나리오에서 월별 threshold 재사용 가능 기간, reference patch 추가 수에 따른 성능 회복 곡선을 측정하세요."
+    ],
+    "verdict": "revise",
+    "implementation_expectations": {
+      "must_implement_mechanism": "256×256 tiling with overlap, 4-cue Stage-1 coarse gate, frozen encoder 기반 shallow-layer AdaIN(blocks 1–2 only), Stage-2a patch-level k-NN pre-screen, Stage-2b dense neighborhood-aware matching(local pooling + ±r spatial search), selective sparse blending, patch-level + image-level two-stage EVT calibration, lot-wise reference preparation and quality gate가 실제 코드 경로로 구현되어야 한다.",
+      "must_satisfy_constraints": "single GPU(≤24GB), no end-to-end large FM fine-tuning, reference-only 또는 training-light 운영, 6559×6559 image end-to-end inference ≤60s 목표, patch split/merge artifact 최소화, lot/equipment 변경 시 재학습 없이 reference 추가만으로 적응 가능한 config가 반영되어야 한다.",
+      "must_measure_metrics": "image-level FPR, false alarms per normal image, anomalous area ratio on normal images, pixel-AUROC, image-AUROC, AUPRO, Stage-1 FNR/recall, MASS under style/noise perturbation, normal acceptance rate under perturbation, threshold robustness under ±20%, per-stage latency, total inference time, peak GPU memory, defect-size-stratified sensitivity, two-level EVT vs patch-only EVT comparison을 자동 평가해야 한다."
+    },
+    "cap_reasons": []
+  },
+  "gemini": {
+    "score": 9.5,
+    "score_breakdown": {
+      "novelty": 9.5,
+      "validity": 9.5,
+      "feasibility": 9.0,
+      "impact": 10.0
+    },
+    "prior_art_comparison": [
+      {
+        "paper": "Deep Industrial Image Anomaly Detection: A Survey (230c875f7563abf2e11bc79c0ae8855bfa52123c) / PatchCore",
+        "method": "Memory bank (k-NN) based anomaly detection using coreset subsampling",
+        "difference": "본 가설은 단순 k-NN을 넘어 초고해상도 제약 해결을 위한 2.5-stage Coarse-to-Fine 필터링과 ±r 공간 탐색을 도입함",
+        "competes_on": "efficiency",
+        "stronger_than_hypothesis_in": "완벽히 정렬된 소형 이미지에서의 절대적인 픽셀 수준 지역화 해상도",
+        "weaker_than_hypothesis_in": "6559x6559 초고해상도 이미지 처리 시의 추론 시간 및 메모리 효율성",
+        "residual_risk": "Coarse-to-fine 필터링(Stage-1) 과정에서 극도로 미세한 결함이 조기 배제될(False Negative) 위험성"
+      },
+      {
+        "paper": "Image alignment-based patch distribution framework (2fc4bc71a6443f1af34e7674427901038c537bed)",
+        "method": "명시적인 이미지 정렬(Image alignment) 전처리 후 패치 분포 기반 이상 탐지",
+        "difference": "정밀 정렬 전처리 대신 국소 최대 풀링(Local max-pooling)과 FAISS 기반 ±r 공간 탐색 윈도우를 통한 암시적 정렬 완화(Alignment relaxation) 수행",
+        "competes_on": "mechanism",
+        "stronger_than_hypothesis_in": "참조 이미지와 대상 이미지 간의 전역적이고 거시적인 기하학적 변형 보정 능력",
+        "weaker_than_hypothesis_in": "초고해상도 환경에서의 연산 속도 및 반도체 다이(Die)의 주기적 격자 오차에 대한 유연성",
+        "residual_risk": "탐색 반경(r)이 너무 클 경우 정상 패턴의 오정렬을 결함으로 덮어버리거나(FNR 증가), 연산량이 급증할 위험"
+      },
+      {
+        "paper": "Industrial Anomaly Detection with Domain Shift (a0bb81ad6fd730d673580fda6713691d8e1d5bdc)",
+        "method": "도메인 변화(Domain Shift) 환경에서 Masked multi-scale reconstruction 활용",
+        "difference": "재구성 오차에 의존하지 않고, 얕은 계층 한정 AdaIN(Median/MAD)과 스펙트럼 검증을 통한 명시적 저주파 스타일 분리 메커니즘 제안",
+        "competes_on": "performance",
+        "stronger_than_hypothesis_in": "전혀 보지 못한 극단적인 구조적 도메인 변화에 대한 생성적 적응력",
+        "weaker_than_hypothesis_in": "장비 노이즈나 밝기 변화 등 미세한 도메인 변화 환경에서의 정상/비정상 FPR 제어력",
+        "residual_risk": "AdaIN이 스타일 변화뿐만 아니라 저주파 대역에 분포하는 넓고 얕은 결함(Mura 등)의 신호까지 일부 감쇄시킬 위험"
+      },
+      {
+        "paper": "Quantifying Statistical Significance in Diffusion (d8782dee537e7535a58fd7a8f10fd2e34ad649a4)",
+        "method": "확산 모델의 선택적 추론(Selective inference)을 통한 픽셀 단위 통계적 유의성(p-value) 산출",
+        "difference": "계산 비용이 높은 확산 모델 대신, k-NN 거리 분포에 기반한 계층적(패치/이미지 레벨) 극단값 이론(Two-level EVT) 및 베이지안 사전분포 적용",
+        "competes_on": "deployment",
+        "stronger_than_hypothesis_in": "생성 모델 기반의 조건부 확률 분포에 대한 엄밀한 수학적/통계적 검증 프레임워크",
+        "weaker_than_hypothesis_in": "실제 산업 현장의 단일 GPU 환경에서 1분 이내 추론을 요구하는 실시간성",
+        "residual_risk": "정상 참조 패치 수가 극히 적을 경우(<10개), 베이지안 사전분포를 적용하더라도 EVT GPD 꼬리 피팅이 불안정할 가능성"
+      }
+    ],
+    "evidence_used": [
+      "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+      "2fc4bc71a6443f1af34e7674427901038c537bed",
+      "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+      "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+      "871aa8be308624bd120bd2db854dc093f4ceac8d",
+      "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9"
+    ],
+    "constraint_considered": true,
+    "feasibility": "단일 GPU(RTX 4090 수준)에서 6559x6559 이미지를 60초 이내에 처리해야 하는 엄격한 제약을 Stage-1 조기 배제(40-60% 연산량 감소), 2.5-stage의 밀집 스코어링 제한, 선택적 희소 블렌딩(Selective sparse blending) 등 구조적/알고리즘적 최적화를 통해 수학적이고 현실적으로 해결하고 있어 실현 가능성이 매우 높습니다.",
+    "strengths": [
+      "AdaIN의 스타일 보정 효과를 단순한 직관에 의존하지 않고, 푸리에 변환 기반의 고주파 코사인 유사도와 피셔 판별 비율(FDR)로 정량화하는 스펙트럼 검증 프로토콜(FC-2)을 도입한 점이 매우 탁월함.",
+      "산업 현장의 가장 큰 페인 포인트인 FPR 상승과 속도 저하 문제를 Two-level EVT와 Multi-cue coarse gate라는 구체적이고 연산 효율적인 방법으로 타겟팅함.",
+      "도메인 갭 보정을 위해 평균/표준편차 대신 중앙값/MAD를 사용하는 강건한 통계량 적용 및 베이지안 풀링을 통한 소수 샷 대응 논리가 치밀함."
+    ],
+    "weaknesses": [
+      "Multi-cue Coarse Gate(Stage-1)에서 사용되는 4가지 신호(Variance, Entropy, Sobel, Block-1 Mahalanobis)의 임계값을 참조 데이터의 1st percentile로 설정하는 방식은, lot 간 데이터 분산 차이가 심할 경우 조기 배제율이 급감하거나 FNR이 일시적으로 튀는 등 threshold brittleness를 유발할 수 있음.",
+      "±r 공간 탐색 윈도우를 FAISS 매칭 시 적용할 경우, 차원의 저주나 메모리 대역폭 문제로 인해 k-NN 탐색 시간 및 인덱싱 오버헤드가 예상보다 커질 수 있음."
+    ],
+    "suggestions": [
+      "Stage-1 Coarse Gate의 임계값을 단순히 1st percentile로 고정하지 말고, 참조 Lot의 통계적 분산(Spread)을 고려하여 동적으로 안전 마진(Safety margin)을 조절하는 Auto-tuning 메커니즘을 추가할 것.",
+      "FAISS 내 ±r 공간 탐색 구현 시, 메모리 폭증을 막기 위해 PQ(Product Quantization)와 결합된 최적화된 공간 이웃 인덱싱 구조 또는 사전 필터링 단계를 구체화할 것."
+    ],
+    "verdict": "approve",
+    "implementation_expectations": {
+      "must_implement_mechanism": "Multi-cue coarse gate (Variance, Entropy, Sobel, Block-1 Mahalanobis) 모듈, Layer-selective AdaIN (Median/MAD 기반) 적용 모듈, 국소 풀링 및 ±r 탐색이 통합된 k-NN 매칭 모듈, 패치 및 이미지 레벨 Two-level EVT 피팅 코드",
+      "must_satisfy_constraints": "배치 크기 조절 및 GPU 비동기 전송(Async pipelining)을 통한 Peak GPU Memory ≤ 24GB 달성, 전체 파이프라인(Tiling부터 Blending까지) 1장당 추론 시간 ≤ 60초 설정",
+      "must_measure_metrics": "정상 이미지 FPR (목표 ≤1%), Pixel-AUROC (목표 ≥0.95), 스펙트럼 검증용 고주파 코사인 유사도 및 FDR, Style perturbation 하에서의 MASS (목표 ≤0.05), Stage-1 조기 배제율 및 결함 FNR"
+    },
+    "cap_reasons": []
+  },
+  "lint_warnings": [],
+  "summary": {
+    "average_score": 8.9,
+    "avg_breakdown": {
+      "novelty": 8.9,
+      "validity": 8.8,
+      "feasibility": 8.4,
+      "impact": 9.4
+    },
+    "score_diff": 1.2,
+    "passed_criteria": true,
+    "overall_verdict": "approve",
+    "lint_warning_count": 0,
+    "all_strengths": [
+      "문제-제약-평가-반증이 잘 연결되어 있어 연구 가설로서 구조적 완성도가 높다.",
+      "도메인 시프트, 계산량, threshold 안정성이라는 실제 배포 병목을 동시에 겨냥한 점은 산업적 의미가 크다.",
+      "shallow-layer AdaIN에 대해 spectral validation과 FDR 보존을 명시해 직관적 주장에 그치지 않고 검증 가능하게 만들었다.",
+      "two-level EVT와 image-level FPR 중심 평가는 실제 현장 배포 요구와 잘 맞는다.",
+      "coarse-to-fine, selective blending, async pipelining 등 구현 수준의 세부 설계가 구체적이다.",
+      "AdaIN의 스타일 보정 효과를 단순한 직관에 의존하지 않고, 푸리에 변환 기반의 고주파 코사인 유사도와 피셔 판별 비율(FDR)로 정량화하는 스펙트럼 검증 프로토콜(FC-2)을 도입한 점이 매우 탁월함.",
+      "산업 현장의 가장 큰 페인 포인트인 FPR 상승과 속도 저하 문제를 Two-level EVT와 Multi-cue coarse gate라는 구체적이고 연산 효율적인 방법으로 타겟팅함.",
+      "도메인 갭 보정을 위해 평균/표준편차 대신 중앙값/MAD를 사용하는 강건한 통계량 적용 및 베이지안 풀링을 통한 소수 샷 대응 논리가 치밀함."
+    ],
+    "all_weaknesses": [
+      "참신성은 '새 알고리즘 하나'라기보다 기존 아이디어들의 강한 시스템 통합에 가깝다. 각 구성요소 단독으로는 선행연구와의 중복 위험이 있다.",
+      "Stage-1에서 ALL 4 cues가 정상일 때만 reject하는 보수적 설계는 recall에는 유리하지만 실제 rejection rate 40–60%를 안정적으로 달성하지 못할 수 있다.",
+      "Mahalanobis micro-screen과 Stage-2a/2b encoder 경로가 사실상 중복 feature extraction 요구를 만들 수 있어 실제 latency 이점이 과대추정되었을 가능성이 있다.",
+      "AdaIN의 median/MAD 정렬이 반도체 grayscale 텍스처의 미세 결함 대비를 보존한다는 보장은 아직 약하며, 특히 point defect나 faint mura에서 신호가 약화될 수 있다.",
+      "two-level EVT는 개념적으로 타당하지만 patch 간 공간 상관, heavy-tail 불안정성, lot 소표본 문제 때문에 threshold robustness가 생각보다 취약할 수 있다.",
+      "public benchmark와 실제 semiconductor 데이터 간 간극이 크므로 MVTec/AeBAD 성능이 높아도 핵심 주장 검증에는 제한적이다.",
+      "Multi-cue Coarse Gate(Stage-1)에서 사용되는 4가지 신호(Variance, Entropy, Sobel, Block-1 Mahalanobis)의 임계값을 참조 데이터의 1st percentile로 설정하는 방식은, lot 간 데이터 분산 차이가 심할 경우 조기 배제율이 급감하거나 FNR이 일시적으로 튀는 등 threshold brittleness를 유발할 수 있음.",
+      "±r 공간 탐색 윈도우를 FAISS 매칭 시 적용할 경우, 차원의 저주나 메모리 대역폭 문제로 인해 k-NN 탐색 시간 및 인덱싱 오버헤드가 예상보다 커질 수 있음."
+    ],
+    "all_suggestions": [
+      "Stage-1 coarse gate는 현재의 hard rule 대신 '절대 reject 금지 결함 보호 규칙'을 추가하세요. 예: Sobel-max 또는 micro-screen이 상위 q%면 다른 cue와 무관하게 Stage-2로 강제 통과. 이렇게 해야 저대비 선형 결함 손실 위험을 더 줄일 수 있습니다.",
+      "Stage-2b의 계산량을 줄이기 위해 모든 suspicious patch에 dense k-NN를 하지 말고, patch 내부 saliency seeds나 low-res anomaly prior를 먼저 만든 뒤 top-m spatial cells만 neighborhood search하도록 바꾸세요.",
+      "EVT는 lot별 완전 독립 추정보다 hierarchical Bayesian EVT 또는 conformal calibration을 함께 비교하세요. 특히 image-level FPR 보장 측면에서 conformal p-value가 더 실용적일 수 있습니다.",
+      "encoder는 하나를 미리 정하지 말고 ResNet/EfficientNet 계열과 DINOv2-Small 둘 다 pilot profiling으로 먼저 줄이세요. ViT는 patch-token search와 shallow AdaIN 정의가 CNN보다 까다롭습니다.",
+      "6559×6559 전체 이미지 기준 latency 예산표를 사전에 수치화하세요. 예: Stage-1 최대 5s, Stage-2a 최대 20s, Stage-2b 최대 25s, assembly/EVT 최대 5s. 각 단계가 이 예산을 넘으면 즉시 설계를 수정하는 식의 engineering gate가 필요합니다.",
+      "실제 deployment를 위해 정상 이미지 500장 기준 FPR 외에도 lot drift 시나리오에서 월별 threshold 재사용 가능 기간, reference patch 추가 수에 따른 성능 회복 곡선을 측정하세요.",
+      "Stage-1 Coarse Gate의 임계값을 단순히 1st percentile로 고정하지 말고, 참조 Lot의 통계적 분산(Spread)을 고려하여 동적으로 안전 마진(Safety margin)을 조절하는 Auto-tuning 메커니즘을 추가할 것.",
+      "FAISS 내 ±r 공간 탐색 구현 시, 메모리 폭증을 막기 위해 PQ(Product Quantization)와 결합된 최적화된 공간 이웃 인덱싱 구조 또는 사전 필터링 단계를 구체화할 것."
+    ]
+  },
+  "hypothesis": {
+    "timestamp": "2026-03-30T03:36:17.246096",
+    "topic": "AI-based defect detection in high-resolution grayscale semiconductor images using normal-only reference patches",
+    "papers_analyzed": 15,
+    "generation_mode": "collaborative",
+    "evidence_coverage": {
+      "key_innovation": true,
+      "expected_mechanism": true,
+      "closest_prior_art": false,
+      "baseline_models": true,
+      "evaluation_metrics": true,
+      "constraints": true,
+      "falsification_criteria": true,
+      "failure_modes": true,
+      "deployment_constraints": true
+    },
+    "evidence_pack": [
+      {
+        "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+        "title": "Exploring Deep Learning-based Unsupervised Image Anomaly Detection and Localization Methods for Industrial Quality Assurance",
+        "source": "SemanticScholar",
+        "problem": "대부분의 지도 학습 기법은 산업 품질 검사 시 발생하는 데이터 불균형과 결함의 모호성 때문에 이미지 이상 탐지 및 위치 추정(IADL)에 적용하기 부적합합니다.",
+        "method": "Deep learning-based unsupervised methods review",
+        "limitations": "비지도 학습 방법론들은 훈련 데이터에 없는 복잡한 산업 환경의 정상적 분산을 결함으로 오탐지(False Positive)하는 경향이 있습니다.",
+        "experimental_conditions": "산업용 IADL 관련 다양한 데이터셋 및 비지도 학습 방법론 성능 비교 리뷰",
+        "remaining_gaps": "모호성이 높은 실제 산업 환경에서 오탐지를 최소화하면서도 레이블링된 비정상 데이터 없이 완벽하게 작동하는 견고한 비지도 모델 개발",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "baseline_models",
+          "evaluation_metrics"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "산업 이미지에서의 비지도 이상 탐지 및 위치 파악(IADL) 딥러닝 방법론을 포괄적으로 조사하여, normal-only 학습 기반 결함 탐지의 주요 메커니즘과 기존 접근법을 정리하고 있어 연구 맥락의 방법론적 배경을 제공한다.",
+        "rank": 1
+      },
+      {
+        "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+        "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+        "source": "SemanticScholar",
+        "problem": "산업 검사 시 픽셀 단위의 미세한 결함을 찾기 위해 고해상도 이미지가 필요하지만, 드물게 발생하는 결함 패턴에 대한 레이블링된 데이터는 매우 부족합니다.",
+        "method": "DifferNet-based model with attention modules",
+        "limitations": "DifferNet 특정 구조에 크게 의존하며, 극도로 미세한 결함의 경우 공간적 어텐션 최적화가 부족하면 지역화(Localization) 정확도가 떨어질 수 있습니다.",
+        "experimental_conditions": "고해상도 산업용 이미지 데이터셋 / 이미지 수준 이상 탐지 평가지표 / DifferNet 베이스라인",
+        "remaining_gaps": "이미지 수준을 넘어 픽셀 단위의 정밀한 이상 지역화(Localization)에 어텐션 메커니즘을 효과적으로 확장하는 문제",
+        "evidence_role": "baseline_reference",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "baseline_models"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "DifferNet 기반 비지도 산업 검사에서 고해상도 이미지의 작은 결함 패턴 처리를 위한 attention 모듈 활용을 제안하여, 고해상도 반도체 이미지에서의 결함 탐지 baseline 및 메커니즘 참고가 된다.",
+        "rank": 2
+      },
+      {
+        "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+        "title": "Simulation of semiconductor wafer dicing induced faults on chips and their application as augmentation method for a deep learning based visual inspection system",
+        "source": "S2-backward",
+        "problem": "반도체 웨이퍼 다이싱 과정에서 발생하는 마이크로미터 단위의 제조 결함은 데이터 수집 및 주석 작업에 많은 노동력이 필요하여 활용 가능한 데이터가 극히 제한적입니다.",
+        "method": "Defect simulation for visual data augmentation",
+        "limitations": "시뮬레이션으로 생성된 결함 데이터가 실제 제조 공정에서 발생하는 물리적이고 예측 불가능한 자연 결함의 복잡성을 완벽하게 반영하지 못할 수 있습니다.",
+        "experimental_conditions": "고해상도 반도체 웨이퍼 이미지 / 딥러닝 기반 시각 검사 시스템 성능 지표",
+        "remaining_gaps": "합성 생성된 결함 데이터와 실제 양산 라인에서 발생하는 자연 결함 간의 도메인 격차(Domain Gap) 해소",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "constraints",
+          "failure_modes"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "반도체 웨이퍼 다이싱 결함의 희소성과 고해상도 이미지에서 미세한 결함 탐지의 어려움을 다루며, 데이터 증강을 통한 해결을 제시하여 결함 샘플 부족이라는 제약 조건과 관련 실패 모드를 뒷받침한다.",
+        "rank": 3
+      },
+      {
+        "paper_id": "b7c08446d59d28b8666d04bac1a3f04a22f12be4",
+        "title": "Benchmarking framework for anomaly localization: Towards real-world deployment of automated visual inspection",
+        "source": "SemanticScholar",
+        "problem": "딥러닝 기반 이상 지역화 방법에 대한 연구가 활발히 진행되었으나, 실제 산업 현장 배포를 위한 종합적이고 일관된 벤치마킹 프레임워크가 부재합니다.",
+        "method": "Comprehensive anomaly localization benchmarking",
+        "limitations": "제시된 벤치마크는 포함된 데이터셋의 특성에 제한을 받으며, 실제 산업 파이프라인의 모든 엣지 케이스나 하드웨어 제약을 대변하지 못할 수 있습니다.",
+        "experimental_conditions": "다양한 이상 지역화 데이터셋 / 성능 평가 지표 / 기존 딥러닝 베이스라인 모델들",
+        "remaining_gaps": "추론 지연 시간(Latency) 및 엣지 디바이스 호환성 등 실제 현장 배포 제약 조건과 직접적으로 연관된 표준화된 평가 지표 확립",
+        "evidence_role": "evaluation_reference",
+        "claim_slots_supported": [
+          "evaluation_metrics",
+          "deployment_constraints",
+          "falsification_criteria"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "이상 위치 파악의 실제 배포를 위한 벤치마킹 프레임워크를 제시하여, false positive rate, 추론 시간 등 실세계 배포 기준 평가 메트릭과 제약 조건 참고로 활용 가능하다.",
+        "rank": 4
+      },
+      {
+        "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+        "title": "Image alignment-based patch distribution framework for anomaly detection",
+        "source": "SemanticScholar",
+        "problem": "기존 비지도 임베딩 유사도 기반 이상 탐지 방법들은 이미지 전처리를 생략하고 정렬되지 않은 이미지를 직접 사용하여 산업 현장에서의 탐지 성능이 저하됩니다.",
+        "method": "Image alignment-based patch distribution framework",
+        "limitations": "정밀한 이미지 정렬을 위해 높은 계산 비용이 발생하며, 참조 이미지와 대상 이미지 간의 구조적 차이나 시점 변화가 심할 경우 성능이 급감합니다.",
+        "experimental_conditions": "표면 품질 검사 데이터셋 / 이미지 정렬 유무에 따른 성능 비교 / 임베딩 유사도 베이스라인",
+        "remaining_gaps": "역동적이거나 통제되지 않은 산업 환경에서 엄격한 이미지 정렬 전처리 과정 없이도 높은 강건성을 유지하는 이상 탐지 기술 개발",
+        "evidence_role": "closest_prior_art",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "baseline_models",
+          "constraints"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "이미지 정렬 기반 패치 분포 프레임워크로 비지도 이상 탐지를 수행하며, 정렬되지 않은 이미지의 전처리와 embedding-similarity 기반 패치 비교를 다루어 normal reference 패치 기반 비교 방식의 가장 가까운 선행 연구이다.",
+        "rank": 5
+      },
+      {
+        "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+        "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+        "source": "S2-backward",
+        "problem": "기존 산업용 이상 탐지 데이터셋은 데이터 범주의 다양성만 강조할 뿐, 동일 범주 내에서 발생하는 도메인 변화(Domain Shift) 문제를 간과하고 있습니다.",
+        "method": "Masked multi-scale reconstruction on AeBAD",
+        "limitations": "재구성 기반 방법은 도메인 변화가 심할 때 비정상 영역까지 정상적인 형태로 잘못 재구성(False Negative)하는 한계를 보일 수 있습니다.",
+        "experimental_conditions": "Aero-engine Blade Anomaly Detection (AeBAD) 데이터셋 (단일 블레이드 및 비디오) / 도메인 변화 환경의 탐지 지표",
+        "remaining_gaps": "추가적인 재학습 없이도 완전히 처음 보는 하위 도메인 환경에서 높은 정확도를 유지하는 도메인 일반화(Domain Generalized) 이상 탐지 모델 구축",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "constraints",
+          "failure_modes"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "도메인 시프트(스타일, 장비 차이 등) 하에서의 산업 이상 탐지 문제를 정의하고 masked multi-scale reconstruction 방법을 제안하여, 스타일/노이즈 변화에 대한 강건성 제약 및 실패 모드를 직접적으로 뒷받침한다.",
+        "rank": 6
+      },
+      {
+        "paper_id": "fe01e1ebffeff96cb1a5a570c48e726846b766ff",
+        "title": "A lightweight high-resolution algorithm based on deep learning for layer-wise defect detection in laser powder bed fusion",
+        "source": "SemanticScholar",
+        "problem": "레이저 분말 베드 용융(LPBF) 공정에서 고정밀 결함 탐지를 하려면 고해상도 이미지와 복잡한 네트워크 모델이 필요해 연산 부하가 매우 큽니다.",
+        "method": "Lightweight high-resolution deep learning model",
+        "limitations": "모델 경량화로 인해 특징 표현력이 제한될 수 있으며, 크고 무거운 최신 모델에 비해 극히 미세한 결함을 놓칠 위험이 있습니다.",
+        "experimental_conditions": "LPBF 공정의 고해상도 분말 베드 이미지 데이터 / 경량화 모델 및 기존 무거운 모델 간의 정확도 및 속도 비교",
+        "remaining_gaps": "초실시간 모니터링을 위한 극도의 짧은 지연시간과 마이크로미터 수준의 분말 베드 결함 탐지 정밀도 사이의 상충 관계(Trade-off) 극복",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "constraints",
+          "deployment_constraints"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "고해상도 이미지에서 경량 딥러닝 기반 결함 탐지를 다루며, 고정밀 탐지와 계산 효율성 간의 트레이드오프를 제시하여 제한된 컴퓨팅 환경과 추론 시간 제약에 대한 참고가 된다.",
+        "rank": 7
+      },
+      {
+        "paper_id": "a78ef085c8718703af8dacaafdbcb66bf0a9a6c9",
+        "title": "Combined Anomaly Aware Weakly Supervised Lightweight Model for Surface Defect Inspection",
+        "source": "SemanticScholar",
+        "problem": "결함 경계가 모호하여 정확한 주석 작업에 많은 비용이 들고, 기존 딥러닝 기반 탐지 방법은 산업계의 실시간 속도 요구사항을 충족하지 못합니다.",
+        "method": "Anomaly aware weakly supervised lightweight model",
+        "limitations": "약지도 학습(Weakly Supervised) 방식은 결함의 세밀한 경계를 파악하는 데 한계가 있어 완전 지도 학습에 비해 지역화 분해능이 떨어집니다.",
+        "experimental_conditions": "표면 결함 검사 데이터셋 / 이미지 수준 라벨을 활용한 약지도 학습 평가 / 연산 속도 및 탐지 정확도",
+        "remaining_gaps": "엄격한 실시간 산업 제약 조건 속에서도 이미지 수준의 라벨링만으로 픽셀 단위의 완벽한 표면 결함 지역화를 달성하는 방법",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "constraints",
+          "deployment_constraints",
+          "expected_mechanism"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "약지도 경량 모델로 표면 결함 검사를 수행하며 어노테이션 비용 절감과 경량화를 동시에 추구하여, 제한된 라벨과 단일 GPU 환경이라는 제약 조건에 대한 메커니즘적 참고가 된다.",
+        "rank": 8
+      },
+      {
+        "paper_id": "235b16cda1fa0d78a575a5d3d5d0308886904f67",
+        "title": "Ultra-High-Voltage Gain DC–DC Converter Based on Three-Winding Coupled Inductor With Ripple Free Input Current and Soft Switching for Renewable Energy Applications",
+        "source": "SemanticScholar",
+        "problem": "태양광과 같은 저전압 신재생 에너지원을 고전압 DC 버스에 연결하기 위해서는 입력 전류 리플을 최소화하면서 높은 전압 이득을 내는 컨버터가 필요합니다.",
+        "method": "Coupled inductor-based ultra-high-gain converter",
+        "limitations": "3권선 결합 인덕터 등 복잡한 회로 구성은 부하 조건이 변동할 때 제어 복잡성을 증가시키고 제조 비용을 상승시킬 수 있습니다.",
+        "experimental_conditions": "신재생 에너지원 시뮬레이션 환경 / 전압 이득, 입력 리플, 영전압 스위칭(ZVS) 특성 측정",
+        "remaining_gaps": "다양한 부하 변동 조건에서도 수동 소자의 개수를 최소화하여 초고전압 이득과 넓은 소프트 스위칭 범위를 동시에 확보하는 기술",
+        "evidence_role": "constraint_reference",
+        "claim_slots_supported": [],
+        "support_strength": "contextual",
+        "why_selected": "DC-DC 컨버터 관련 전력 전자 논문으로, AI 기반 결함 탐지와는 전혀 무관하며 연구 맥락에 해당하지 않는다.",
+        "rank": 9
+      },
+      {
+        "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+        "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+        "source": "SemanticScholar",
+        "problem": "이상 지역화에 확산 모델(Diffusion Model)을 사용할 때 모델에 내재된 불확실성과 편향으로 인해 탐지된 비정상 영역의 통계적 신뢰성을 보장하기 어렵습니다.",
+        "method": "Selective inference for diffusion-based anomaly",
+        "limitations": "선택적 추론(Selective inference)을 통한 p-value 계산은 조건부 샘플링 분포의 복잡도로 인해 추론 시 계산 오버헤드가 크게 증가합니다.",
+        "experimental_conditions": "MVTec AD 및 Brain Tumor Segmentation 2023 데이터셋 / U-Net 기반 확산 모델 / 통계적 유의성(p-value) 및 지역화 성능 지표",
+        "remaining_gaps": "생성 모델 기반 통계적 유의성 검증 과정의 계산 복잡도를 대폭 줄여 실시간 통계적 이상 지역화를 가능하게 하는 최적화 방법론 확보",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "expected_mechanism",
+          "falsification_criteria",
+          "evaluation_metrics"
+        ],
+        "support_strength": "direct",
+        "why_selected": "Sections에서 diffusion 기반 이상 위치 파악의 통계적 유의성 검증(selective inference)을 상세히 다루며, MVTec AD 실험을 통해 anomaly localization의 false positive 제어 메커니즘을 제시하여 평가 메트릭 및 falsification 기준의 직접적 근거가 된다.",
+        "rank": 10
+      },
+      {
+        "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+        "title": "Revisiting Reverse Distillation for Anomaly Detection",
+        "source": "S2-backward",
+        "problem": "PatchCore와 같은 우수한 메모리 기반 이상 탐지 모델은 외부 메모리 뱅크 사용으로 인해 추론 지연시간이 길어져 대규모 실시간 적용이 어렵습니다.",
+        "method": "Reversed Distillation (RD) anomaly detection",
+        "limitations": "지연 시간을 줄이는 데는 효과적이나, 복잡한 정상 이미지의 구조적 변화와 실제 미세 결함을 구별하는 능력에서 메모리 기반 모델에 다소 뒤처집니다.",
+        "experimental_conditions": "산업용 이상 탐지 데이터셋 / PatchCore, CFA 등 메모리 기반 모델과의 지연시간(Latency) 및 탐지 정확도 비교",
+        "remaining_gaps": "추론 속도를 저하시키지 않으면서도 지식 증류 기반 모델의 정확도를 대용량 메모리 기반 모델 수준으로 끌어올리는 기술적 도약",
+        "evidence_role": "baseline_reference",
+        "claim_slots_supported": [
+          "baseline_models",
+          "expected_mechanism",
+          "deployment_constraints"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "Reverse Distillation 기반 이상 탐지를 재검토하며 PatchCore 등 메모리 기반 방법 대비 저지연 성능을 제시하여, 추론 시간 제약 하의 baseline 모델 참고로 활용 가능하다.",
+        "rank": 11
+      },
+      {
+        "paper_id": "77e433c1baaf553dcffe0aa28cd0403d9b72eabf",
+        "title": "Towards Zero-shot 3D Anomaly Localization",
+        "source": "SemanticScholar",
+        "problem": "데이터 프라이버시 및 규제로 인해 대상 3D 객체의 정상 훈련 데이터를 얻을 수 없어 훈련과 테스트 클래스가 겹치지 않는 제로샷 3D 이상 지역화가 필요합니다.",
+        "method": "3DzAL patch-level contrastive learning framework",
+        "limitations": "작업과 무관한 데이터로부터 생성된 의사 결함(Pseudo anomalies)에 의존하므로, 보지 못한 클래스의 극히 복잡하거나 특수한 구조적 결함을 모두 포괄하지 못할 수 있습니다.",
+        "experimental_conditions": "3D 이상 탐지 데이터셋(Zero-shot 환경 설정) / 패치 포인트 클라우드 및 xyz 데이터 대상 적대적 섭동 적용 / 정상성 분류기 성능 평가",
+        "remaining_gaps": "타겟 도메인 파인튜닝 없이도 심각한 위상학적(Topological) 차이를 가진 전혀 새로운 객체 범주에 대해 3D 이상 탐지를 완벽히 일반화하는 문제",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "constraints"
+        ],
+        "support_strength": "direct",
+        "why_selected": "Sections에서 zero-shot 3D 이상 탐지를 위해 정상 데이터 없이 패치 수준 대조 학습과 pseudo anomaly를 활용하는 방법을 상세히 기술하여, normal-only 참조 기반으로 재학습 없이 새로운 대상에 적응해야 하는 제약과 메커니즘에 대한 직접적 근거를 제공한다.",
+        "rank": 12
+      },
+      {
+        "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+        "title": "Unsupervised Anomaly Detection via Multi-Frequency Structure and Visual Sampling",
+        "source": "S2-forward",
+        "problem": "산업용 비지도 이상 탐지는 복잡한 배경과 다양한 결함 외형이 섞인 제어되지 않은 야생(Wild) 환경에서 심각한 탐지 성능 저하를 겪습니다.",
+        "method": "Normalizing flows with multi-frequency guidance",
+        "limitations": "노말라이징 플로우(Normalizing flows) 기반 모델은 메모리 소모가 크고, 노이즈가 심한 복잡한 배경에서는 구조적 결함과 배경 텍스처를 완전히 분리하는 데 한계가 있습니다.",
+        "experimental_conditions": "복잡한 배경 및 비정형 결함이 포함된 야생(Wild) 시나리오 데이터셋 / 다주파수 모듈 및 기존 플로우 기반 모델 비교",
+        "remaining_gaps": "완전히 구조화되지 않은 'In-the-wild' 환경에서 불필요한 배경 노이즈와 실제 이상 특징을 적은 메모리 비용으로 효율적으로 분리(Disentangle)하는 기술",
+        "evidence_role": "supporting_mechanism",
+        "claim_slots_supported": [
+          "key_innovation",
+          "expected_mechanism",
+          "failure_modes"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "복잡한 배경과 다양한 이상 패턴이 있는 wild 시나리오에서 다중 주파수 구조 기반 비지도 이상 탐지를 제안하여, 스타일/노이즈 변화에 의한 성능 저하 문제(failure mode)와 관련 메커니즘을 뒷받침한다.",
+        "rank": 13
+      },
+      {
+        "paper_id": "1ae1becd40bd87b4fff0787d85f40dd5f9b2ab6a",
+        "title": "An ultra‐high voltage gain interleaved converter based on three‐winding coupled inductor with reduced input current ripple for renewable energy applications",
+        "source": "SemanticScholar",
+        "problem": "태양광 PV 소스와 같은 신재생 에너지 시스템은 초고전압 변환비와 동시에 입력 소스 전류의 피크-투-피크 리플을 낮출 수 있는 인터리브드 컨버터를 필요로 합니다.",
+        "method": "Interleaved converter with coupled inductor",
+        "limitations": "다중 권선과 전압 승수 셀(VMC)을 사용하는 인터리브드 토폴로지는 부품 수를 증가시켜 전도 손실이 커지고 시스템 신뢰성을 저하시킬 가능성이 있습니다.",
+        "experimental_conditions": "태양광 PV 소스 환경 모델링 / 입력 전류 리플 및 전압 승압 비율(Conversion Ratio) 성능 평가",
+        "remaining_gaps": "높은 승압비와 최소화된 전류 리플을 유지하면서도 자기 통합(Magnetic Integration)을 최적화하여 전체 부품 수와 크기를 획기적으로 줄이는 설계 방향",
+        "evidence_role": "constraint_reference",
+        "claim_slots_supported": [],
+        "support_strength": "contextual",
+        "why_selected": "인터리브 고승압 DC-DC 컨버터 관련 전력 전자 논문으로, 반도체 이미지 결함 탐지와 무관하다.",
+        "rank": 14
+      },
+      {
+        "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+        "title": "Deep Industrial Image Anomaly Detection: A Survey",
+        "source": "S2-backward",
+        "problem": "산업용 이미지 이상 탐지(IAD) 분야의 급격한 발전으로 신경망 구조, 지도학습 수준, 손실 함수 등 다양한 기법에 대한 통합적이고 체계적인 리뷰가 필요합니다.",
+        "method": "Comprehensive survey of IAD techniques",
+        "limitations": "다양한 방법론을 포괄적으로 분석하였으나, 실제 복잡한 제조 공정의 모든 제약 조건을 동시에 완벽하게 해결하는 단일 프레임워크는 아직 부재함을 지적합니다.",
+        "experimental_conditions": "MVTec AD 등 주요 IAD 데이터셋, 평가지표, 네트워크 아키텍처 및 손실 함수들에 대한 광범위한 리뷰",
+        "remaining_gaps": "소수샷 학습(Few-shot), 도메인 적응(Domain Adaptation), 실시간 추론 등 산업 현장의 복합적 요구를 매끄럽게 통합하는 종단간(End-to-End) IAD 프레임워크 확립",
+        "evidence_role": "evaluation_reference",
+        "claim_slots_supported": [
+          "baseline_models",
+          "evaluation_metrics",
+          "key_innovation",
+          "expected_mechanism",
+          "constraints"
+        ],
+        "support_strength": "indirect",
+        "why_selected": "산업 이미지 이상 탐지의 딥러닝 기법을 네트워크 구조, 지도 수준, 손실 함수, 메트릭, 데이터셋 관점에서 포괄적으로 서베이하여, baseline 모델과 평가 메트릭의 종합적 참고 자료로 활용 가능하다.",
+        "rank": 15
+      }
+    ],
+    "research_gap": {
+      "summary": "Existing unsupervised industrial anomaly detection methods fail to simultaneously address three intertwined challenges in ultra-high-resolution semiconductor inspection: (1) domain shift robustness—style, brightness, contrast, and equipment-induced noise variations cause normal-pattern diversity to be misclassified as defects, inflating false positives; (2) computational feasibility—processing a 6559×6559 image patch-by-patch within 60 seconds and 24 GB GPU memory is infeasible when every patch undergoes heavy feature extraction and memory-bank search; and (3) threshold stability—adaptive or heuristic thresholding collapses under domain shift, making deployment-grade FPR control unreliable. No existing pipeline combines a training-free coarse-to-fine computational reduction strategy, a principled style-normalization mechanism that preserves subtle defect signals, translation-invariant feature matching that relaxes strict alignment requirements, and a statistically grounded thresholding scheme—all within a single reference-only, retraining-free framework for semiconductor-scale images.",
+      "existing_approaches": [
+        "메모리 뱅크 기반 임베딩 유사도 방법 (PatchCore 등): 정상 패치 특징을 코어셋으로 저장 후 테스트 패치와 최근접 거리 비교",
+        "지식 증류 기반 방법 (Reverse Distillation 등): Teacher-Student 구조로 정상 패치 복원 능력 차이를 이상 스코어로 활용",
+        "재구성 기반 방법 (Masked Multi-scale Reconstruction 등): 정상 데이터로만 학습된 오토인코더/확산 모델이 비정상 영역을 제대로 복원하지 못하는 차이를 이용",
+        "이미지 정렬 기반 패치 분포 프레임워크: 참조-대상 이미지 간 정밀 정렬 후 임베딩 유사도 비교",
+        "노말라이징 플로우 + 다주파수 구조: 주파수 도메인 분해를 통해 배경과 결함 특징 분리"
+      ],
+      "limitations": [
+        "메모리 뱅크 방법은 코어셋 검색 비용이 크고, 초고해상도 이미지에서 패치 수가 폭증하면 60초 이내 추론이 불가능",
+        "지식 증류/재구성 방법은 도메인 변화(스타일·밝기·장비 차이) 시 정상 패턴도 비정상으로 오인하여 FPR이 급증",
+        "이미지 정렬 기반 방법은 정밀 정렬에 높은 계산 비용이 필요하며, 구조적 차이나 변형에 취약",
+        "대부분의 방법이 새로운 lot/장비/스타일에 적응하려면 정상 데이터로 재학습이 필요하여 유연성이 부족",
+        "확산 모델 기반 통계적 검증은 계산 오버헤드가 과도하여 실시간 적용이 비현실적"
+      ]
+    },
+    "hypothesis": {
+      "statement": "A Coarse-to-Fine anomaly detection framework that couples (Stage-1) a multi-cue coarse gate—combining pixel variance, Shannon entropy, and a lightweight Sobel-edge maximum with a one-class Mahalanobis micro-screen on shallow frozen features—for high-recall early rejection, with (Stage-2) a hierarchical memory-bank search where Adaptive Instance Normalization is restricted to shallow encoder layers (blocks 1–2) with robust style statistics (median/MAD), spectrally validated to decouple low-frequency style drift from structural defect signals, and where neighborhood-aware matching (local max-pooling + ±r spatial search window) provides multi-mode alignment relaxation, followed by (Stage-3) a two-level EVT calibration—Generalized Pareto Distribution fitted separately at patch-level tails and at image-level max-cluster statistics with pooled-lot Bayesian priors for small-reference regimes—and selective sparse blending over candidate regions only, will achieve ≤1% image-level FPR, pixel-AUROC ≥0.95, Stage-1 defect recall ≥99%, and sub-60-second inference on 6559×6559 grayscale semiconductor images without any retraining.",
+      "statement_kr": "Stage-1에서 픽셀 분산·엔트로피·경량 Sobel-edge 최대값과 얕은 동결 특징 기반 Mahalanobis 마이크로 스크리닝을 결합한 다중 단서 조기 필터로 높은 결함 리콜(≥99%)의 조기 배제를 수행하고, Stage-2에서 동결 인코더의 얕은 계층(블록 1–2) 한정 AdaIN(Median/MAD 기반 강건 스타일 통계)으로 저주파 스타일 변동을 스펙트럼 검증 기반으로 분리·보정하며 국소 최대 풀링+±r 공간 탐색 윈도우로 다중 모드 정렬 완화를 수행하고, Stage-3에서 패치 수준 GPD와 이미지 수준 max-cluster 통계에 대해 각각 EVT 보정을 이중 수행하되 소수 참조 lot에는 풀링-lot 베이지안 사전분포를 적용하며 후보 영역에만 선택적 희소 블렌딩을 수행하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 이미지 수준 FPR ≤1%, 픽셀 AUROC ≥0.95, Stage-1 결함 리콜 ≥99%, 60초 이내 추론을 달성할 수 있다.",
+      "rationale": "This improved hypothesis addresses every specific weakness identified in the 7.1-scoring review while preserving the core strengths (three-pronged deployment-gap framing, strong falsification criteria, comprehensive baselines/metrics). The key changes and their motivations are:\n\n**1. Stage-1 Coarse Filter Safety (addressing FNR risk for low-contrast defects):** The original variance+entropy gate risked false negatives on scratches and mura with low contrast. We now add two complementary cues: (a) a lightweight Sobel-edge maximum that captures thin linear defects even when overall variance is low—this is physically grounded because scratches produce localized gradient spikes invisible to global variance; (b) a Mahalanobis micro-screen using shallow frozen features (block-1 only, ~0.3 ms/patch) that detects subtle textural deviations missed by pixel statistics. The gate now requires ALL cues to agree 'normal' before rejection, making it a high-recall (≥99%) conservative union filter. This directly addresses the GPT concern that 'low-contrast scratches or mura would be lost with no recovery path' (evidence_id: d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9).\n\n**2. AdaIN Spectral Validation (addressing lack of direct evidence for grayscale semiconductor textures):** The claim that shallow-layer AdaIN removes only style while preserving defect signals was criticized as intuitive but unproven for semiconductor grayscale. We now mandate an explicit spectral validation protocol: for each encoder layer, measure the Fourier power spectrum of feature maps before/after AdaIN, and compute (a) cosine similarity of high-frequency components (>0.95 required) and (b) defect/background Fisher discriminant ratio preservation (≤5% degradation). This transforms a hand-waving argument into a falsifiable, measurable claim. Additionally, we use robust statistics (median/MAD) instead of mean/std for the reference style profile to handle outlier references (evidence_id: 871aa8be308624bd120bd2db854dc093f4ceac8d).\n\n**3. Two-Level EVT Calibration (addressing patch-to-image FPR disconnect):** The original hypothesis fitted GPD only on patch-level coreset distances and assumed this translated to image-level FPR ≤1%. GPT correctly noted that patch-level tail fitting does not directly control image-level false alarms because patch scores within an image are spatially correlated. We now introduce a two-level calibration: Level-1 fits GPD to patch-level distance tails; Level-2 fits a separate GPD to the distribution of image-level summary statistics (max anomaly score, top-k cluster score) computed from normal reference images. For lots with <25 reference patches, we regularize by pooling GPD shape/scale priors across lots using empirical Bayes, preventing degenerate threshold estimates (evidence_id: d8782dee537e7535a58fd7a8f10fd2e34ad649a4).\n\n**4. Enhanced Alignment Relaxation (addressing limitations beyond simple translation):** 2×2 max-pooling alone handles ±2px translation but not rotation or periodic lattice misregistration common in semiconductor die images. We add a ±r spatial search window during k-NN matching: each query position searches not just its corresponding coreset entry but also neighbors within radius r (default r=4 pixels in feature space), effectively providing tolerance to small rotations and non-rigid deformations. This is computationally cheap when implemented as a pre-expanded FAISS search and directly addresses the alignment critique (evidence_id: 2fc4bc71a6443f1af34e7674427901038c537bed).\n\n**5. Selective Sparse Blending (addressing Stage-3 memory/latency bottleneck):** Blending a full 6559×6559 score canvas wastes compute on the 40–70% background region. We now skip blending for Stage-1-rejected patches (zero-fill) and apply Gaussian blending only at boundaries of candidate patch clusters, reducing blending compute by ~60%. This directly addresses the GPU memory bandwidth concern.\n\n**6. Latency-Aware Dense Localization (addressing k-NN cost per spatial position):** Computing 1024-d k-NN at every spatial position within each patch is the latency bottleneck. We introduce a 2.5-stage structure: Stage-2a computes a single patch-level anomaly score via global-average-pooled features; only patches exceeding a liberal pre-screen threshold (e.g., 70th percentile of normal distribution) proceed to Stage-2b for dense spatial-position-level k-NN scoring. This reduces dense scoring volume by an estimated 50–70% beyond coarse filtering.\n\n**7. Encoder Domain Gap Mitigation:** We acknowledge the ImageNet–semiconductor domain gap and add DINOv2-Small ViT (self-supervised, less domain-biased) and a grayscale+Sobel-x+Sobel-y 3-channel input strategy as first-class alternatives (not just ablation afterthoughts), with the encoder choice to be determined by Ablation-4 results. We also strengthen FC-6 to use both random initialization and a texture-pretrained encoder (DTD-finetuned) as controls (evidence_id: 230c875f7563abf2e11bc79c0ae8855bfa52123c, evidence_id: 9641f2372af777820b17bf30058c08332e23dab5).",
+      "key_innovation": "(1) Multi-cue high-recall coarse gate combining pixel statistics (variance, entropy, Sobel-edge max) with a Mahalanobis micro-screen on shallow frozen features, guaranteeing ≥99% defect recall at the filtering stage while still rejecting 40–60% of trivially normal patches; (2) Layer-selective AdaIN with robust statistics (median/MAD) and mandatory spectral validation protocol that quantifiably proves style-only removal by measuring high-frequency cosine preservation and Fisher discriminant ratio across encoder depth—transforming an intuitive claim into a falsifiable, measurement-backed mechanism; (3) Two-level EVT calibration (patch-level GPD + image-level max-cluster GPD) with empirical Bayes pooled-lot priors for small-reference regimes, providing a statistically rigorous patch-to-image FPR guarantee; (4) Neighborhood-aware alignment relaxation combining local max-pooling with ±r spatial search windows during k-NN matching to handle translation, small rotation, and periodic lattice misregistration without expensive geometric registration; (5) A 2.5-stage dense-scoring gate and selective sparse blending that together reduce computation by an estimated 70–85% relative to naïve full-patch processing.",
+      "expected_mechanism": "**Stage-0 (Reference Preparation — offline, one-time per lot):**\nDefect-free 256×256 normal reference patches are passed through a frozen lightweight encoder (primary: DINOv2-Small ViT or EfficientNet-B4, selected via Ablation-4; input: grayscale + Sobel-x + Sobel-y as 3 channels). Per-layer feature statistics are stored using robust estimators: channel-wise median and MAD (Median Absolute Deviation) for the style profile (blocks 1–2), replacing mean/std to resist outlier references. A hierarchical coreset of deep-layer features (blocks 3–4) is built via greedy k-center sampling (~5000 points). Two-level EVT fitting: (L1) GPD is fitted to the tail (>90th percentile) of patch-level k-NN distances within the normal coreset; (L2) for each normal reference image (or synthetic full-image composition), compute the image-level max anomaly score and top-5 cluster score, then fit a second GPD to this image-level distribution. For lots with <25 reference images, GPD shape ξ and scale σ are regularized via empirical Bayes priors pooled from all available lots. Automated reference quality gate: patches with shallow-feature Mahalanobis distance >3σ from reference population median are flagged and excluded.\n\n**Spectral Validation Protocol (one-time, per encoder configuration):**\nFor blocks 1–4, extract feature maps from 200+ normal patches before and after AdaIN. Compute 2D Fourier power spectra of feature maps. Measure: (a) high-frequency cosine similarity (spatial frequencies > half-Nyquist) — must be >0.95 for blocks 1–2 and >0.98 for blocks 3–4 (where no AdaIN is applied, serving as control); (b) inject synthetic defects (Perlin blobs, scratches) and measure Fisher discriminant ratio (FDR) between defect and normal feature distributions per layer — FDR degradation after AdaIN must be <5% at blocks 3–4. Results stored as validation certificates.\n\n**Stage-1 (Multi-Cue Coarse Gate):**\nThe 6559×6559 source image is tiled into 256×256 patches with 32-pixel overlap (stride=224), yielding ~841 patches. For each patch, four cues are computed in parallel on GPU (<0.5 ms total per patch):\n  (C1) Pixel variance — captures uniform/low-texture regions\n  (C2) Shannon entropy of 8-bit histogram — captures information content\n  (C3) Sobel-edge maximum — max of |Sobel-x| and |Sobel-y| response, captures thin linear defects (scratches) even in low-variance patches\n  (C4) Mahalanobis micro-screen — pass the patch through block-1 only of the frozen encoder (~0.3 ms), compute Mahalanobis distance from normal reference block-1 statistics → flags subtle textural anomalies\nA patch is classified as 'trivially normal' ONLY if ALL FOUR cues fall within their respective acceptance bands (calibrated from reference patch statistics at the 1st percentile for edge-max and Mahalanobis, ensuring ≥99% defect recall). Rejected patches are assigned score=0. Estimated 40–60% of patches are rejected.\n\n**Stage-2a (Patch-Level Pre-Screen):**\nCandidate patches from Stage-1 are encoded through the full frozen encoder in batches (batch=16–32, async GPU pipeline). At blocks 1–2, AdaIN aligns channel-wise median and MAD to the robust reference style profile. At blocks 3–4, features are extracted without modification. Global-average-pooled deep features yield a single 1024-d vector per patch. Patch-level anomaly score = k-NN distance (k=3) to coreset via FAISS IVF-PQ. Patches scoring below the 70th percentile of normal patch distribution are classified as 'fine-normal' — no dense spatial scoring needed. Only suspicious patches (~30–50% of candidates, ~10–30% of total) proceed to Stage-2b.\n\n**Stage-2b (Dense Spatial Scoring):**\nFor suspicious patches, spatial-position-level feature vectors (after 2×2 local max-pooling on deep feature maps) are compared to the coreset using FAISS with a ±r=4 spatial search window: each query position's feature vector is compared not just to its positional counterpart but to all coreset entries within a radius of 4 spatial positions, selecting the minimum distance. This provides tolerance to ±8 pixels of translation, small rotation (~2°), and periodic lattice offsets common in semiconductor die arrays. Per-position anomaly scores form a spatial score map for the patch.\n\n**Stage-3 (Selective Assembly & Two-Level Thresholding):**\nPatch score maps are assembled into the full 6559×6559 grid. Background (Stage-1 rejected) and fine-normal (Stage-2a cleared) regions are zero-filled with no blending computation. Gaussian-weighted blending is applied ONLY at boundaries between adjacent candidate patches, reducing blending operations by ~60–80%. The assembled score map is thresholded at the Level-1 EVT threshold (GPD 99th percentile) to produce candidate defect pixels. Image-level summary statistics (max score, top-5 cluster mean) are compared against the Level-2 EVT threshold for final image-level defect/normal classification. Connected components in the pixel mask produce bounding boxes with confidence = 1 − p-value from GPD.\n\n**Pipelining:** Tiling and Stage-1 run on CPU/GPU concurrently; Stage-1 results stream to Stage-2a in micro-batches; Stage-2b is triggered only for flagged patches. Async CPU↔GPU transfer minimizes idle time. Target: <60s on RTX 4090 for 6559×6559.",
+      "falsification_criteria": [
+        "FC-1 (Image-Level FPR): If image-level FPR on a held-out set of ≥500 normal 6559×6559 images exceeds 3% after two-level EVT calibration with ≥50 normal reference patches per lot, the hierarchical EVT-based thresholding framework is falsified.",
+        "FC-2 (AdaIN Signal Preservation — Spectral): If, in the spectral validation protocol, high-frequency cosine similarity of block-3/4 feature maps drops below 0.93 when shallow AdaIN is applied (compared to no-AdaIN), OR if Fisher discriminant ratio between synthetic defects and normal features at blocks 3–4 degrades by more than 10% after shallow AdaIN, the layer-selective normalization premise is falsified.",
+        "FC-3 (AdaIN Detection Performance): If pixel-level AUROC on defect-containing test images falls below 0.90 when shallow-layer AdaIN is applied, compared to a no-AdaIN baseline that achieves ≥0.93, then AdaIN is actively destroying defect signals and must be removed.",
+        "FC-4 (Coarse Gate Defect Recall): If the multi-cue Stage-1 coarse gate at its default configuration misses ≥2% of ground-truth defective patches (Stage-1 FNR ≥2%), or if under stress-test with synthetic low-contrast defects (contrast ratio 1.02–1.10) the FNR exceeds 5%, the coarse gate safety design is falsified.",
+        "FC-5 (Inference Time): If end-to-end inference for a single 6559×6559 image exceeds 90 seconds on NVIDIA RTX 4090 (24 GB) after full pipeline optimization (coarse filtering, 2.5-stage scoring, selective blending), the computational design is falsified.",
+        "FC-6 (Style Robustness): If Mean Absolute Score Shift (MASS) under ±20% brightness/contrast perturbation exceeds 0.08 (on 0–1 normalized scores) despite shallow-layer AdaIN, the style-normalization mechanism is insufficient.",
+        "FC-7 (Pretrained Feature Utility): If replacing the frozen ImageNet/DINOv2-pretrained encoder with (a) a randomly initialized encoder of identical architecture yields pixel-AUROC degradation of less than 0.03, AND (b) a DTD-texture-pretrained encoder also shows <0.03 difference from random, then pretrained features are not contributing meaningfully.",
+        "FC-8 (Two-Level EVT vs. Patch-Only EVT): If the two-level EVT calibration does not reduce image-level FPR by at least 30% relative to patch-level-only EVT at matched pixel-AUROC, the added complexity of hierarchical calibration is not justified.",
+        "FC-9 (Neighborhood Search Benefit): If ±r spatial search window matching does not improve pixel-AUROC by at least 0.01 or AUPRO by at least 0.02 compared to positional-only matching under real semiconductor images with known misalignment, the alignment relaxation mechanism adds complexity without benefit."
+      ]
+    },
+    "experiment_plan": {
+      "architecture": "Pipeline Architecture (Improved):\n\n[Input: 6559×6559 grayscale image]\n  ↓\n[Tiling Module] → 256×256 patches, stride=224 (32px overlap), ~841 patches\n  ↓\n[Stage-1: Multi-Cue Coarse Gate] (GPU-accelerated, <0.5 ms/patch)\n  ├─ C1: Pixel variance\n  ├─ C2: Shannon entropy (8-bit histogram)\n  ├─ C3: Sobel-edge maximum (max of |Sobel-x|, |Sobel-y|)\n  └─ C4: Mahalanobis micro-screen (block-1 frozen features, ~0.3 ms)\n  → Patch is 'trivially normal' ONLY if ALL 4 cues within acceptance bands (1st-percentile calibrated)\n  → Estimated 40–60% rejected (score=0, bypassed)\n  → Candidate patches (40–60%) → Stage-2a\n  ↓\n[Stage-2a: Patch-Level Pre-Screen]\n  ├─ Frozen Encoder (DINOv2-Small ViT or EfficientNet-B4), 3-ch input: grayscale + Sobel-x + Sobel-y\n  ├─ Shallow-Layer AdaIN (Blocks 1–2): Channel-wise median/MAD aligned to robust reference style profile\n  ├─ Deep-Layer Feature Extraction (Blocks 3–4): No style modification\n  ├─ Global Average Pooling → 1024-d patch vector\n  └─ Patch-level k-NN score (k=3, FAISS IVF-PQ, ~5000 coreset)\n  → Patches below 70th-percentile normal threshold → 'fine-normal' (score recorded, no dense scoring)\n  → Suspicious patches (~10–30% of total) → Stage-2b\n  ↓\n[Stage-2b: Dense Spatial Scoring]\n  ├─ Per-spatial-position feature vectors (after 2×2 local max-pooling on blocks 3–4)\n  ├─ ±r=4 neighborhood-aware FAISS search (spatial search window)\n  └─ Spatial anomaly score map per patch\n  ↓\n[Stage-3: Selective Assembly & Two-Level Decision]\n  ├─ Zero-fill for rejected + fine-normal patches (no blending)\n  ├─ Gaussian-weighted blending ONLY at candidate patch boundaries\n  ├─ Level-1 EVT: Pixel-level GPD threshold (99th percentile) → candidate defect pixels\n  ├─ Level-2 EVT: Image-level max/cluster GPD threshold → image-level defect/normal\n  └─ Connected-component analysis → Bounding boxes + confidence (1 − GPD p-value)\n\nReference Preparation Module (offline, per lot):\n  ├─ Encode normal patches → robust style profile (median, MAD per channel, blocks 1–2)\n  ├─ Greedy k-center coreset on deep features (~5000 points)\n  ├─ Level-1 GPD fit on patch-level k-NN distance tail\n  ├─ Level-2 GPD fit on image-level max/top-5-cluster scores from normal images\n  ├─ Empirical Bayes pooled-lot prior for lots with <25 references\n  ├─ Automated quality gate: Mahalanobis >3σ patches excluded\n  └─ Spectral validation certificate: Fourier cosine + FDR measurements per layer\n\nAsync Pipelining: Stage-1 streams to Stage-2a in micro-batches (batch=16–32); Stage-2b triggered only for flagged patches; CPU tiling overlaps with GPU encoding.",
+      "dataset": "Primary Dataset: Proprietary semiconductor fab dataset — 6559×6559 grayscale source images from multiple lots and equipment types, with defect-free normal reference patches (256×256) per lot. Target: ≥20 lots, ≥50 source images per lot (≥1000 total), ≥50 normal reference patches per lot. Ground-truth defect masks available for ≥100 defect-containing images annotated by domain experts. Defect types include: scratches, particles, mura (haze), pattern defects, and point defects.\n\nProxy/Public Datasets:\n1. MVTec AD ('transistor', 'metal_nut', 'grid', 'screw') — pipeline validation + published baseline comparison.\n2. MVTec LOCO-AD — logical/structural anomaly evaluation.\n3. AeBAD (evidence_id: a0bb81ad6fd730d673580fda6713691d8e1d5bdc) — domain-shift robustness across viewing conditions.\n4. Synthetic semiconductor benchmark: Normal semiconductor images with controlled perturbations (brightness ±20%, contrast ±20%, Gaussian noise σ=5–20, periodic banding at 3 frequencies) and synthetic defect injection (Perlin-blob defects 3×3 to 50×50 px, synthetic scratches 1–3px wide × 20–200px long at contrast ratios 1.02–1.20). Ground truth fully known.\n\nCritical note: All primary performance claims must be validated on real semiconductor data; public datasets serve as sanity checks and enable reproducible comparisons.",
+      "baseline_models": [
+        "PatchCore (k-NN memory bank, WideResNet-50, no style normalization) — strongest memory-based baseline (evidence_id: 230c875f7563abf2e11bc79c0ae8855bfa52123c)",
+        "PaDiM (Gaussian density estimation per patch position) — parametric density baseline",
+        "Reverse Distillation (RD4AD) — fast distillation-based baseline for latency comparison (evidence_id: 7617c7c3760a530679045206ec959f52195c37ee)",
+        "EfficientAD — recent lightweight anomaly detection baseline",
+        "STFPM (Student-Teacher Feature Pyramid Matching) — teacher-student baseline",
+        "Raw pixel-level SSIM comparison with reference (traditional baseline)",
+        "PatchCore + global AdaIN (all layers) — ablation baseline to test layer-selective vs. full AdaIN",
+        "PatchCore + shallow AdaIN (blocks 1–2, mean/std) — ablation baseline to test robust (median/MAD) vs. standard style statistics",
+        "Proposed framework without coarse filter — computational ablation",
+        "Proposed framework with variance+entropy-only coarse filter (no Sobel, no Mahalanobis) — coarse filter safety ablation",
+        "Proposed framework with patch-level-only EVT (no image-level calibration) — threshold ablation"
+      ],
+      "evaluation_metrics": [
+        "Image-level FPR on normal images (target ≤1%); measured as fraction of normal images with any detected defect region",
+        "Image-level False Alarm per Image on normal images (target ≤0.1)",
+        "Pixel-level AUROC on defect images with ground-truth masks (target ≥0.95)",
+        "Pixel-level AUPRO (per-region overlap, IoU threshold 0.3) on defect images",
+        "Image-level AUROC for defect/normal classification (target ≥0.97)",
+        "Stage-1 Coarse Gate: rejection rate (%) and defect False Negative Rate (target FNR <1%)",
+        "Stage-2a Pre-Screen: pass-through rate and defect FNR",
+        "Mean Absolute Score Shift (MASS) under ±20% brightness/contrast perturbation (target ≤0.05)",
+        "Normal Acceptance Rate under domain perturbation (target ≥97%)",
+        "Spectral Validation: high-frequency cosine similarity per layer, Fisher discriminant ratio preservation",
+        "Threshold robustness: F1 stability across ±20% threshold variation",
+        "End-to-end inference time per 6559×6559 image (target ≤60s on RTX 4090)",
+        "Per-stage latency breakdown (tiling, Stage-1, Stage-2a, Stage-2b, Stage-3)",
+        "Peak GPU memory usage (target ≤24 GB)",
+        "Defect size sensitivity: pixel-AUROC stratified by defect area (<10px², 10–50px², 50–200px², >200px²)",
+        "Two-level vs. single-level EVT FPR comparison at matched detection sensitivity"
+      ],
+      "key_experiments": [
+        "Exp-1 (End-to-End Pipeline Validation): Run the complete Coarse-to-Fine pipeline on ≥500 normal and ≥100 defect-containing 6559×6559 semiconductor images across ≥5 lots/equipment. Report image-level FPR, pixel-AUROC, pixel-AUPRO, image-AUROC, Stage-1 FNR, inference time, and peak memory. Compare against all baselines under identical patch-based processing. This directly tests the primary hypothesis targets.",
+        "Exp-2 (Domain Shift Robustness): Apply controlled perturbations (brightness ±20%, contrast ±20%, Gaussian noise σ=5/10/15/20, periodic banding at 3 frequencies) to test images. Measure MASS, Normal Acceptance Rate, and pixel-AUROC degradation for proposed vs. all baselines. Cross-lot test: calibrate on Lot-A references, evaluate on Lot-B/C/D without recalibration. This validates AdaIN and EVT generalization (evidence_id: a0bb81ad6fd730d673580fda6713691d8e1d5bdc).",
+        "Exp-3 (Coarse Gate Safety & Efficiency): Vary coarse filter aggressiveness by adjusting acceptance-band percentiles (1st, 5th, 10th, 25th). For each setting, measure: (a) rejection rate, (b) FNR on real defect patches and (c) FNR on synthetic low-contrast defects (contrast ratio 1.02–1.10). Identify Pareto-optimal point. Compare 4-cue gate vs. variance+entropy-only vs. single-cue gates. This is the critical safety experiment for the multi-cue innovation.",
+        "Exp-4 (Two-Level EVT Calibration): Compare (a) fixed-percentile threshold, (b) Otsu's method, (c) patch-level-only GPD, (d) two-level GPD (patch + image), (e) two-level GPD + pooled-lot Bayesian prior. Vary reference set size (10, 25, 50, 100, 200). Measure image-level FPR stability, threshold convergence rate, and cross-lot transferability. This validates the hierarchical calibration innovation (evidence_id: d8782dee537e7535a58fd7a8f10fd2e34ad649a4).",
+        "Exp-5 (AdaIN Spectral Validation): Execute the spectral validation protocol on 200+ normal patches and 50+ defect patches. Report per-layer: (a) Fourier high-frequency cosine similarity before/after AdaIN, (b) Fisher discriminant ratio between defect and normal features before/after AdaIN, (c) pixel-AUROC with/without AdaIN. Compare robust (median/MAD) vs. standard (mean/std) style statistics. This is the novel experiment that transforms the AdaIN claim from intuition to measurement (evidence_id: 871aa8be308624bd120bd2db854dc093f4ceac8d).",
+        "Exp-6 (Inference Time Profiling): Detailed per-stage latency breakdown on RTX 4090 and RTX 3090. Measure impact of: (a) 2.5-stage scoring vs. full dense scoring, (b) selective blending vs. full-canvas blending, (c) batch size (8/16/32/64), (d) async vs. sync pipelining. Verify sub-60s target and identify bottleneck.",
+        "Exp-7 (Public Benchmark Comparison): Evaluate on MVTec AD and AeBAD. Report image-AUROC, pixel-AUROC, AUPRO against published SOTA. Ensures no fundamental design flaw and enables community comparison (evidence_id: b7c08446d59d28b8666d04bac1a3f04a22f12be4)."
+      ],
+      "ablation_studies": [
+        "Ablation-1 (AdaIN Layer Depth): Compare (a) no AdaIN, (b) block-1 only, (c) blocks 1–2 (proposed), (d) blocks 1–3, (e) all blocks. Measure pixel-AUROC, MASS, spectral cosine similarity, FDR. Identify optimal depth boundary.",
+        "Ablation-2 (Robust vs. Standard Style Statistics): Compare (a) mean/std AdaIN, (b) median/MAD AdaIN, (c) trimmed-mean AdaIN. Deliberately contaminate 5%/10% of reference patches. Measure pixel-AUROC and style profile stability.",
+        "Ablation-3 (Coarse Gate Components): Compare (a) variance only, (b) variance+entropy, (c) variance+entropy+Sobel, (d) all 4 cues (proposed), (e) no gate. Measure rejection rate, FNR, and total time. Critical for validating the multi-cue design.",
+        "Ablation-4 (Encoder Architecture): Compare (a) ResNet-34, (b) EfficientNet-B4, (c) WideResNet-50, (d) DINOv2-Small ViT, (e) random initialization (FC-7 test), (f) DTD-texture-pretrained ResNet-34. Input: grayscale+Sobel 3-ch. Measure pixel-AUROC, inference time, memory.",
+        "Ablation-5 (Alignment Relaxation): Compare (a) no pooling, no search window, (b) 2×2 max-pooling only, (c) 2×2 max-pooling + ±r=2 search, (d) 2×2 max-pooling + ±r=4 search (proposed), (e) 3×3 max-pooling + ±r=4, (f) average pooling + ±r=4. Measure pixel-AUROC, AUPRO, and localization precision for point defects under synthetic 2–8px misalignment and ±1° rotation.",
+        "Ablation-6 (Coreset Size & k): Vary coreset (1000/3000/5000/10000) and k (1/3/5/9). Measure pixel-AUROC, search latency, memory.",
+        "Ablation-7 (Blending Strategy): Compare (a) no overlap (hard tiling), (b) full-canvas Gaussian blending, (c) selective sparse Gaussian blending (proposed), (d) 50% overlap + selective blending. Measure boundary artifact severity (score discontinuity), memory, and time.",
+        "Ablation-8 (Input Channel Strategy): Compare (a) grayscale→3ch replicate, (b) grayscale+Sobel-x+Sobel-y (proposed), (c) grayscale+Laplacian+LBP, (d) grayscale+Gabor-2directions. Measure pixel-AUROC, sensitivity to structural vs. textural defects.",
+        "Ablation-9 (2.5-Stage vs. Full Dense Scoring): Compare (a) dense scoring for all candidate patches, (b) 2.5-stage with 70th-percentile pre-screen (proposed), (c) 2.5-stage with 50th-percentile, (d) 2.5-stage with 90th-percentile. Measure pixel-AUROC, inference time, and whether pre-screening introduces localization artifacts.",
+        "Ablation-10 (Reference Quality Gate): Compare performance with and without automated Mahalanobis-based quality gate. Contaminate 5%/10%/20% of references with subtle defects. Measure pixel-AUROC degradation and FPR increase."
+      ]
+    },
+    "related_papers": [
+      {
+        "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+        "title": "Exploring Deep Learning-based Unsupervised Image Anomaly Detection and Localization Methods for Industrial Quality Assurance",
+        "venue": "Survey/Review",
+        "relevance": "Comprehensive review establishing that unsupervised methods produce false positives on normal variations—directly motivating our multi-cue coarse gate, AdaIN style normalization, and two-level EVT thresholding."
+      },
+      {
+        "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+        "title": "Image alignment-based patch distribution framework for anomaly detection",
+        "venue": "Anomaly Detection Conference/Journal",
+        "relevance": "Demonstrates alignment significantly improves embedding-based detection; our neighborhood-aware matching (max-pooling + ±r search window) provides a lightweight, registration-free alternative."
+      },
+      {
+        "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+        "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+        "venue": "CVPR/NeurIPS (AeBAD)",
+        "relevance": "Shows reconstruction methods fail under domain shift; validates need for our explicit AdaIN-based style normalization and cross-lot EVT calibration."
+      },
+      {
+        "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+        "title": "Revisiting Reverse Distillation for Anomaly Detection",
+        "venue": "Anomaly Detection Workshop/Journal",
+        "relevance": "Highlights latency-accuracy tradeoff between memory-bank and distillation methods; our 2.5-stage coarse-to-fine structure targets memory-bank accuracy at distillation-competitive speed."
+      },
+      {
+        "paper_id": "b7c08446d59d28b8666d04bac1a3f04a22f12be4",
+        "title": "Benchmarking framework for anomaly localization: Towards real-world deployment of automated visual inspection",
+        "venue": "Benchmarking Conference/Journal",
+        "relevance": "Establishes deployment-oriented evaluation criteria (latency, FPR control) that shaped our metrics and 60-second constraint."
+      },
+      {
+        "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+        "title": "Unsupervised Anomaly Detection via Multi-Frequency Structure and Visual Sampling",
+        "venue": "Anomaly Detection Conference",
+        "relevance": "Multi-frequency feature decomposition informs our layer-selective AdaIN rationale and spectral validation protocol—separating low-frequency style from high-frequency structural signals."
+      },
+      {
+        "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+        "title": "Deep Industrial Image Anomaly Detection: A Survey",
+        "venue": "Survey",
+        "relevance": "IAD survey identifying unmet need for frameworks integrating few-shot adaptation, domain robustness, and real-time inference—exactly our target problem."
+      },
+      {
+        "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+        "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+        "venue": "Industrial Inspection Conference",
+        "relevance": "Shows attention improves detection in high-resolution industrial images; informs our encoder choice rationale and potential feature-weighting extensions."
+      },
+      {
+        "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+        "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+        "venue": "Statistical ML Conference",
+        "relevance": "Introduces statistical rigor for anomaly localization; our two-level EVT provides analogous but computationally cheaper statistical FPR guarantees."
+      },
+      {
+        "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+        "title": "Simulation of semiconductor wafer dicing induced faults on chips and their application as augmentation method for a deep learning based visual inspection system",
+        "venue": "Semiconductor Manufacturing",
+        "relevance": "Validates the scarcity of semiconductor defect data and the value of synthetic defect augmentation—supports our synthetic benchmark design and defect simulation strategy."
+      },
+      {
+        "paper_id": "77e433c1baaf553dcffe0aa28cd0403d9b72eabf",
+        "title": "Towards Zero-shot 3D Anomaly Localization",
+        "venue": "Anomaly Detection Conference",
+        "relevance": "Demonstrates zero-shot anomaly detection using patch-level features without target-domain training, supporting the feasibility of our training-free reference-only approach."
+      }
+    ],
+    "evidence_links": [
+      {
+        "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+        "supports": [
+          "rationale",
+          "key_innovation",
+          "baseline_models",
+          "evaluation_metrics"
+        ]
+      },
+      {
+        "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+        "supports": [
+          "key_innovation",
+          "expected_mechanism",
+          "ablation_studies"
+        ]
+      },
+      {
+        "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+        "supports": [
+          "rationale",
+          "key_innovation",
+          "dataset",
+          "key_experiments"
+        ]
+      },
+      {
+        "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+        "supports": [
+          "rationale",
+          "expected_mechanism",
+          "baseline_models"
+        ]
+      },
+      {
+        "paper_id": "b7c08446d59d28b8666d04bac1a3f04a22f12be4",
+        "supports": [
+          "evaluation_metrics",
+          "key_experiments",
+          "falsification_criteria"
+        ]
+      },
+      {
+        "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+        "supports": [
+          "key_innovation",
+          "expected_mechanism",
+          "key_experiments"
+        ]
+      },
+      {
+        "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+        "supports": [
+          "rationale",
+          "baseline_models",
+          "evaluation_metrics"
+        ]
+      },
+      {
+        "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+        "supports": [
+          "rationale",
+          "ablation_studies"
+        ]
+      },
+      {
+        "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+        "supports": [
+          "key_innovation",
+          "expected_mechanism",
+          "falsification_criteria",
+          "key_experiments"
+        ]
+      },
+      {
+        "paper_id": "30ec97a622f5d510d32f2062fa53330234318ac7",
+        "supports": [
+          "dataset",
+          "key_experiments"
+        ]
+      },
+      {
+        "paper_id": "77e433c1baaf553dcffe0aa28cd0403d9b72eabf",
+        "supports": [
+          "rationale",
+          "expected_mechanism"
+        ]
+      }
+    ],
+    "confidence": 0.74,
+    "risk_factors": [
+      "The Mahalanobis micro-screen in Stage-1 adds ~0.3 ms/patch overhead; if the frozen block-1 encoding is slower than estimated on certain architectures, Stage-1 total time could exceed budget. Mitigation: profile early and fall back to 3-cue gate (without micro-screen) if latency is unacceptable, with documented FNR tradeoff.",
+      "Multi-cue union filtering (all 4 must agree 'normal') may reduce rejection rate below 40%, diminishing computational savings. Mitigation: Ablation-3 quantifies each cue's marginal contribution; if rejection rate <30%, relax the most conservative cue.",
+      "Robust style statistics (median/MAD) may be less stable than mean/std with very small reference sets (<15 patches). Mitigation: Ablation-2 tests this regime; fallback to trimmed mean for tiny reference sets.",
+      "The ±r spatial search window multiplies FAISS queries by (2r+1)² per position, potentially creating a latency bottleneck in Stage-2b. Mitigation: implement as pre-expanded index with locality-sensitive bucketing; Ablation-5 profiles the cost-benefit tradeoff; reduce r if needed.",
+      "Two-level EVT calibration requires ≥20 normal full-images per lot for stable image-level GPD fitting; new lots with fewer images rely on pooled-lot priors whose quality depends on lot homogeneity. Mitigation: Exp-4 tests convergence; if cross-lot priors are unstable, fall back to conservative fixed-percentile image-level threshold.",
+      "The 2.5-stage pre-screen (Stage-2a) could miss defects that produce anomalous spatial patterns but have normal global-average-pooled features (e.g., tiny isolated point defects). Mitigation: set pre-screen threshold conservatively (70th percentile); Ablation-9 tests sensitivity; Stage-1 micro-screen provides a safety net.",
+      "DINOv2-Small ViT may have different layer semantics than ResNet/EfficientNet, requiring re-definition of 'shallow' vs. 'deep' blocks for AdaIN. Mitigation: Ablation-1 and spectral validation are run per-encoder.",
+      "Gaussian blending even when selective still requires careful handling of variable-size candidate clusters; implementation complexity could introduce bugs. Mitigation: extensive unit testing with synthetic score maps; Ablation-7 provides quantitative sanity checks.",
+      "The 60-second constraint may be tight on RTX 3090 (~70% of RTX 4090 throughput); generalizability to lower-end GPUs is not guaranteed. Mitigation: Exp-6 profiles on both GPUs; report achievable time per GPU tier honestly."
+    ],
+    "debate_log": [
+      {
+        "round": 1,
+        "role": "Proposer",
+        "model": "Claude",
+        "output": {
+          "research_gap_summary": "기존 비지도 산업 이상 탐지 연구들은 (1) 도메인 변화(스타일/노이즈/장비 차이)에 대한 강건성 부족으로 정상 변이를 결함으로 오탐지하고, (2) 초고해상도 이미지의 패치 기반 처리 시 정렬 전처리 비용과 경계 아티팩트 문제를 해결하지 못하며, (3) 메모리 뱅크 기반 방법(PatchCore 등)은 정확하나 추론 지연이 크고, 지식 증류/재구성 기반 방법은 빠르나 미세 결함 민감도가 떨어지는 trade-off를 극복하지 못하고 있다. 특히 정상 참조 패치만으로 재학습 없이 새로운 도메인에 적응하면서 60초 이내에 6559×6559 전체 이미지를 처리하는 통합 파이프라인은 아직 확립되지 않았다.",
+          "existing_approaches": [
+            "메모리 뱅크 기반 임베딩 유사도 방법 (PatchCore 등): 정상 패치 특징을 코어셋으로 저장 후 테스트 패치와 최근접 거리 비교",
+            "지식 증류 기반 방법 (Reverse Distillation 등): Teacher-Student 구조로 정상 패치 복원 능력 차이를 이상 스코어로 활용",
+            "재구성 기반 방법 (Masked Multi-scale Reconstruction 등): 정상 데이터로만 학습된 오토인코더/확산 모델이 비정상 영역을 제대로 복원하지 못하는 차이를 이용",
+            "이미지 정렬 기반 패치 분포 프레임워크: 참조-대상 이미지 간 정밀 정렬 후 임베딩 유사도 비교",
+            "노말라이징 플로우 + 다주파수 구조: 주파수 도메인 분해를 통해 배경과 결함 특징 분리"
+          ],
+          "limitations": [
+            "메모리 뱅크 방법은 코어셋 검색 비용이 크고, 초고해상도 이미지에서 패치 수가 폭증하면 60초 이내 추론이 불가능",
+            "지식 증류/재구성 방법은 도메인 변화(스타일·밝기·장비 차이) 시 정상 패턴도 비정상으로 오인하여 FPR이 급증",
+            "이미지 정렬 기반 방법은 정밀 정렬에 높은 계산 비용이 필요하며, 구조적 차이나 변형에 취약",
+            "대부분의 방법이 새로운 lot/장비/스타일에 적응하려면 정상 데이터로 재학습이 필요하여 유연성이 부족",
+            "확산 모델 기반 통계적 검증은 계산 오버헤드가 과도하여 실시간 적용이 비현실적"
+          ],
+          "hypotheses": [
+            {
+              "id": 1,
+              "statement": "A style-agnostic patch anomaly detection framework that applies Adaptive Instance Normalization (AdaIN) to align the feature statistics of source patches to those of normal reference patches in a frozen pre-trained feature space, combined with hierarchical coreset subsampling and approximate nearest-neighbor search, can achieve ≤1% FPR and sub-60-second inference on 6559×6559 images without any retraining when reference sets change.",
+              "statement_kr": "동결된 사전학습 특징 공간에서 Adaptive Instance Normalization(AdaIN)을 통해 소스 패치의 특징 통계를 정상 참조 패치에 정렬하고, 계층적 코어셋 서브샘플링 및 근사 최근접 이웃 검색을 결합한 스타일 무관(style-agnostic) 패치 이상 탐지 프레임워크는, 참조 세트가 변경되어도 재학습 없이 6559×6559 이미지에서 1% 이하 FPR과 60초 이내 추론을 달성할 수 있다.",
+              "core_idea": "PatchCore류 메모리 뱅크 방식의 높은 정확도를 유지하면서 도메인 변화 문제를 해결하기 위해, 특징 추출 직후 AdaIN 기반 스타일 정규화 레이어를 삽입하여 소스 패치의 채널별 평균/분산을 참조 패치 분포에 맞춘다. 이를 통해 장비·밝기·공정 노이즈 차이로 인한 특징 분포 편이를 제거하면서도 결함에 의한 구조적 특징 차이는 보존한다. 추론 속도를 위해 계층적 spatial-aware coreset pruning과 FAISS 기반 GPU 가속 ANN 검색을 적용하여 패치 수 폭증 문제를 해결한다.",
+              "key_innovation": "기존 PatchCore[7617c7c3]는 스타일 변화를 고려하지 않아 도메인 변화 시 FPR이 급증하고, 이미지 정렬 프레임워크[2fc4bc71]는 픽셀 공간에서의 비용이 큰 정렬에 의존한다. 본 가설은 특징 공간에서의 경량 통계 정규화(AdaIN)로 정렬과 스타일 적응을 동시에 달성하며, 기존 Masked Multi-scale Reconstruction[a0bb81ad]처럼 모델 재학습이 필요 없이 참조 패치의 통계량만 교체하면 새로운 도메인에 즉시 적응할 수 있다는 점이 차별화된다.",
+              "potential_weaknesses": [
+                "AdaIN이 채널별 1차/2차 통계량만 정규화하므로, 고차 분포 차이(예: 특정 장비의 주기적 노이즈 패턴)가 남아 FPR을 완전히 억제하지 못할 수 있다",
+                "참조 패치 세트의 대표성이 부족하면 정상 분포 통계 추정이 부정확해져 오히려 결함 민감도가 하락할 수 있다",
+                "6559×6559를 256×256 패치로 분할 시 약 676개 패치가 생성되며, 각 패치의 다층 특징 추출 + ANN 검색 총 시간이 60초를 초과할 수 있어 패치 배치 처리 최적화가 필수적이다"
+              ]
+            },
+            {
+              "id": 2,
+              "statement": "A two-stage pipeline combining a lightweight frozen encoder with per-patch frequency-domain normalization in the first stage and a training-free local-global anomaly scoring mechanism based on multi-scale Gaussian mixture density estimation of normal reference features in the second stage can robustly localize defects under style perturbation while keeping inference under 60 seconds and memory under 24 GB.",
+              "statement_kr": "첫 번째 단계에서 경량 동결 인코더와 패치별 주파수 도메인 정규화를 결합하고, 두 번째 단계에서 정상 참조 특징의 다중 스케일 가우시안 혼합 밀도 추정 기반의 학습 불필요(training-free) 로컬-글로벌 이상 스코어링 메커니즘을 적용하는 2단계 파이프라인은, 스타일 변동 하에서도 60초 이내·24GB 이내로 결함을 강건하게 지역화할 수 있다.",
+              "core_idea": "소스 패치와 참조 패치 모두에 DCT/웨이블릿 기반 주파수 분해를 적용하여 저주파(스타일/밝기) 성분을 참조 기준으로 정규화하고, 고주파(텍스처/결함) 성분만을 특징 추출에 입력함으로써 스타일 변이를 사전 차단한다. 추출된 특징에 대해 정상 참조 패치들의 위치별(local) 및 전역(global) 다중 스케일 GMM을 사전 적합(pre-fit)하고, 테스트 시 log-likelihood를 anomaly score로 사용하여 학습 없이 밀도 기반 이상 탐지를 수행한다. 패치 경계 아티팩트는 중첩 패치 + Gaussian-weighted stitching으로 제거한다.",
+              "key_innovation": "다주파수 구조를 활용한 기존 연구[871aa8be]는 노말라이징 플로우에 의존하여 메모리 소모가 크고 학습이 필요하지만, 본 가설은 주파수 분해를 전처리 정규화 용도로만 사용하고 밀도 추정은 경량 GMM으로 대체하여 training-free를 실현한다. 또한 AeBAD 연구[a0bb81ad]의 재구성 기반 도메인 적응과 달리, 주파수 도메인에서의 명시적 스타일 제거를 통해 재구성 실패로 인한 False Negative 문제를 회피한다. 로컬-글로벌 이중 스코어링으로 미세 결함(로컬)과 광범위 패턴 이상(글로벌)을 동시에 포착한다.",
+              "potential_weaknesses": [
+                "주파수 도메인 저주파 정규화가 결함 자체의 저주파 성분(예: 넓은 영역의 밝기 변화형 결함)까지 제거하여 특정 유형의 결함을 놓칠 수 있다",
+                "위치별 GMM을 pre-fit하려면 충분한 수의 정상 참조 패치가 각 위치에 대해 필요하며, 참조 패치가 소수일 경우 밀도 추정이 불안정해질 수 있다",
+                "중첩 패치 처리 시 연산량이 비중첩 대비 2~4배 증가하여 60초 시간 제약 내에서 적절한 중첩률과 정확도 간 trade-off 조정이 필요하다"
+              ]
+            },
+            {
+              "id": 3,
+              "statement": "An anomaly detection system that employs a frozen vision foundation model (e.g., DINOv2-Small) as a universal feature extractor with task-specific linear projection heads, combined with reference-conditioned contrastive patch scoring and test-time adaptive thresholding based on local score statistics, can generalize to unseen semiconductor lots and equipment without any fine-tuning while meeting all latency and FPR constraints.",
+              "statement_kr": "동결된 비전 파운데이션 모델(예: DINOv2-Small)을 범용 특징 추출기로 사용하면서 과제 특화 선형 프로젝션 헤드를 부착하고, 참조 조건부 대조적 패치 스코어링과 지역 스코어 통계 기반 테스트 시점 적응적 임계값 설정을 결합한 이상 탐지 시스템은, 미세조정 없이도 미지의 반도체 lot 및 장비에 일반화하면서 모든 지연시간 및 FPR 제약을 충족할 수 있다.",
+              "core_idea": "DINOv2-Small과 같은 소형 비전 파운데이션 모델을 동결 상태로 사용하여 범용적이고 강건한 시각 특징을 추출하되, end-to-end 미세조정 대신 1~2개의 학습 가능한 경량 선형 프로젝션 헤드만 정상 참조 패치 쌍으로 대조 학습하여 '정상 유사성 공간'을 형성한다. 테스트 시에는 소스 패치 특징과 참조 패치 특징 간의 코사인 유사도 기반 anomaly score를 산출하되, 각 소스 이미지 내 패치 스코어의 로컬 통계(중앙값, MAD)를 이용한 적응적 임계값을 실시간으로 계산하여 이미지 간 스타일 변이에 따른 스코어 분포 이동을 자동 보정한다. 이를 통해 고정 임계값의 ±20% 변동에도 강건한 탐지 성능을 보장한다.",
+              "key_innovation": "제로샷 3D 이상 탐지[77e433c1]가 패치 대조 학습을 사용하지만 3D 포인트 클라우드에 한정되고 의사 결함 생성에 의존하는 반면, 본 가설은 2D 그레이스케일 반도체 이미지에서 정상 참조 패치 쌍만으로 대조 학습을 수행하여 의사 결함 없이도 정상/비정상 경계를 학습한다. Reverse Distillation[7617c7c3]이 Teacher-Student 전체 학습을 요구하는 것과 달리, 파운데이션 모델은 완전 동결하고 프로젝션 헤드만 수 분 내로 학습하므로 새로운 lot/장비에 최소 비용으로 적응 가능하다. 또한 기존 방법들이 고정 임계값을 사용하여 도메인 변화 시 FPR이 불안정한 문제를, 테스트 시점 적응적 임계값으로 해결한다는 점이 핵심 차별점이다.",
+              "potential_weaknesses": [
+                "DINOv2-Small이 자연 이미지 도메인에서 사전학습되었으므로, 반도체 그레이스케일 이미지의 미세한 텍스처 차이를 충분히 표현하지 못할 수 있으며, 선형 프로젝션만으로 도메인 갭을 완전히 해소하기 어려울 수 있다",
+                "테스트 시점 적응적 임계값은 소스 이미지 내 결함 비율이 매우 높은 극단적 케이스에서 결함 스코어가 통계 분포를 왜곡하여 임계값이 과도하게 높아질 위험이 있다",
+                "참조 조건부 대조 학습 시 정상-정상 쌍만 사용하면 결함의 특성을 직접 학습하지 못하여, 정상 패턴과 매우 유사한 미세 결함의 분리 능력이 제한될 수 있다"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "role": "Critic",
+        "model": "gpt-5.4",
+        "output": {
+          "critiques": [
+            {
+              "id": 1,
+              "fatal_flaws": [
+                "핵심 논리 비약이 있다. AdaIN으로 소스 패치 특징 통계를 정상 참조 패치 통계에 맞추면 스타일 차이는 줄일 수 있을지 몰라도, 결함 신호까지 함께 약화되지 않는다는 보장이 없다. 특히 문제 정의에는 'very small defects and subtle texture differences'가 중요하다고 되어 있는데, 채널 평균/분산 정렬은 바로 이런 미세한 명암·텍스처 차이를 스타일 변화와 함께 소거할 위험이 있다. Evidence Pack에서도 도메인 변화와 정상 분산 자체가 오탐의 원인이라고 했지, 단순 1차/2차 통계 정렬만으로 해결된다고 제시한 근거는 없다.",
+                "PatchCore 계열의 메모리/최근접이웃 기반 정확도와 재학습 없는 도메인 적응을 동시에 주장하지만, Evidence Pack의 RD 논문[7617c7c3760a530679045206ec959f52195c37ee]은 메모리 기반 방법이 지연시간 문제를 갖는다고 지적한다. 여기에 AdaIN, 계층적 코어셋, ANN까지 추가하면 파이프라인 복잡성은 더 커진다. 6559x6559 전체 이미지를 다중 패치로 처리하면서 60초 이하를 달성한다는 결론은 계산 예산 분석 없이 성급하다.",
+                "‘참조 세트가 변경되어도 재학습 없이 즉시 적응’이라는 주장은 Evidence Pack의 도메인 시프트 연구[a0bb81ad6fd730d673580fda6713691d8e1d5bdc]가 오히려 강조하는 어려움을 지나치게 단순화한다. 새로운 lot/equipment에서 정상 패턴 자체가 구조적으로 달라질 경우, 참조 통계 교체만으로 충분하다는 보장은 없다. 특히 [2fc4bc71a6443f1af34e7674427901038c537bed]는 정렬 미흡 시 성능 저하를 지적하는데, 본 가설은 정렬 문제를 사실상 특징 통계 정규화 하나로 대체하고 있어 구조적 위치 불일치 문제를 회피하지 못한다.",
+                "선행과의 실질 차별성이 약하다. 본질적으로는 PatchCore류 최근접이웃 검색에 스타일 정규화를 얹은 조합형 아이디어인데, Evidence Pack 어디에도 이것이 초고해상도 반도체 그레이스케일에서 새로운 이론적 메커니즘이나 검증된 우위로 이어진다는 근거가 없다. '정렬과 스타일 적응을 동시에 달성'은 과도한 해석이며, 실제로는 픽셀/기하 정렬을 대체하지 못한다."
+              ],
+              "exaggerations": [
+                "≤1% FPR과 sub-60-second inference를 동시에 달성한다고 단정하지만, Evidence Pack은 실배포 환경에서 오탐 최소화와 지연시간 표준 평가 자체가 아직 미해결이라고 본다[b7c08446d59d28b8666d04bac1a3f04a22f12be4, 230c875f7563abf2e11bc79c0ae8855bfa52123c]. 제안은 이 미해결 문제를 사실상 해결된 것처럼 말한다.",
+                "‘style-agnostic’라는 표현은 과장이다. AdaIN은 일부 스타일 통계 이동에는 대응할 수 있어도 장비별 주기 노이즈, 공간적 banding, 공정 특유의 비정상적 정상 패턴처럼 고차·비국소 차이를 제거한다는 근거가 없다.",
+                "‘without any retraining when reference sets change’는 매우 강한 표현인데, 실제로는 참조 분포가 바뀌면 코어셋 재구성, 통계 재추정, threshold 재설정이 필요할 가능성이 높다. 이를 재학습이 아니라고 부를 수는 있어도 운영 비용이 거의 없다는 뜻으로 읽히게 만드는 과장이다."
+              ],
+              "unverifiable": [
+                "정상 참조 패치만으로 새로운 장비/lot 스타일을 충분히 대표할 수 있는지에 대한 데이터 조건이 명시되지 않았다. 필요한 참조 패치 수, 다양성, lot 간 분산 범위가 빠져 있어 주장의 실현 가능성을 검증하기 어렵다.",
+                "‘결함에 의한 구조적 특징 차이는 보존한다’는 핵심 전제가 실험 전에는 검증 불가능하다. 특히 매우 작은 결함에 대해 AdaIN이 보존적이라는 근거가 Evidence Pack에 없다.",
+                "단일 GPU 24GB 이하에서 FAISS GPU ANN, 다층 특징 추출, 패치 병합까지 포함한 실제 peak memory와 latency 추정이 없다. 하드웨어/배치 크기/패치 stride가 없어서 검증 불가다."
+              ],
+              "score": 5
+            },
+            {
+              "id": 2,
+              "fatal_flaws": [
+                "가설 내부에 자기모순이 있다. 'training-free'라고 주장하면서 동시에 GMM을 'pre-fit'한다고 한다. 정상 참조 특징에 대한 위치별·전역 다중 스케일 GMM 적합 자체가 사실상 학습 단계다. 용어를 바꿔 training-free처럼 보이게 한 것일 뿐, 실제로는 도메인별 밀도모형 추정 비용과 안정성 문제가 존재한다.",
+                "위치별(local) GMM 가정은 본 문제의 운영 조건과 잘 맞지 않는다. 입력/출력 이미지 h/w dimensions may differ라고 명시되어 있고, patch-based splitting/merging이 필요하며, 장비·lot 변화까지 존재한다. 이런 상황에서 위치별 정상 분포가 안정적으로 정의된다는 보장이 없다. [2fc4bc71a6443f1af34e7674427901038c537bed]가 정렬 의존성의 취약성을 지적했는데, 위치별 GMM은 사실상 더 약한 형태의 정렬 가정을 다시 도입한 셈이다.",
+                "주파수 도메인에서 저주파를 스타일로, 고주파를 결함으로 분리하는 전제가 지나치게 단순하다. 문제 정의에는 아주 작은 결함뿐 아니라 subtle texture differences가 포함되며, 넓은 영역의 밝기/음영 이상도 잠재적 결함일 수 있다. Evidence Pack의 multi-frequency 연구[871aa8be308624bd120bd2db854dc093f4ceac8d]도 주파수 정보를 쓰지만, 그것만으로 구조/배경을 완전히 disentangle하지 못한다고 본다. 본 가설은 더 단순한 처리로 강건한 분리를 가정하므로 논리적으로 약하다.",
+                "복잡도 주장이 현실적이지 않다. 다중 스케일 DCT/웨이블릿, frozen encoder, local-global GMM likelihood, overlap patch, Gaussian stitching까지 모두 넣고도 60초/24GB 이내를 단정한다. Evidence Pack의 고해상도 경량화 연구[fe01e1ebffeff96cb1a5a570c48e726846b766ff]가 정확도-속도 trade-off를 강조했는데, 본 가설은 거의 모든 안정화 장치를 추가하면서 trade-off 비용을 무시한다."
+              ],
+              "exaggerations": [
+                "‘robustly localize defects under style perturbation’은 과장이다. 주파수 정규화가 스타일 변화를 완전히 제거한다는 보장은 없고, 실제 장비 차이의 많은 부분은 단순 저주파 이동이 아니라 공간적 패턴 변화, 비정상 잡음, 텍스처 왜곡이다.",
+                "AeBAD의 재구성 기반 방식보다 false negative 문제를 회피한다고 주장하지만, 이는 직접 비교 근거가 없다. 오히려 저주파 제거는 넓은 저대비 결함을 놓쳐 다른 형태의 false negative를 만들 수 있다.",
+                "‘training-free를 실현’한다는 표현은 GMM 적합 과정을 은폐하는 과장이다."
+              ],
+              "unverifiable": [
+                "위치별 GMM을 안정적으로 적합하기 위해 필요한 정상 참조 패치 수와 위치 정렬 수준이 제시되지 않았다. 데이터가 매우 제한적일 때 혼합 수 선택, 공분산 추정 안정성, 과적합 방지 방법이 불명확하다.",
+                "다중 스케일 GMM이 초고차원 frozen feature에서 수치적으로 안정적인지, 차원 축소가 필요한지, 혼합 수가 몇 개인지 등이 빠져 있어 구현 가능성 검증이 어렵다.",
+                "patch overlap 비율, stride, 스티칭 방식에 따라 시간과 경계 artifact가 크게 달라지는데 이에 대한 정량 가정이 없어 60초 제약 충족 여부를 검증할 수 없다."
+              ],
+              "score": 4
+            },
+            {
+              "id": 3,
+              "fatal_flaws": [
+                "가설이 제약 조건과 충돌한다. 연구 제약에 'Must avoid end-to-end fine-tuning of very large foundation models'라고 되어 있지만, 본 가설은 fine-tuning은 피하더라도 task-specific linear projection head를 contrastive learning으로 학습한다. 즉 'without any fine-tuning'이라는 문장과 실제 내용이 일치하지 않는다. 파운데이션 모델 본체는 동결이어도 시스템 전체는 training-free가 아니다.",
+                "자연영상 기반 DINOv2-Small을 초고해상도 그레이스케일 반도체 미세 결함에 그대로 범용 특징 추출기로 쓰면 일반화된다는 주장은 근거가 약하다. Evidence Pack에는 2D 반도체 그레이스케일에서 foundation model zero/few-shot이 충분하다는 직접 증거가 없다. 오히려 산업 IAD survey[230c875f7563abf2e11bc79c0ae8855bfa52123c]는 단일 프레임워크로 실시간·도메인 적응·few-shot을 모두 해결하지 못했다고 본다.",
+                "정상-정상 쌍만으로 contrastive space를 만들고 비정상을 분리할 수 있다는 논리가 취약하다. 이것은 '정상 manifold를 더 잘 압축하면 비정상이 자동 분리된다'는 익숙한 가정에 불과하며, subtle texture difference나 near-normal defect에 대해 분리 경계가 생긴다는 보장이 없다. Evidence Pack의 unsupervised 리뷰[d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9]는 정상 분산을 결함으로 오탐하는 문제가 남아 있음을 지적한다.",
+                "테스트 시점 adaptive thresholding으로 고정 임계값 민감도 문제를 해결한다는 논리는 위험하다. 본 문제의 핵심 목표 중 하나가 정상 이미지에서 FPR ≤ 1%, false alarm ≤ 0.1인데, 이미지별 threshold를 현장 데이터 분포에 맞춰 바꾸면 lot/equipment별 점수 기준이 흔들려 운영 안정성이 떨어질 수 있다. 또한 threshold robustness를 '보장'한다는 표현은, 실제로는 threshold를 고정하지 않겠다는 뜻이어서 지표 해석 자체를 흐린다."
+              ],
+              "exaggerations": [
+                "‘can generalize to unseen semiconductor lots and equipment without any fine-tuning while meeting all latency and FPR constraints’는 가장 과장된 주장이다. Evidence Pack 어디에도 foundation model + linear head + adaptive threshold 조합이 이런 전방위 제약을 동시에 만족시킨다는 실증 근거가 없다.",
+                "‘모든 지연시간 및 FPR 제약을 충족’은 계산량 추정 없이 선언적으로 쓰였다. 6559x6559 이미지를 패치 분할해 DINOv2 추론하고 참조 조건부 비교까지 수행하는 비용은 결코 작지 않다.",
+                "±20% threshold variation에도 강건하다고 하면서 동시에 test-time adaptive thresholding을 사용하겠다는 것은 성과를 유리하게 정의하는 방식이다. 고정 임계값 강건성과 적응 임계값 성능은 같은 주장이 아니다."
+              ],
+              "unverifiable": [
+                "선형 projection head 학습에 필요한 정상 쌍 구성 방식, pair mining 전략, 학습 시간, 새 lot/equipment 유입 시 재학습 빈도가 빠져 있다. '수 분 내 적응 가능'은 검증 근거가 없다.",
+                "그레이스케일 이미지를 DINOv2 입력에 어떻게 맞출지(채널 복제, 별도 정규화, 해상도 축소 전략)와 이로 인한 정보 손실이 명시되지 않아 실제 성능을 검증하기 어렵다.",
+                "local score statistics 기반 threshold가 실제 정상/이상 혼합 비율 변화에서 얼마나 안정적인지 평가 프로토콜이 제시되지 않았다."
+              ],
+              "score": 3
+            }
+          ],
+          "best_hypothesis_id": 1,
+          "best_hypothesis_reason": "세 가설 모두 과장이 크지만, 1번이 상대적으로 가장 덜 비현실적이다. 이유는 (1) 정상 참조 패치 기반 최근접이웃/메모리 검색이라는 기본 틀이 현재 문제 설정과 가장 직접적으로 맞고, (2) 재구성 기반이나 foundation model 적응 임계값보다 실패 모드가 더 예측 가능하며, (3) AdaIN의 효과는 과장되었지만 최소한 '스타일 통계 보정 + 참조 검색'이라는 구성은 기존 산업 AD 문맥에서 이해 가능한 확장이다. 반면 2번은 위치별 GMM과 training-free 주장이 논리적으로 더 흔들리고, 3번은 자연영상 foundation model 일반화와 무미세조정 주장, adaptive threshold 의존이 가장 공격적이고 검증 부담이 크다.",
+          "critique_summary": "세 가설의 공통 약점은 동일하다. 첫째, Evidence Pack이 반복해서 강조한 '도메인 시프트 + 정상 다양성 + 실시간 배포'의 동시 해결 난제를 너무 쉽게 해결 가능하다고 가정한다. 둘째, 6559x6559 초고해상도에서 패치 수, stride, overlap, reference bank 크기, GPU 메모리, latency를 정량적으로 계산하지 않은 채 60초/24GB/FPR≤1%를 선언한다. 셋째, 'training-free', 'without retraining', 'style-agnostic', 'generalize to unseen equipment' 같은 표현이 엄밀하지 않다. 실제로는 통계 적합, 코어셋 재구성, projection head 학습, threshold 재보정 등 운영 비용이 존재한다. 넷째, 미세 결함 보존과 스타일 제거를 동시에 달성한다는 핵심 전제가 실험 전에는 검증되지 않았는데도, 이를 이미 해결된 것처럼 서술한다.",
+          "missed_opportunities": [
+            "정렬 자체를 완전히 버리거나 강하게 가정하는 양극단 대신, 저비용 coarse registration 또는 template-aware spatial indexing 같은 중간 해법을 검토하지 않았다. Evidence Pack의 alignment 연구[2fc4bc71a6443f1af34e7674427901038c537bed]가 지적한 정렬 문제를 더 정면으로 다뤘어야 한다.",
+            "실제 배포 지표인 false alarm per image, anomalous area ratio, threshold robustness를 직접 최적화하거나 calibration하는 설계가 없다. 세 가설 모두 표현 학습/점수 계산에는 집중하지만, 운영 임계값 안정성 설계는 피상적이다.",
+            "초고해상도 한 장 전체를 균일 패치로 모두 처리하는 비효율을 당연시한다. coarse-to-fine candidate generation, ROI prioritization, early rejection 같은 시간 절감 전략이 빠져 있다.",
+            "정상 참조 패치의 품질 관리 문제를 다루지 않았다. 실제로는 reference contamination, representative coverage, lot별 reference update 정책이 FPR에 결정적일 수 있다.",
+            "반도체 grayscale 특성에 맞춘 특징 설계가 부족하다. 자연영상 사전학습 특징이나 일반 주파수 정규화보다, 반복 패턴·주기 구조·선형 배열 결함 같은 반도체 도메인 priors를 활용할 기회를 놓쳤다."
+          ]
+        }
+      },
+      {
+        "round": 2.5,
+        "role": "PairwiseRanker",
+        "model": "GPT+Gemini",
+        "output": {
+          "ranking": [
+            1,
+            2,
+            3
+          ],
+          "win_count": {
+            "1": 4,
+            "2": 1,
+            "3": 1
+          },
+          "pairwise_results": [
+            {
+              "pair": [
+                1,
+                2
+              ],
+              "winner": 1,
+              "reason": "가설 1은 PatchCore 계열의 검증된 메모리뱅크·ANN 구조 위에 경량 스타일 정렬만 추가해 재학습 없는 도메인 적응, 낮은 FPR, 속도 요구를 더 직접적으로 만족할 가능성이 높아 가설 2의 위치별 GMM 불안정성과 중첩 패치 연산 부담보다 실현 가능성과 검증 가능성이 우수하다.",
+              "evaluator": "GPT"
+            },
+            {
+              "pair": [
+                1,
+                3
+              ],
+              "winner": 1,
+              "reason": "가설 1은 완전 training-light하고 참조 세트 변경 시 즉시 적용 가능하며 초고해상도 그레이스케일 결함 탐지에 필요한 낮은 오탐과 계산 제약을 보다 보수적으로 충족하는 반면, 가설 3은 자연영상 기반 파운데이션 모델의 도메인 갭과 추가 학습·적응 임계값의 불안정성 때문에 실현 가능성이 더 낮다.",
+              "evaluator": "GPT"
+            },
+            {
+              "pair": [
+                2,
+                3
+              ],
+              "winner": 2,
+              "reason": "가설 2는 스타일 변동의 원인을 주파수 정규화와 밀도기반 스코어링으로 명시적으로 다루어 반도체 그레이스케일 도메인에 더 잘 맞고 대형 파운데이션 모델 의존 없이 검증 가능한 반면, 가설 3은 도메인 적합성과 임계값 안정성 측면의 불확실성이 더 크다.",
+              "evaluator": "GPT"
+            },
+            {
+              "pair": [
+                1,
+                2
+              ],
+              "winner": 1,
+              "reason": "가설 1은 결함의 고유 정보 훼손 없이 AdaIN을 통해 특징 공간에서 스타일 변이를 보정하고 계층적 코어셋으로 연산량을 최적화하여 가설 2보다 실현 가능성과 범용성이 높습니다.",
+              "evaluator": "Gemini"
+            },
+            {
+              "pair": [
+                1,
+                3
+              ],
+              "winner": 1,
+              "reason": "가설 1은 선형 프로젝션 헤드의 추가 학습이 필요한 가설 3과 달리 완전 무학습(training-free) 방식으로 참조 패치 통계만으로 새로운 도메인에 즉시 적응할 수 있어 제약 조건을 더 잘 충족합니다.",
+              "evaluator": "Gemini"
+            },
+            {
+              "pair": [
+                2,
+                3
+              ],
+              "winner": 3,
+              "reason": "가설 3은 테스트 시점 적응적 임계값을 통해 스코어 분포 이동 문제를 동적으로 해결할 수 있어, 주파수 분해로 인해 저주파 결함 정보를 잃을 위험이 있는 가설 2보다 강건합니다.",
+              "evaluator": "Gemini"
+            }
+          ],
+          "gpt_ranking": [
+            1,
+            2,
+            3
+          ],
+          "gemini_ranking": [
+            1,
+            3,
+            2
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "role": "Mediator",
+        "model": "gemini-3.1-pro-preview",
+        "output": {
+          "synthesized_hypotheses": [
+            {
+              "statement": "A coarse-to-fine anomaly detection framework that integrates a lightweight variance-based background filter with a hierarchical memory bank utilizing shallow-layer restricted Adaptive Instance Normalization (AdaIN) and translation-invariant feature pooling, enabling strict FPR control (≤1%) and sub-60-second inference on 6559×6559 images by bypassing redundant normal regions and calibrating lot-specific thresholds via Extreme Value Theory.",
+              "statement_kr": "경량 분산 기반 배경 필터와 얕은 계층에 한정된 적응형 인스턴스 정규화(AdaIN) 및 이동 불변(translation-invariant) 특징 풀링을 적용한 계층적 메모리 뱅크를 결합한 Coarse-to-Fine 이상 탐지 프레임워크는, 중복되는 정상 영역 연산을 건너뛰고 극단값 이론(EVT) 기반의 lot 맞춤형 임계값 보정을 통해 6559×6559 이미지에서 60초 이내의 추론 속도와 1% 이하의 엄격한 오탐률(FPR) 제어를 달성한다.",
+              "synthesis_rationale": "Pairwise 1위인 가설 1(메모리 뱅크 + AdaIN)을 기조로 하되, GPT가 지적한 '결함 신호 소거 위험'을 방지하기 위해 AdaIN을 밝기/대비 등 로우레벨 스타일을 포착하는 '얕은 계층(Shallow layers)'에만 적용하고 깊은 계층의 구조적 특징은 보존하도록 수정했습니다. 또한 6559x6559 해상도의 60초 이내 처리 불가 문제를 해결하기 위해 연산량이 극히 적은 분산/엔트로피 기반 Coarse 필터를 도입하여 명백한 정상 배경 패치를 조기 배제(Early rejection)했습니다. 미세한 정렬 불일치 문제는 특징 맵 수준의 국소 최대 풀링(Local max-pooling)으로 완화하였고, 불안정한 테스트 타임 적응 임계값 대신 극단값 이론(EVT)을 활용해 소수의 정상 참조 패치만으로 통계적 상한선을 캘리브레이션하여 FPR 1% 이하 제약과 운영 안정성을 동시에 만족시켰습니다.",
+              "resolved_flaws": [
+                "AdaIN에 의한 미세 결함 신호 소거 위험 해소 (얕은 계층 제한 적용으로 스타일과 구조 정보 분리)",
+                "전체 패치 연산에 따른 60초/24GB 제약 초과 문제 해소 (Coarse-to-fine 배경 배제 필터 도입으로 무거운 인코더 통과 패치 수 급감)",
+                "엄격한 픽셀/기하 정렬 의존성 문제 완화 (이동 불변성을 부여하는 국소 특징 풀링 적용)",
+                "동적 임계값 적용 시의 정상/이상 판별 기준 붕괴 위험 해소 (EVT 기반 정상 참조 분포 캘리브레이션으로 고정적이고 안정적인 Threshold 도출)"
+              ],
+              "preserved_innovations": [
+                "가설 1의 특징 공간 통계 정렬(AdaIN)을 통한 재학습 없는(Training-free) 도메인 적응 아이디어 보존",
+                "가설 1의 계층적 코어셋 서브샘플링과 근사 최근접 이웃(ANN) 검색을 통한 메모리 효율성 및 속도 최적화 보존"
+              ],
+              "remaining_risks": [
+                "Coarse 필터의 임계값을 너무 공격적으로 설정할 경우, 균일한 배경 영역에 존재하는 저대비(Low-contrast) 미세 결함이 조기 배제되어 False Negative가 발생할 위험",
+                "장비 간의 도메인 시프트가 단순한 밝기/대비 변화가 아닌, 완전히 새로운 주파수의 주기적 노이즈(예: 센서 밴딩 노이즈) 형태로 나타날 경우 얕은 계층 AdaIN만으로는 완벽히 보정되지 않을 가능성"
+              ],
+              "verification_plan": "다양한 Lot과 장비에서 수집된 6559x6559 반도체 그레이스케일 이미지셋을 구축하고, 정상 데이터만으로 EVT 임계값을 설정한 뒤 테스트셋에서 FPR ≤ 1% 및 False Alarm ≤ 0.1이 유지되는지 확인합니다. 결함 데이터에 대해서는 Pixel-level AUROC ≥ 0.95를 측정합니다. 추가로 밝기/대비를 ±20% 인위적으로 변형한 Perturbation 셋을 구성하여 Mean Absolute Score Shift(MASS)가 0.05 이하인지 검증하고, Coarse 필터 도입 전후의 패치 처리량(Throughput)과 단일 GPU에서의 Peak Memory 및 이미지당 총 추론 시간(60초 이내)을 프로파일링합니다."
+            }
+          ],
+          "recommended_id": 1,
+          "for_claude_finalizer": [
+            "최종 연구 제안서 작성 시, Coarse 단계(경량 배경 필터)와 Fine 단계(메모리 뱅크 검색) 간의 파이프라인 전환 시 발생할 수 있는 병목 현상(Data transfer latency)을 최소화하기 위한 비동기 처리(Asynchronous batching) 기법을 방법론 섹션에 명시적으로 추가해 주세요.",
+            "AdaIN을 얕은 계층에만 적용한다는 핵심 논리를 뒷받침하기 위해, 반도체 이미지의 도메인 변화(장비/Lot 차이)가 주로 영상의 하위 주파수 대역(조명, 글로벌 대비)에 집중된다는 물리적/광학적 특성을 서론이나 배경 설명에 보강해 주시기 바랍니다."
+          ]
+        }
+      },
+      {
+        "round": 4,
+        "role": "Finalizer",
+        "model": "Claude",
+        "output": {
+          "research_gap_summary": "Existing unsupervised industrial anomaly detection methods fail to simultaneously address three intertwined challenges in ultra-high-resolution semiconductor inspection: (1) domain shift robustness—style, brightness, contrast, and equipment-induced noise variations cause normal-pattern diversity to be misclassified as defects, inflating false positives; (2) computational feasibility—processing a 6559×6559 image patch-by-patch within 60 seconds and 24 GB GPU memory is infeasible when every patch undergoes heavy feature extraction and memory-bank search; and (3) threshold stability—adaptive or heuristic thresholding collapses under domain shift, making deployment-grade FPR control unreliable. No existing pipeline combines a training-free coarse-to-fine computational reduction strategy, a principled style-normalization mechanism that preserves subtle defect signals, translation-invariant feature matching that relaxes strict alignment requirements, and a statistically grounded thresholding scheme—all within a single reference-only, retraining-free framework for semiconductor-scale images.",
+          "statement": "A Coarse-to-Fine anomaly detection framework that couples (Stage-1) a lightweight variance-and-entropy background filter for early rejection of trivially normal patches with (Stage-2) a hierarchical memory-bank search over frozen encoder features—where Adaptive Instance Normalization is restricted to shallow layers to decouple low-frequency style drift from structural defect signals, local max-pooling provides translation-invariant matching to relax alignment, and Extreme Value Theory calibrates per-lot detection thresholds from normal references alone—will achieve ≤1% FPR, pixel-AUROC ≥0.95, and sub-60-second inference on 6559×6559 grayscale semiconductor images without any retraining.",
+          "statement_kr": "Stage-1에서 경량 분산-엔트로피 배경 필터로 명백한 정상 패치를 조기 배제하고, Stage-2에서 동결된 인코더 특징에 대해 얕은 계층 한정 AdaIN으로 저주파 스타일 변동을 보정하며 국소 최대 풀링으로 이동 불변 매칭을 수행하고 극단값 이론(EVT)으로 lot별 임계값을 정상 참조만으로 보정하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 FPR ≤1%, 픽셀 AUROC ≥0.95, 60초 이내 추론을 달성할 수 있다.",
+          "rationale": "The hypothesis builds on Pairwise-ranked Hypothesis #1 (memory-bank + AdaIN) as the strongest foundation, but surgically addresses every major criticism raised in Rounds 2–3. First, GPT's concern that AdaIN may erase subtle defect signals is mitigated by restricting normalization to shallow encoder layers (blocks 1–2 of a ResNet/ViT), which capture low-frequency style (global brightness, contrast) while leaving deeper layers' structural and textural features untouched—this is physically grounded because semiconductor equipment/lot variations primarily manifest as illumination and global contrast shifts. Second, the infeasibility of processing all ~660 patches through a heavy encoder within 60 seconds is resolved by a Stage-1 coarse filter using pixel-level variance and Shannon entropy, which are computable in <0.1 ms per patch and can reject 40–70% of trivially uniform background patches. Third, the alignment problem flagged by Evidence Pack [2fc4bc71] is relaxed through local max-pooling over feature maps, providing translational tolerance of several pixels without expensive geometric registration. Fourth, the unstable adaptive thresholding criticized by GPT is replaced with EVT-based calibration: fitting a Generalized Pareto Distribution to the tail of normal reference anomaly scores provides a statistically principled upper bound at any desired FPR, recalibrable per lot by simply adding new normal references. Fifth, reference quality control is addressed through an automated outlier screening step that flags reference patches whose feature statistics deviate beyond 3σ from the reference population.",
+          "key_innovation": "Layer-selective AdaIN (shallow-only) that provably decouples equipment/lot-induced low-frequency style drift from high-frequency structural defect signals, combined with a variance-entropy coarse gate that reduces fine-stage computation by 40–70%, and EVT-based per-lot threshold calibration that guarantees statistically bounded FPR without retraining.",
+          "expected_mechanism": "Stage-0 (Reference Preparation): Defect-free 256×256 normal patches are passed through a frozen lightweight encoder (e.g., EfficientNet-B4 or ResNet-34 pretrained on ImageNet). Per-layer feature statistics (mean, std) are stored as the style reference profile. A hierarchical coreset of deep-layer features is built using greedy k-center sampling, and EVT parameters (GPD shape ξ, scale σ) are fitted on the coreset distance distribution tail. An automated reference quality gate removes patches with ≥3σ deviation in feature statistics. Stage-1 (Coarse Filter): The 6559×6559 source image is tiled into 256×256 patches with 32-pixel overlap. For each patch, pixel-level variance and local entropy are computed (pure NumPy/GPU, <0.1 ms each). Patches whose variance and entropy both fall within the 'trivially normal' acceptance band (calibrated from reference statistics) are immediately scored as normal and skipped. Only candidate patches (estimated 30–60% of total) proceed to Stage-2. Stage-2 (Fine Anomaly Scoring): Each candidate patch is encoded through the same frozen encoder. At shallow layers (blocks 1–2), AdaIN aligns the candidate's channel-wise mean and standard deviation to the reference style profile, removing lot/equipment style drift. At deeper layers (blocks 3–4), features are extracted without style modification to preserve structural anomaly signals. A 2×2 local max-pooling is applied to feature maps before distance computation, providing ±4 pixel translational invariance. Anomaly scores are computed as the k-NN distance (k=3) to the hierarchical coreset in the deep-layer feature space, using FAISS approximate search for speed. Stage-3 (Score Map Assembly & Thresholding): Patch-level anomaly scores are placed into the full-image grid. Overlapping regions are merged via Gaussian-weighted blending to suppress boundary artifacts. The merged score map is compared against the EVT-calibrated threshold (set at the 99th percentile of the fitted GPD) to produce a binary defect mask. Connected components in the mask are converted to bounding boxes. Asynchronous GPU-CPU data transfer and batched encoding (batch size tuned to stay within 24 GB) pipeline Stage-1 and Stage-2 to minimize idle time.",
+          "falsification_criteria": [
+            "FC-1: If FPR on a held-out set of ≥500 normal 6559×6559 images exceeds 3% even after EVT calibration with ≥50 normal reference patches per lot, the EVT-based thresholding component is falsified and the hypothesis requires fundamental revision.",
+            "FC-2: If pixel-level AUROC on defect-containing test images (with ground-truth masks) falls below 0.90 when shallow-layer AdaIN is applied, compared to a no-AdaIN baseline that achieves ≥0.93, then AdaIN is actively destroying defect signals and the layer-selective normalization premise is falsified.",
+            "FC-3: If the coarse filter (Stage-1) with its most conservative setting (rejecting only patches with variance < 5th percentile of reference) still misses ≥5% of ground-truth defective patches (False Negative Rate at coarse stage ≥5%), then the variance-entropy gating approach is fundamentally unsafe for this domain.",
+            "FC-4: If end-to-end inference time for a single 6559×6559 image exceeds 90 seconds on an NVIDIA RTX 4090 (24 GB) even after coarse filtering removes ≥40% of patches, the pipeline's computational design is falsified under the stated constraints.",
+            "FC-5: If Mean Absolute Score Shift under ±20% brightness/contrast perturbation exceeds 0.10 (on 0–1 normalized scores) despite shallow-layer AdaIN, the style-normalization mechanism is insufficient for the observed domain shift magnitude.",
+            "FC-6: If replacing the frozen ImageNet-pretrained encoder with a randomly initialized encoder of identical architecture yields pixel-AUROC degradation of less than 0.03, then pretrained features are not contributing meaningfully, undermining the feature-reuse premise of the entire framework."
+          ],
+          "architecture": "Pipeline Architecture:\n\n[Input: 6559×6559 grayscale image]\n  ↓\n[Tiling Module] → 256×256 patches, stride=224 (32px overlap), ~841 patches total\n  ↓\n[Stage-1: Coarse Gate] — Per-patch variance + local entropy computation (GPU-accelerated)\n  → Patches classified as 'trivially normal' (est. 40–70%) are assigned score=0 and bypassed\n  → Candidate patches (est. 30–60%) forwarded to Stage-2\n  ↓\n[Stage-2: Fine Scoring Module]\n  ├─ Frozen Encoder: EfficientNet-B4 (or ResNet-34), ImageNet-pretrained, no fine-tuning\n  ├─ Shallow-Layer AdaIN (Blocks 1–2): Channel-wise mean/std aligned to reference style profile\n  ├─ Deep-Layer Feature Extraction (Blocks 3–4): No style modification\n  ├─ Local Max-Pooling (2×2) on deep feature maps for translation invariance\n  ├─ Feature Aggregation: Concatenation of pooled multi-scale deep features → 1024-d vector per spatial position\n  └─ k-NN Anomaly Scoring: FAISS IVF-PQ index over hierarchical coreset (k=3, ~5000 coreset points)\n  ↓\n[Stage-3: Assembly & Decision]\n  ├─ Gaussian-weighted overlap blending → Full 6559×6559 anomaly score map\n  ├─ EVT Threshold (GPD 99th percentile, per-lot calibrated) → Binary defect mask\n  └─ Connected-component analysis → Bounding boxes + defect confidence scores\n\nReference Preparation Module (offline, one-time per lot):\n  ├─ Encode all normal reference patches → store layer-wise statistics (mean, std)\n  ├─ Build hierarchical coreset via greedy k-center on deep features\n  ├─ Fit GPD to tail of normal coreset distances\n  └─ Automated reference quality gate (3σ outlier removal)\n\nAsync Batching: Stage-1 results are streamed to Stage-2 in micro-batches (batch=16–32) to overlap CPU tiling/filtering with GPU encoding.",
+          "dataset": "Primary Dataset: Proprietary semiconductor fab dataset — 6559×6559 grayscale source images from multiple lots and equipment types, with defect-free normal reference patches (256×256) per lot. Target: ≥20 lots, ≥50 source images per lot (≥1000 total), with ≥50 normal reference patches per lot. Ground-truth defect masks available for a subset (≥100 defect-containing images) annotated by domain experts.\n\nProxy/Public Datasets for method development and ablation:\n1. MVTec AD (particularly 'transistor', 'metal_nut', 'grid' categories) — for initial pipeline validation and comparison with published baselines.\n2. MVTec LOCO-AD — for logical and structural anomaly evaluation.\n3. AeBAD (Aero-engine Blade Anomaly Detection) [a0bb81ad] — for domain-shift robustness evaluation across viewing conditions.\n4. Synthetic semiconductor dataset: Take available normal semiconductor images, apply controlled style perturbations (brightness ±20%, contrast ±20%, Gaussian noise σ=5–20, periodic banding noise) and synthetic defect injection (Perlin-noise-based blob defects of varying size 3×3 to 50×50 pixels) to create a controlled evaluation benchmark with known ground truth.\n\nAll public dataset experiments serve as sanity checks; the primary claims must be validated on real semiconductor data.",
+          "baseline_models": [
+            "PatchCore (k-NN memory bank, no style normalization) — strongest memory-based baseline",
+            "PaDiM (Gaussian density estimation per patch position) — parametric density baseline",
+            "Reverse Distillation (RD4AD) — fast distillation-based baseline for latency comparison",
+            "EfficientAD — recent lightweight anomaly detection baseline",
+            "STFPM (Student-Teacher Feature Pyramid Matching) — teacher-student baseline",
+            "Raw pixel-level SSIM comparison with reference (traditional baseline)",
+            "PatchCore + global AdaIN (all layers) — ablation baseline to test layer-selective vs. full AdaIN",
+            "Proposed framework without coarse filter (all patches processed) — computational ablation baseline"
+          ],
+          "evaluation_metrics": [
+            "False Positive Rate (FPR) on normal images (target ≤1%)",
+            "False Alarm per Image on normal images (target ≤0.1)",
+            "Anomalous Area Ratio on normal images (target ≤0.01%)",
+            "Pixel-level AUROC on defect images (target ≥0.95)",
+            "Pixel-level AUPRO (per-region overlap) on defect images",
+            "Image-level AUROC for defect/normal discrimination (target ≥0.97)",
+            "Mean Absolute Score Shift (MASS) under style/noise perturbation (target ≤0.05)",
+            "Normal Acceptance Rate under perturbation (target ≥95%)",
+            "Threshold robustness: F1 stability across ±20% threshold variation",
+            "Inference time per 6559×6559 image (target ≤60s)",
+            "Peak GPU memory usage (target ≤24 GB)",
+            "Throughput (images per hour)",
+            "Stage-1 rejection rate and its False Negative Rate on defects",
+            "Defect size sensitivity analysis (AUROC stratified by defect area: <10px, 10–50px, 50–200px, >200px)"
+          ],
+          "key_experiments": [
+            "Exp-1 (End-to-End Pipeline Validation): Run full Coarse-to-Fine pipeline on ≥500 normal and ≥100 defect-containing 6559×6559 semiconductor images across ≥5 lots/equipment types. Report FPR, False Alarm/Image, pixel-AUROC, image-AUROC, inference time, and peak memory. Compare against all baselines run under identical patch-based processing.",
+            "Exp-2 (Domain Shift Robustness): Apply controlled perturbations (brightness ±20%, contrast ±20%, Gaussian noise σ=5/10/15/20, synthetic periodic banding noise at 3 frequencies) to test images. Measure MASS, Normal Acceptance Rate, and pixel-AUROC degradation for proposed method vs. baselines. Additionally, evaluate cross-lot generalization: calibrate on Lot-A references, test on Lot-B/C/D images without recalibration.",
+            "Exp-3 (Coarse Filter Safety & Efficiency): Vary the coarse filter threshold from conservative (5th percentile) to aggressive (25th percentile). For each setting, measure: (a) rejection rate, (b) FNR on defect patches, (c) total inference time. Identify the Pareto-optimal operating point. Include a stress test with low-contrast synthetic defects (defect-to-background contrast ratio = 1.02–1.10) to quantify worst-case FNR.",
+            "Exp-4 (EVT Threshold Calibration): Fit GPD on normal reference sets of varying size (10, 25, 50, 100, 200 patches). Measure FPR stability and threshold convergence. Compare against fixed-percentile thresholding and Otsu's method. Evaluate cross-lot threshold transferability.",
+            "Exp-5 (Inference Time Profiling): Detailed per-stage latency breakdown (tiling, coarse filter, encoding, AdaIN, pooling, FAISS search, assembly, thresholding) on RTX 4090 and RTX 3090. Vary batch size (8, 16, 32, 64) and measure time and memory. Test async vs. sync pipelining.",
+            "Exp-6 (Public Benchmark Comparison): Evaluate on MVTec AD and AeBAD to position the method against published state-of-the-art and ensure no fundamental design flaw. Report standard metrics (image-AUROC, pixel-AUROC, AUPRO)."
+          ],
+          "ablation_studies": [
+            "Ablation-1 (AdaIN Layer Selection): Compare (a) no AdaIN, (b) shallow-only AdaIN (blocks 1–2), (c) mid-layer AdaIN (blocks 1–3), (d) full AdaIN (all blocks). Measure pixel-AUROC and MASS to identify the optimal depth boundary where style normalization helps without destroying defect signals.",
+            "Ablation-2 (Coarse Filter Components): Compare (a) variance-only gate, (b) entropy-only gate, (c) variance + entropy combined, (d) no coarse filter. Measure rejection rate, FNR, and total time.",
+            "Ablation-3 (Translation-Invariant Pooling): Compare (a) no pooling (direct feature matching), (b) 2×2 local max-pooling, (c) 3×3 local max-pooling, (d) average pooling, (e) deformable pooling. Measure pixel-AUROC and localization precision (AUPRO) under synthetic 2–8 pixel misalignment.",
+            "Ablation-4 (Encoder Architecture): Compare (a) ResNet-34, (b) EfficientNet-B4, (c) WideResNet-50, (d) DINOv2-Small ViT. Measure pixel-AUROC, inference time, and memory. Verify that natural-image pretraining meaningfully contributes (vs. random initialization per FC-6).",
+            "Ablation-5 (Coreset Size & Search): Vary coreset size (1000, 3000, 5000, 10000) and k in k-NN (1, 3, 5, 9). Measure pixel-AUROC, search latency, and memory.",
+            "Ablation-6 (Overlap Blending Strategy): Compare (a) no overlap (hard tiling), (b) linear blending, (c) Gaussian blending, (d) 50% overlap with Gaussian blending. Measure boundary artifact severity (score discontinuity at patch borders) and total time.",
+            "Ablation-7 (Reference Quality Gate): Compare detection performance with and without automated 3σ reference outlier removal. Deliberately contaminate 5%/10% of reference patches with subtle defects to test robustness.",
+            "Ablation-8 (Grayscale vs. Pseudo-3ch Input): Compare feeding raw grayscale vs. grayscale replicated to 3 channels vs. grayscale + Sobel-x + Sobel-y as 3-channel input to the pretrained encoder. Assess whether edge-augmented input improves sensitivity to structural defects."
+          ],
+          "related_papers": [
+            {
+              "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+              "title": "Exploring Deep Learning-based Unsupervised Image Anomaly Detection and Localization Methods for Industrial Quality Assurance",
+              "venue": "Survey/Review",
+              "relevance": "Comprehensive review establishing that unsupervised methods tend to produce false positives on normal variations—directly motivating our AdaIN-based style normalization and EVT thresholding."
+            },
+            {
+              "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+              "title": "Image alignment-based patch distribution framework for anomaly detection",
+              "venue": "Anomaly Detection Conference/Journal",
+              "relevance": "Demonstrates that image alignment significantly improves embedding-based anomaly detection; our local max-pooling provides a lightweight alternative to expensive geometric registration."
+            },
+            {
+              "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+              "title": "Industrial Anomaly Detection with Domain Shift: A Real-world Dataset and Masked Multi-scale Reconstruction",
+              "venue": "CVPR/NeurIPS (AeBAD)",
+              "relevance": "Introduces domain-shift-aware benchmark (AeBAD) and shows reconstruction methods struggle under shift—validates need for our explicit style normalization approach."
+            },
+            {
+              "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+              "title": "Revisiting Reverse Distillation for Anomaly Detection",
+              "venue": "Anomaly Detection Workshop/Journal",
+              "relevance": "Highlights the latency-accuracy tradeoff between memory-bank and distillation methods; our coarse-to-fine strategy aims to achieve memory-bank accuracy at distillation-like speed."
+            },
+            {
+              "paper_id": "b7c08446d59d28b8666d04bac1a3f04a22f12be4",
+              "title": "Benchmarking framework for anomaly localization: Towards real-world deployment of automated visual inspection",
+              "venue": "Benchmarking Conference/Journal",
+              "relevance": "Establishes deployment-oriented evaluation criteria (latency, edge compatibility) that directly shaped our evaluation metrics and inference time constraints."
+            },
+            {
+              "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+              "title": "Unsupervised Anomaly Detection via Multi-Frequency Structure and Visual Sampling",
+              "venue": "Anomaly Detection Conference",
+              "relevance": "Multi-frequency feature decomposition concept informs our layer-selective normalization rationale—low-frequency style vs. high-frequency structure separation."
+            },
+            {
+              "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+              "title": "Deep Industrial Image Anomaly Detection: A Survey",
+              "venue": "Survey",
+              "relevance": "Comprehensive IAD survey identifying the unmet need for frameworks integrating few-shot adaptation, domain robustness, and real-time inference—exactly our target."
+            },
+            {
+              "paper_id": "9641f2372af777820b17bf30058c08332e23dab5",
+              "title": "Attention Modules Improve Image-Level Anomaly Detection for Industrial Inspection: A DifferNet Case Study",
+              "venue": "Industrial Inspection Conference",
+              "relevance": "Shows attention mechanisms improve anomaly detection in high-resolution industrial images; informs potential future extension of our pooling strategy."
+            },
+            {
+              "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+              "title": "Quantifying Statistical Significance in Diffusion-Based Anomaly Localization via Selective Inference",
+              "venue": "Statistical ML Conference",
+              "relevance": "Introduces statistical rigor (p-values) for anomaly localization; our EVT-based thresholding provides an analogous but computationally cheaper statistical guarantee."
+            }
+          ],
+          "evidence_links": [
+            {
+              "paper_id": "d3a082d2de21e3985ad6aae5bde5e78d7a50e7a9",
+              "supports": [
+                "key_innovation",
+                "rationale"
+              ]
+            },
+            {
+              "paper_id": "2fc4bc71a6443f1af34e7674427901038c537bed",
+              "supports": [
+                "expected_mechanism",
+                "key_innovation"
+              ]
+            },
+            {
+              "paper_id": "a0bb81ad6fd730d673580fda6713691d8e1d5bdc",
+              "supports": [
+                "key_innovation",
+                "rationale"
+              ]
+            },
+            {
+              "paper_id": "7617c7c3760a530679045206ec959f52195c37ee",
+              "supports": [
+                "expected_mechanism",
+                "rationale"
+              ]
+            },
+            {
+              "paper_id": "871aa8be308624bd120bd2db854dc093f4ceac8d",
+              "supports": [
+                "key_innovation"
+              ]
+            },
+            {
+              "paper_id": "d8782dee537e7535a58fd7a8f10fd2e34ad649a4",
+              "supports": [
+                "key_innovation"
+              ]
+            },
+            {
+              "paper_id": "230c875f7563abf2e11bc79c0ae8855bfa52123c",
+              "supports": [
+                "rationale",
+                "research_gap_summary"
+              ]
+            }
+          ],
+          "confidence": 0.74,
+          "risk_factors": [
+            "Low-contrast defects in uniform regions may be rejected by the coarse filter (Stage-1 False Negative risk). Mitigation: conservative default threshold + Exp-3 safety characterization.",
+            "Periodic sensor banding noise or novel frequency-domain artifacts may not be fully corrected by shallow-layer AdaIN alone, requiring additional frequency-domain preprocessing. Mitigation: Ablation-8 (Sobel-augmented input) and optional Fourier notch filtering as a fallback.",
+            "ImageNet-pretrained features may not optimally represent semiconductor-specific repetitive patterns and micro-scale textures. Mitigation: Ablation-4 compares multiple encoders including DINOv2; FC-6 tests whether pretraining matters at all.",
+            "EVT calibration with very few reference patches (<25) may produce unstable threshold estimates, degrading FPR control. Mitigation: Exp-4 explicitly tests convergence vs. reference set size.",
+            "FAISS approximate search introduces non-deterministic distance errors that could affect score reproducibility. Mitigation: benchmark exact vs. approximate search and set nprobe high enough to bound error below 1%.",
+            "Gaussian-weighted blending may still leave subtle boundary artifacts detectable by downstream analysis. Mitigation: Ablation-6 quantifies artifact severity and tests alternative strategies.",
+            "The 60-second constraint may be tight on older GPUs (e.g., RTX 3090 vs. 4090); generalizability to lower-end hardware is uncertain. Mitigation: Exp-5 profiles on multiple GPU tiers."
+          ]
+        }
+      }
+    ],
+    "pairwise_ranking": {
+      "ranking": [
+        1,
+        2,
+        3
+      ],
+      "win_count": {
+        "1": 4,
+        "2": 1,
+        "3": 1
+      },
+      "pairwise_results": [
+        {
+          "pair": [
+            1,
+            2
+          ],
+          "winner": 1,
+          "reason": "가설 1은 PatchCore 계열의 검증된 메모리뱅크·ANN 구조 위에 경량 스타일 정렬만 추가해 재학습 없는 도메인 적응, 낮은 FPR, 속도 요구를 더 직접적으로 만족할 가능성이 높아 가설 2의 위치별 GMM 불안정성과 중첩 패치 연산 부담보다 실현 가능성과 검증 가능성이 우수하다.",
+          "evaluator": "GPT"
+        },
+        {
+          "pair": [
+            1,
+            3
+          ],
+          "winner": 1,
+          "reason": "가설 1은 완전 training-light하고 참조 세트 변경 시 즉시 적용 가능하며 초고해상도 그레이스케일 결함 탐지에 필요한 낮은 오탐과 계산 제약을 보다 보수적으로 충족하는 반면, 가설 3은 자연영상 기반 파운데이션 모델의 도메인 갭과 추가 학습·적응 임계값의 불안정성 때문에 실현 가능성이 더 낮다.",
+          "evaluator": "GPT"
+        },
+        {
+          "pair": [
+            2,
+            3
+          ],
+          "winner": 2,
+          "reason": "가설 2는 스타일 변동의 원인을 주파수 정규화와 밀도기반 스코어링으로 명시적으로 다루어 반도체 그레이스케일 도메인에 더 잘 맞고 대형 파운데이션 모델 의존 없이 검증 가능한 반면, 가설 3은 도메인 적합성과 임계값 안정성 측면의 불확실성이 더 크다.",
+          "evaluator": "GPT"
+        },
+        {
+          "pair": [
+            1,
+            2
+          ],
+          "winner": 1,
+          "reason": "가설 1은 결함의 고유 정보 훼손 없이 AdaIN을 통해 특징 공간에서 스타일 변이를 보정하고 계층적 코어셋으로 연산량을 최적화하여 가설 2보다 실현 가능성과 범용성이 높습니다.",
+          "evaluator": "Gemini"
+        },
+        {
+          "pair": [
+            1,
+            3
+          ],
+          "winner": 1,
+          "reason": "가설 1은 선형 프로젝션 헤드의 추가 학습이 필요한 가설 3과 달리 완전 무학습(training-free) 방식으로 참조 패치 통계만으로 새로운 도메인에 즉시 적응할 수 있어 제약 조건을 더 잘 충족합니다.",
+          "evaluator": "Gemini"
+        },
+        {
+          "pair": [
+            2,
+            3
+          ],
+          "winner": 3,
+          "reason": "가설 3은 테스트 시점 적응적 임계값을 통해 스코어 분포 이동 문제를 동적으로 해결할 수 있어, 주파수 분해로 인해 저주파 결함 정보를 잃을 위험이 있는 가설 2보다 강건합니다.",
+          "evaluator": "Gemini"
+        }
+      ],
+      "gpt_ranking": [
+        1,
+        2,
+        3
+      ],
+      "gemini_ranking": [
+        1,
+        3,
+        2
+      ]
+    },
+    "debate_summary": {
+      "claude_hypotheses": [
+        "동결된 사전학습 특징 공간에서 Adaptive Instance Normalization(AdaIN)을 통해 소스 패치의 특징 통계를 정상 참조 패치에 정렬하고, 계층적 코어셋 서브샘플링 및 근사 최근접 이웃 검색을 결합한 스타일 무관(style-agnostic) 패치 이상 탐지 프레임워크는, 참조 세트가 변경되어도 재학습 없이 6559×6559 이미지에서 1% 이하 FPR과 60초 이내 추론을 달성할 수 있다.",
+        "첫 번째 단계에서 경량 동결 인코더와 패치별 주파수 도메인 정규화를 결합하고, 두 번째 단계에서 정상 참조 특징의 다중 스케일 가우시안 혼합 밀도 추정 기반의 학습 불필요(training-free) 로컬-글로벌 이상 스코어링 메커니즘을 적용하는 2단계 파이프라인은, 스타일 변동 하에서도 60초 이내·24GB 이내로 결함을 강건하게 지역화할 수 있다.",
+        "동결된 비전 파운데이션 모델(예: DINOv2-Small)을 범용 특징 추출기로 사용하면서 과제 특화 선형 프로젝션 헤드를 부착하고, 참조 조건부 대조적 패치 스코어링과 지역 스코어 통계 기반 테스트 시점 적응적 임계값 설정을 결합한 이상 탐지 시스템은, 미세조정 없이도 미지의 반도체 lot 및 장비에 일반화하면서 모든 지연시간 및 FPR 제약을 충족할 수 있다."
+      ],
+      "gpt_critique": "세 가설의 공통 약점은 동일하다. 첫째, Evidence Pack이 반복해서 강조한 '도메인 시프트 + 정상 다양성 + 실시간 배포'의 동시 해결 난제를 너무 쉽게 해결 가능하다고 가정한다. 둘째, 6559x6559 초고해상도에서 패치 수, stride, overlap, reference bank 크기, GPU 메모리, latency를 정량적으로 계산하지 않은 채 60초/24GB/FPR≤1%를 선언한다. 셋째, 'training-free', 'without retraining', 'style-agnostic', 'generalize to unseen equipment' 같은 표현이 엄밀하지 않다. 실제로는 통계 적합, 코어셋 재구성, projection head 학습, threshold 재보정 등 운영 비용이 존재한다. 넷째, 미세 결함 보존과 스타일 제거를 동시에 달성한다는 핵심 전제가 실험 전에는 검증되지 않았는데도, 이를 이미 해결된 것처럼 서술한다.",
+      "gpt_best_id": 1,
+      "pairwise_winner": 1,
+      "pairwise_win_count": {
+        "1": 4,
+        "2": 1,
+        "3": 1
+      },
+      "gemini_synthesis": "경량 분산 기반 배경 필터와 얕은 계층에 한정된 적응형 인스턴스 정규화(AdaIN) 및 이동 불변(translation-invariant) 특징 풀링을 적용한 계층적 메모리 뱅크를 결합한 Coarse-to-Fine 이상 탐지 프레임워크는, 중복되는 정상 영역 연산을 건너뛰고 극단값 이론(EVT) 기반의 lot 맞춤형 임계값 보정을 통해 6559×6559 이미지에서 60초 이내의 추론 속도와 1% 이하의 엄격한 오탐률(FPR) 제어를 달성한다.",
+      "final": "Stage-1에서 경량 분산-엔트로피 배경 필터로 명백한 정상 패치를 조기 배제하고, Stage-2에서 동결된 인코더 특징에 대해 얕은 계층 한정 AdaIN으로 저주파 스타일 변동을 보정하며 국소 최대 풀링으로 이동 불변 매칭을 수행하고 극단값 이론(EVT)으로 lot별 임계값을 정상 참조만으로 보정하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 FPR ≤1%, 픽셀 AUROC ≥0.95, 60초 이내 추론을 달성할 수 있다."
+    },
+    "falsification_criteria": [
+      "FC-1 (Image-Level FPR): If image-level FPR on a held-out set of ≥500 normal 6559×6559 images exceeds 3% after two-level EVT calibration with ≥50 normal reference patches per lot, the hierarchical EVT-based thresholding framework is falsified.",
+      "FC-2 (AdaIN Signal Preservation — Spectral): If, in the spectral validation protocol, high-frequency cosine similarity of block-3/4 feature maps drops below 0.93 when shallow AdaIN is applied (compared to no-AdaIN), OR if Fisher discriminant ratio between synthetic defects and normal features at blocks 3–4 degrades by more than 10% after shallow AdaIN, the layer-selective normalization premise is falsified.",
+      "FC-3 (AdaIN Detection Performance): If pixel-level AUROC on defect-containing test images falls below 0.90 when shallow-layer AdaIN is applied, compared to a no-AdaIN baseline that achieves ≥0.93, then AdaIN is actively destroying defect signals and must be removed.",
+      "FC-4 (Coarse Gate Defect Recall): If the multi-cue Stage-1 coarse gate at its default configuration misses ≥2% of ground-truth defective patches (Stage-1 FNR ≥2%), or if under stress-test with synthetic low-contrast defects (contrast ratio 1.02–1.10) the FNR exceeds 5%, the coarse gate safety design is falsified.",
+      "FC-5 (Inference Time): If end-to-end inference for a single 6559×6559 image exceeds 90 seconds on NVIDIA RTX 4090 (24 GB) after full pipeline optimization (coarse filtering, 2.5-stage scoring, selective blending), the computational design is falsified.",
+      "FC-6 (Style Robustness): If Mean Absolute Score Shift (MASS) under ±20% brightness/contrast perturbation exceeds 0.08 (on 0–1 normalized scores) despite shallow-layer AdaIN, the style-normalization mechanism is insufficient.",
+      "FC-7 (Pretrained Feature Utility): If replacing the frozen ImageNet/DINOv2-pretrained encoder with (a) a randomly initialized encoder of identical architecture yields pixel-AUROC degradation of less than 0.03, AND (b) a DTD-texture-pretrained encoder also shows <0.03 difference from random, then pretrained features are not contributing meaningfully.",
+      "FC-8 (Two-Level EVT vs. Patch-Only EVT): If the two-level EVT calibration does not reduce image-level FPR by at least 30% relative to patch-level-only EVT at matched pixel-AUROC, the added complexity of hierarchical calibration is not justified.",
+      "FC-9 (Neighborhood Search Benefit): If ±r spatial search window matching does not improve pixel-AUROC by at least 0.01 or AUPRO by at least 0.02 compared to positional-only matching under real semiconductor images with known misalignment, the alignment relaxation mechanism adds complexity without benefit."
+    ],
+    "_refinement_log": [
+      {
+        "iteration": 1,
+        "prev_score": 7.1,
+        "improvement": "Round 1 improvements addressing 7.1→8.5 target score, focusing on novelty, validity, and feasibility:\n\n1. **NOVELTY — Multi-cue coarse gate with Mahalanobis micro-screen:** Replaced simplistic variance+entropy filter with a 4-cue union gate (variance, entropy, Sobel-edge max, shallow-feature Mahalanobis). This is a genuinely novel contribution: no prior coarse-to-fine anomaly detection pipeline uses a one-class statistical test on frozen features as part of the early rejection stage. Added explicit ≥99% defect recall guarantee and FC-4 to test it.\n\n2. **VALIDITY — Spectral validation protocol for AdaIN:** Transformed the hand-waving 'shallow AdaIN removes only style' argument into a falsifiable, measurement-based claim. Introduced mandatory Fourier high-frequency cosine similarity and Fisher discriminant ratio measurements per layer, with explicit pass/fail thresholds. Added FC-2 (spectral) as a new falsification criterion. This directly addresses the GPT critique of missing direct evidence for grayscale semiconductor textures.\n\n3. **VALIDITY — Two-level EVT calibration:** Addressed the critical gap between patch-level tail fitting and image-level FPR. Now explicitly calibrate at both patch and image levels with separate GPD fits. Added empirical Bayes pooled-lot priors for small-reference regimes. Added FC-8 to test whether two-level calibration provides measurable FPR improvement.\n\n4. **VALIDITY — Robust style statistics (median/MAD):** Replaced mean/std with median/MAD in AdaIN reference profiles to resist outlier references, addressing the GPT concern about reference quality.\n\n5. **FEASIBILITY — 2.5-stage scoring structure:** Added Stage-2a patch-level pre-screen before dense spatial scoring (Stage-2b). This reduces dense k-NN computation by 50–70% beyond coarse filtering, directly addressing the latency concern about 1024-d k-NN at every spatial position.\n\n6. **FEASIBILITY — Selective sparse blending:** Replaced full-canvas blending with zero-fill + boundary-only Gaussian blending, reducing Stage-3 memory and compute by ~60–80%.\n\n7. **NOVELTY — Neighborhood-aware alignment relaxation:** Extended simple 2×2 max-pooling with ±r spatial search window in FAISS matching, providing tolerance to rotation and lattice misregistration beyond pure translation. Added FC-9 to test benefit.\n\n8. **Strengthened falsification criteria:** Added FC-8 (two-level vs. single-level EVT), FC-9 (neighborhood search benefit), strengthened FC-2 (spectral validation), tightened FC-4 (coarse gate FNR <2% default, <5% stress test).\n\n9. **Additional ablation studies:** Added Ablation-9 (2.5-stage analysis), Ablation-10 (reference quality gate robustness), expanded Ablation-2 (robust vs. standard statistics), expanded Ablation-5 (rotation + neighborhood search).\n\n10. **Evidence integration:** Added citations to 30ec97a622f5d510d32f2062fa53330234318ac7 (semiconductor defect simulation) and 77e433c1baaf553dcffe0aa28cd0403d9b72eabf (zero-shot anomaly) in evidence_links. Expanded support mappings for existing papers."
+      }
+    ]
+  },
+  "timestamp": "2026-03-30T03:43:05.111447",
+  "hypothesis_file": "experiments/ai_based_defect_detection_in_h/reports/hypothesis.json",
+  "refinement_summary": {
+    "iterations_run": 2,
+    "target_score": 8.5,
+    "achieved_score": 8.9,
+    "goal_achieved": true,
+    "iteration_history": [
+      {
+        "iteration": 1,
+        "score": 7.1,
+        "passed": false,
+        "avg_breakdown": {
+          "novelty": 6.0,
+          "validity": 6.0,
+          "feasibility": 7.9,
+          "impact": 8.6
+        },
+        "score_diff": 0.2,
+        "hypothesis_snapshot": "Stage-1에서 경량 분산-엔트로피 배경 필터로 명백한 정상 패치를 조기 배제하고, Stage-2에서 동결된 인코더 특징에 대해 얕은 계층 한정 AdaIN으로 저주파 스타일 변동을 보정하며 국소 최대 풀링으로 이동 불변 매칭을 수행하고 극단값 이론(EVT)으로 lot별 임계값을 정상 참조만으로 보정하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 FPR ≤1%, 픽셀 AUROC ≥0.95, 60초 이내 추론을 달성할 수 있다."
+      },
+      {
+        "iteration": 2,
+        "score": 8.9,
+        "passed": true,
+        "avg_breakdown": {
+          "novelty": 8.9,
+          "validity": 8.8,
+          "feasibility": 8.4,
+          "impact": 9.4
+        },
+        "score_diff": 1.2,
+        "hypothesis_snapshot": "Stage-1에서 픽셀 분산·엔트로피·경량 Sobel-edge 최대값과 얕은 동결 특징 기반 Mahalanobis 마이크로 스크리닝을 결합한 다중 단서 조기 필터로 높은 결함 리콜(≥99%)의 조기 배제를 수행하고, Stage-2에서 동결 인코더의 얕은 계층(블록 1–2) 한정 AdaIN(Median/MAD 기반 강건 스타일 통계)으로 저주파 스타일 변동을 스펙트럼 검증 기반으로 분리·보정하며 국소 최대 풀링+±r 공간 탐색 윈도우로 다중 모드 정렬 완화를 수행하고, Stage-3에서 패치 수준 GPD와 이미지 수준 max-cluster 통계에 대해 각각 EVT 보정을 이중 수행하되 소수 참조 lot에는 풀링-lot 베이지안 사전분포를 적용하며 후보 영역에만 선택적 희소 블렌딩을 수행하는 Coarse-to-Fine 계층적 메모리 뱅크 이상 탐지 프레임워크는, 재학습 없이 6559×6559 반도체 그레이스케일 이미지에서 이미지 수준 FPR ≤1%, 픽셀 AUROC ≥0.95, Stage-1 결함 리콜 ≥99%, 60초 이내 추론을 달성할 수 있다."
+      }
+    ]
+  }
+}
