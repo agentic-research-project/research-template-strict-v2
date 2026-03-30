@@ -296,17 +296,35 @@ jobs:
         working-directory: ${{ env.EXPERIMENT_PKG }}
         run: mkdir -p artifacts/checkpoints artifacts/logs artifacts/metrics
 
+      - name: Resolve project directory
+        run: |
+          PKG_BASE="${{ inputs.project_dir || vars.PROJECT_DIR }}"
+          if [ -z "$PKG_BASE" ]; then
+            PKG_BASE=$(docker exec ${{ env.CONTAINER_NAME }} bash -lc "
+              find / -maxdepth 6 -name '.git' -type d \
+                -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' \
+                -not -path '/run/*' -not -path '/tmp/*' 2>/dev/null | \
+              while read p; do
+                dir=\$(dirname \$p)
+                if git -C \$dir remote -v 2>/dev/null | grep -q 'agentic-research-project/research-ATI-strict-v2'; then
+                  echo \$dir; break
+                fi
+              done" 2>/dev/null || echo "")
+          fi
+          echo "TRAIN_PKG_BASE=${PKG_BASE}" >> "$GITHUB_ENV"
+          echo "=== train project_dir: ${PKG_BASE} ==="
+
       - name: Run training
         run: |
-          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc "
             set -o pipefail
-            cd "${{ env.PROJECT_DIR }}/${{ env.EXPERIMENT_PKG }}"
+            cd \"${TRAIN_PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             mkdir -p artifacts/logs
             conda run -n ${{ env.CONDA_ENV_NAME }} \
               python train.py --config ${{ env.CONFIG_FILE }} \
               2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
-          '
+          "
 
       - name: Validate and extract METRICS output
         working-directory: ${{ env.EXPERIMENT_PKG }}
