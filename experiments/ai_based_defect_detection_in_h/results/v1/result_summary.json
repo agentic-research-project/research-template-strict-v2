@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
-  "run_id": "ai_based_defect_detection_in_h_v1_20260330_035637",
+  "run_id": "ai_based_defect_detection_in_h_v1_20260330_051401",
   "spec_id": "ai_based_defect_detection_in_h_v1_20260330_035621",
   "hypothesis_id": "91e30adb",
   "experiment_version": 1,
-  "status": "smoke_failed",
+  "status": "failed",
   "primary_metric": {
     "name": "false_positive_rate",
     "value": 0.0,
@@ -62,9 +62,9 @@
     {
       "path": "A",
       "priority": "high",
-      "rationale": "execution failure (smoke_failed) requires implementation fix",
+      "rationale": "execution failure (failed) requires implementation fix",
       "evidence": [
-        "status=smoke_failed"
+        "status=failed"
       ]
     }
   ],
@@ -95,23 +95,23 @@
     "suggested_reframe": ""
   },
   "stderr_tail": [
-    "dispatch 실패 - git push 오류: git push 실패: To https://github.com/YunhyoungNam/agentic_research.git\n ! [rejected]        main -> main (non-fast-forward)\nerror: failed to push some refs to 'https://github.com/YunhyoungNam/agentic_research.git'\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. If you want to integrate the remote changes,\nhint: use 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details."
+    "workflow 실패: conclusion=cancelled dispatch_id=train_b23b323b052d url=https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23729024536"
   ],
   "stdout_tail": [],
   "runner_metadata": {
     "runner": "github",
-    "job_id": "",
+    "job_id": "23729024536",
     "pipeline_id": "",
-    "dispatch_id": "smoke_6796cccd728e",
+    "dispatch_id": "train_b23b323b052d",
     "duration_s": 0.0,
     "artifact_uri": "",
-    "job_url": "",
-    "git_sha": "",
+    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23729024536",
+    "git_sha": "23d4bb69f1e566a06f64bae0aefc42b07c2a85fe",
     "git_branch": "",
     "experiment_pkg": "experiments/ai_based_defect_detection_in_h/runs/v1",
     "started_at": "",
     "finished_at": ""
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-30T03:56:37.614515"
+  "created_at": "2026-03-30T05:14:01.237635"
 }
