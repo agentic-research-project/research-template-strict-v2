@@ -390,7 +390,7 @@ class GitHubActionsRunner(BaseRunner):
         if not (token and owner and repo):
             detected = self._detect_from_git_remote()
 
-        self.token         = token or os.environ.get("GITHUB_TOKEN", "") or detected.get("token", "")
+        self.token         = (token or os.environ.get("GITHUB_TOKEN", "") or detected.get("token", "")).strip()
         self.owner         = owner or os.environ.get("GITHUB_OWNER", "") or detected.get("owner", "")
         self.repo          = repo  or os.environ.get("GITHUB_REPO", "")  or detected.get("repo", "")
         self.ref           = ref
