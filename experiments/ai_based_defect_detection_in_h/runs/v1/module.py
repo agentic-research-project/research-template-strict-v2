@@ -138,12 +138,10 @@ class TrainingModule:
         self.model.train()
         out = self.model(imgs)                     # [B, proj_dim] when not fitted
         if isinstance(out, dict):
-            # If model is already fitted, grab the projection from dict
-            proj = out.get("projection", None)
+            # Model is fitted — grab projection from dict (key is 'proj')
+            proj = out.get("proj", None)
             if proj is None:
-                # Fallback: run projection_head directly
-                with torch.no_grad():
-                    from model import build_model  # noqa
+                # No gradient path available — return zero loss
                 return torch.tensor(0.0, requires_grad=True,
                                     device=imgs.device)
         else:

@@ -142,19 +142,21 @@ class MemoryBank:
     def fit(self, features):
         """Fit memory bank with reference features"""
         if isinstance(features, torch.Tensor):
-            self.memory_features = features.detach().cpu().numpy()
+            # Cast to float32 first — BFloat16 is not numpy-compatible
+            self.memory_features = features.detach().cpu().float().numpy()
         else:
-            self.memory_features = np.array(features)
+            self.memory_features = np.array(features, dtype=np.float32)
         self.memory_size = len(self.memory_features)
         print(f"Memory bank fitted with {self.memory_size} features")
-    
+
     def query(self, query_features, k=None):
         """Query k-nearest neighbors using L2 distance"""
         if k is None:
             k = self.k
-        
+
         if isinstance(query_features, torch.Tensor):
-            query_features = query_features.detach().cpu().numpy()
+            # Cast to float32 first — BFloat16 is not numpy-compatible
+            query_features = query_features.detach().cpu().float().numpy()
         
         if self.memory_features is None:
             raise ValueError("Memory bank not fitted")
