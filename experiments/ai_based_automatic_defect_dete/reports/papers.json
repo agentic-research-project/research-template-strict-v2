@@ -1,0 +1,782 @@
+{
+  "timestamp": "2026-03-30T07:02:11.437439",
+  "topic": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
+  "query_keywords": [
+    "source ultra high Input 6559x6559",
+    "Develop light anomaly False Positive",
+    "anomaly detection semiconductor wafer defect normal-only",
+    "unsupervised defect localization high-resolution industrial image patch-based",
+    "PatchCore PaDiM industrial anomaly detection inference efficiency",
+    "training-free anomaly detection feature memory bank industrial inspection",
+    "source images ultra high",
+    "based automatic Input 6559x6559 grayscale",
+    "based automatic False Positive Rate on Normal Images",
+    "based automatic False Alarm per Image",
+    "based automatic Anomalous Area Ratio on Normal Images",
+    "state-of-the-art system should generate",
+    "benchmark anomaly detection semiconductor wafer defect normal-only",
+    "based automatic mechanism",
+    "based automatic how it works",
+    "based automatic prior work",
+    "based automatic previous approach",
+    "based automatic limitation failure",
+    "based automatic does not work",
+    "based automatic failure mode",
+    "based automatic common pitfalls",
+    "based automatic deployment Input 6559x6559"
+  ],
+  "year_range": "2019~2026",
+  "search_log": [
+    "2025-2026: 0편",
+    "2023-2024: 8편 추가",
+    "2021-2022: 0편 추가",
+    "2019-2020: 16편 추가"
+  ],
+  "total_found": 24,
+  "papers": [
+    {
+      "paper_id": "c7a54be535e0d1f2715b214e598109e05e6f7507",
+      "title": "Combating the Challenges of False Positives in AI-Driven Anomaly Detection Systems and Enhancing Data Security in the Cloud",
+      "authors": [
+        "O. Olateju",
+        "Samuel Ufom Okon",
+        "Udochukwu ThankGod Ikechukwu Igwenagu",
+        "Abidemi Ayodotun Salami",
+        "Tunbosun Oyewale Oladoyinbo"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Anomaly detection is critical for network security, fraud detection, and system health monitoring applications. Traditional methods like statistical approaches and distance-based techniques often struggle with high-dimensional and complex data, leading to high false positive rates. This study addresses the challenge by investigating advanced AI-driven techniques to reduce false positives and enhance data security within cloud computing environments. This study employs deep learning models, integ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Asian Journal of Research in Computer Science",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "evaluation_metrics",
+        "failure_modes"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "AI 기반 이상 탐지 시스템에서 false positive 감소 기법을 다루며, 연구 맥락의 False Positive Rate 지표 및 실배포 시 false positive 문제와 간접적으로 관련된다.",
+      "rank": 1
+    },
+    {
+      "paper_id": "a518c06bb991b2f205b0930fd993021a086eb5fc",
+      "title": "Ball-Grid-Array Chip Defects Detection and Classification Using Patch-based Modified YOLOv3",
+      "authors": [
+        "Phong-Phu Le",
+        "Shu-Mei Guo",
+        "Ju-Chin Chen",
+        "J. Lien"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "The tiny size of defects and the noise information in the Ball-Grid-Array (BGA) Chip images have been challenging the image-processing based visual inspection systems in the Integrated Circuit (IC) manufacturing industry. Moreover, the gradient vanishing and high time-consuming problems of deep neural network models are a big obstacle for its application to solve industrial projects. This paper focuses on proposing a modified version of the YOLOv3 model, a leading object detection and classifica",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International Conference on Technologies and Applications of Artificial Intelligence",
+      "source": "SemanticScholar",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "BGA 칩의 고해상도 이미지에서 패치 기반 분할 전략과 수정된 YOLOv3를 사용한 결함 검출로, 반도체 패키징 영역의 패치 기반 결함 탐지 선행 연구에 해당한다.",
+      "rank": 2
+    },
+    {
+      "paper_id": "523c255ebabb3fc4667c2eea290ff11cb08ef0fa",
+      "title": "THE APPLICATION OF A LARGE LANGUAGE MODEL FOR REDUCING FALSE POSITIVES IN ANOMALY DETECTION TASKS IN NETWORK TRAFFIC",
+      "authors": [
+        "I. Bolodurina",
+        "D.A. Nefedov"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Every year, network threats become more sophisticated and complex, which requires researchers in the field of network security to seek and develop new and more advanced methods for detec¬ting security threats. Despite the fact that constant research is being conducted in this area and researchers are improving machine learning algorithms, false positive triggers of intrusion detection systems remain a significant problem. In this regard, the development of methods and approaches to reduce the nu",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Bulletin of the South Ural State University. Ser. Computer Technologies, Automatic Control &amp; Radioelectronics",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "failure_modes"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "네트워크 트래픽에서의 false positive 감소를 위한 LLM 활용으로, 도메인이 완전히 달라 맥락적 참고에 불과하다.",
+      "rank": 3
+    },
+    {
+      "paper_id": "190b078f13a33d6916076f6ac24179c93fc7d695",
+      "title": "Reducing false positive rate with the help of scene change indicator in deep learning based real-time face recognition systems",
+      "authors": [
+        "Mehmet Ali Kutlugün",
+        "Yahya Şirin"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "In face recognition systems, light direction, reflection, and emotional and physical changes on the face are some of the main factors that make recognition difficult. Researchers continue to work on deep learning-based algorithms to overcome these difficulties. It is essential to develop models that will work with high accuracy and reduce the computational cost, especially in real-time face recognition systems. Deep metric learning algorithms called representative learning are frequently preferr",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Multimedia tools and applications",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "failure_modes"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "얼굴 인식에서 조명·반사 변화에 따른 false positive 감소 기법을 다루며, 스타일/노이즈 변동에 대한 강건성 문제와 개념적으로만 관련된다.",
+      "rank": 4
+    },
+    {
+      "paper_id": "f9d1ca07a38bbcac53da259fcaf77773270c5e9c",
+      "title": "Detection Defect in Printed Circuit Boards using Unsupervised Feature Extraction Upon Transfer Learning",
+      "authors": [
+        "I. Volkau",
+        "A. Mujeeb",
+        "Wenting Dai",
+        "Marius Erdt",
+        "A. Sourin"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "Automatic optical inspection for manufacturing traditionally was based on computer vision. However, there are emerging attempts to do it using deep learning approach. Deep convolutional neural network allows to learn semantic image features which could be used for defect detection in products. In contrast to the existing approaches where supervised or semi-supervised training is done on thousands of images of defects, we investigate whether unsupervised deep learning model for defect detection c",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "International Conference on Cyberworlds",
+      "source": "SemanticScholar",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints",
+        "baseline_models"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "PCB 결함 탐지에 비지도 특징 추출과 전이학습을 활용하여 결함 라벨 없이 검출하는 접근으로, normal-only/unsupervised 기반 산업 결함 탐지의 직접적 선행 연구이다.",
+      "rank": 5
+    },
+    {
+      "paper_id": "35daf12c89c3a19804b078239f84b3fd2f1a7030",
+      "title": "GPU Accelerated Anomaly Detection of Large Scale Light Curves",
+      "authors": [
+        "Austin Chase Minor",
+        "Zhihui Du",
+        "Yankui Sun",
+        "David A. Bader",
+        "Chao Wu"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "Identifying anomalies in millions of stars in real time is a great challenge. In this paper, we develop a matched filtering based algorithm to detect a typical anomaly, microlensing. The algorithm can detect short timescale microlensing events with high accuracy at their early stage with a very low false-positive rate. Furthermore, a GPU accelerated scalable computational framework, which can enable real time follow-up observation, is designed. This framework efficiently divides the algorithm be",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Conference on High Performance Extreme Computing",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "deployment_constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "GPU 가속 대규모 데이터 이상 탐지 프레임워크로 실시간 처리 파이프라인을 다루지만 도메인(천문학)이 달라 추론 시간 최적화 참고로만 활용 가능하다.",
+      "rank": 6
+    },
+    {
+      "paper_id": "2e63224a18971095e3e03509878f530179d58f53",
+      "title": "Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection",
+      "authors": [
+        "Yeonghyeon Park",
+        "Myung Jin Kim",
+        "H. Kim"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "A pre-trained visual-language model, contrastive language-image pre-training (CLIP), successfully accomplishes various downstream tasks with text prompts, such as finding images or localizing regions within the image. Despite CLIP's strong multi-modal data capabilities, it remains limited in specialized environments, such as medical applications. For this purpose, many CLIP variants-i.e., BioMedCLIP, and MedCLIP-SAMv2-have emerged, but false positives related to normal regions persist. Thus, we ",
+      "url": "https://arxiv.org/abs/2411.07546",
+      "arxiv_id": "2411.07546",
+      "github": "",
+      "sections": {
+        "introduction": "2 Methods 2.",
+        "method": "2.2 Reconstruction-by-inpainting for UAD 3 Experiments 3.1 Experimental Setup 3.2 Qualitative results 3.3 Quantitative results",
+        "limitation": "5 Acknowledgments Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection Abstract A pre-trained visual-language model, contrastive language-image pre-training (CLIP), successfully accomplishes various downstream tasks with text prompts, such as finding images or localizing regions within the image. Despite CLIP’s strong multi-modal data capabilities, it remains limited in specialized environments, such as medical applications. For this purpose, many CLIP variants—i.e., BioMedCLIP, and MedCLIP-SAMv2—have emerged, but false positives related to normal regions persist. Thus, we aim to present a simple yet important goal of reducing false positives in medical anomaly detection. We introduce a C ontrastive LA nguage P rompting ( CLAP ) method that leverages both positive and negative text prompts. This straightforward approach identifies potential lesion regions by visual attention to the positive prompts in the given image. To reduce false positives, we attenuate attention on normal regions using negative prompts. Extensive experiments with the BMAD dataset, including six biomedical benchmarks, demonstrate that CLAP method enhances anomaly detection performance. Our future plans include developing an automated fine prompting method for more practical usage. Index Terms — anomaly detection, attention mechanism, visual-language model 1 Introduction Input Ground-truth A positive subscript 𝐴 positive A_{\\textit{positive}} italic_A start_POSTSUBSCRIPT positive end_POSTSUBSCRIPT A negative subscript 𝐴 negative A_{\\textit{negative}} italic_A start_POSTSUBSCRIPT negative end_POSTSUBSCRIPT A CLAP subscript 𝐴 CLAP A_{\\textit{CLAP}} italic_A start_POSTSUBSCRIPT CLAP end_POSTSUBSCRIPT (Ours) Normal Brain MRI False positives True negatives Liver CT False positives True negatives Abnormal Brain MRI False positives True negatives Liver CT False positives True negatives Fig. 1 : Generated attention maps by leveraging BiomedCLIP [ 1 ] . A positive subscript ",
+        "tables": "Input | Ground-truth | Apositivesubscript𝐴positiveA_{\\textit{positive}}italic_A start_POSTSUBSCRIPT positive end_POSTSUBSCRIPT | Anegativesubscript𝐴negativeA_{\\textit{negative}}italic_A start_POSTSUBSCRIPT negative end_POSTSUBSCRIPT | ACLAPsubscript𝐴CLAPA_{\\textit{CLAP}}italic_A start_POSTSUBSCRIPT CLAP end_POSTSUBSCRIPT (Ours)\nNormal | Brain MRI | False positives | True negatives\nLiver CT | False positives | True negatives\nAbnormal | Brain MRI | False positives | True negatives\nLiver CT | False\n---\nA=MI(ZI,ZT;θ,Iθ)T−β×MI(ZI,I;θ,Iθ)T\\displaystyle A=MI(Z_{I},Z_{T};\\theta{}_{I},\\theta{}_{T})-\\beta{}\\times MI(Z_{% I},I;\\theta{}_{I},\\theta{}_{T})italic_A = italic_M italic_I ( italic_Z start_POSTSUBSCRIPT italic_I end_POSTSUBSCRIPT , italic_Z start_POSTSUBSCRIPT italic_T end_POSTSUBSCRIPT ; italic_θ start_FLOATSUBSCRIPT italic_I end_FLOATSUBSCRIPT , italic_θ start_FLOATSUBSCRIPT italic_T end_FLOATSUBSCRIPT ) - italic_β × italic_M italic_I ( italic_Z start_POSTSUBSCRIPT italic_I end_POSTSUBSCRIPT\n---\nAnatomy | P/N | Language prompt\nBrain MRI | P | Glioma, Astrocytoma, Oligodendroglioma …\nN | Normal, Healthy gray matter …\nLiver CT | P | Malignant cells, Dysplasia, Hyperplasia …\nN | Normal, Healthy, Benign …\nRetinal OCT | P | Retinal fluid, Drusen, Retinal detachment …\nN | Normal, Healthy, Clear …\nChest X-ray | P | Consolidation, Fibrosis, Atelectasis …\nN | Healthy, Clear fields, Normal …\nLymph node | P | Metastatic carcinoma, Tumor metastasis …\nN | Normal, Healthy tissue …\n---\nS=w⁢h⁢e⁢r⁢e⁢(ACLAP&gt;μ+0.674⁢σ)𝑆𝑤ℎ𝑒𝑟𝑒subscript𝐴CLAP𝜇0.674𝜎\\displaystyle S=where(A_{\\textit{CLAP}}&gt;\\mu+0.674\\sigma)italic_S = italic_w italic_h italic_e italic_r italic_e ( italic_A start_POSTSUBSCRIPT CLAP end_POSTSUBSCRIPT &gt; italic_μ + 0.674 italic_σ ) | (2)\n---\nNormal | Abnormal\nInput | ADINOsubscript𝐴DINOA_{\\textit{DINO}}italic_A start_POSTSUBSCRIPT DINO end_POSTSUBSCRIPT | ACLAPsubscript𝐴CLAPA_{\\textit{CLAP}}italic_A start_POSTSUBSCRIPT CLAP end_POSTSUBSCRIPT (ours) | Input | ADINOsubscrip"
+      },
+      "venue": "IEEE International Symposium on Biomedical Imaging",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "failure_modes"
+      ],
+      "support_strength": "direct",
+      "why_selected": "Sections에서 reconstruction-by-inpainting UAD 방법과 contrastive prompting으로 정상 영역의 false positive를 억제하는 기법을 구체적으로 기술하여, 정상 참조 기반 이상 탐지에서 FP 감소 메커니즘의 직접적 근거를 제공한다.",
+      "rank": 7
+    },
+    {
+      "paper_id": "e2e777126125aabd4119ef72d671f5dcdf514e36",
+      "title": "A Robotic Line Scan System with Adaptive ROI for Inspection of Defects over Convex Free-form Specular Surfaces",
+      "authors": [
+        "Shengzeng Huo",
+        "D. Navarro-Alarcón",
+        "David Chik"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "In this paper, we present a new robotic system to perform defect inspection tasks over free-form specular surfaces. The autonomous procedure is achieved by a six-DOF manipulator, equipped with a line scan camera and a high-intensity lighting system. Our method first uses the object's CAD mesh model to implement a K-means unsupervised learning algorithm that segments the object's surface into areas with similar curvature. Then, the scanning path is computed by using an adaptive algorithm that adj",
+      "url": "https://arxiv.org/abs/2008.10816",
+      "arxiv_id": "2008.10816",
+      "github": "",
+      "sections": {},
+      "venue": "arXiv.org",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [
+        "deployment_constraints",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "자유곡면 표면의 로봇 기반 라인스캔 결함 검사 시스템으로, 산업 자동 검사의 적응형 ROI 및 검사 파이프라인 설계 측면에서 배포 제약 참고가 된다.",
+      "rank": 8
+    },
+    {
+      "paper_id": "3ab04d115a33607205787c831a2a16cc8a0f7b64",
+      "title": "Descriptive Analytics-Based Anomaly Detection for Cybersecure Load Forecasting",
+      "authors": [
+        "M. Yue",
+        "Tao Hong",
+        "Jianhui Wang"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "As power delivery systems evolve and become increasingly reliant on accurate forecasts, they will be more and more vulnerable to cybersecurity issues. A coordinated data attack by sophisticated adversaries can render existing data corrupt or outlier detection methods ineffective. This would have a very negative impact on operational decisions. The focus of this paper is to develop descriptive analytics-based methods for anomaly detection to protect the load forecasting process against cyberattac",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE Transactions on Smart Grid",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "failure_modes"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "전력 시스템 부하 예측의 사이버 공격 대응 이상 탐지로, 도메인이 달라 이상 탐지 일반론적 참고에 불과하다.",
+      "rank": 9
+    },
+    {
+      "paper_id": "6edd6af8c77c3a2467184e818eebbd93bd1d5c87",
+      "title": "Smart-Inspect: Micro Scale Localization and Classification of Smartphone Glass Defects for Industrial Automation",
+      "authors": [
+        "M. Usman Maqbool Bhutta",
+        "M. Usman Maqbool Bhutta",
+        "S. Aslam",
+        "Peng Yun",
+        "Jianhao Jiao"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "The presence of any type of defect on the glass screen of smart devices has a great impact on their quality. We present a robust semi-supervised learning framework for intelligent micro-scaled localization and classification of defects on a 16K pixel image of smartphone glass. Our model features the efficient recognition and labeling of three types of defects: scratches, light leakage due to cracks, and pits. Our method also differentiates between the defects and light reflections due to dust pa",
+      "url": "https://arxiv.org/abs/2010.00741",
+      "arxiv_id": "2010.00741",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE/RJS International Conference on Intelligent RObots and Systems",
+      "source": "SemanticScholar",
+      "evidence_role": "closest_prior_art",
+      "claim_slots_supported": [
+        "key_innovation",
+        "expected_mechanism",
+        "constraints",
+        "deployment_constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "16K 초고해상도 스마트폰 유리 이미지에서 반지도 학습 기반 미세 결함 검출 및 분류를 수행하여, 초고해상도 이미지의 패치 기반 결함 탐지와 먼지/반사 구분 문제를 다루는 가장 유사한 선행 연구이다.",
+      "rank": 10
+    },
+    {
+      "paper_id": "ef989d9901923414f64cf2094853df45297321eb",
+      "title": "Non-polypoid Colorectal Lesions Detection and False Positive Detection by Artificial Intelligence under Blue Laser Imaging and Linked Color Imaging",
+      "authors": [
+        "Satoshi Sugino",
+        "Naohisa Yoshida",
+        "Zhe Guo",
+        "Ruiyao Zhang",
+        "Ken Inoue"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "Objectives: Artificial intelligence (AI) with white light imaging (WLI) is not enough for detecting non-polypoid colorectal polyps and it still has high false positive rate (FPR). We developed AIs using blue laser imaging (BLI) and linked color imaging (LCI) to detect them with specific learning sets (LS). Methods: The contents of LS were as follows, LS (WLI): 1991 WLI images of lesion of 2-10 mm, LS (IEE): 5920 WLI, BLI, and LCI images of non-polypoid and small lesions of 2-20 mm. LS (IEE) was ",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Journal of the Anus Rectum and Colon",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "failure_modes"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "의료 영상(대장 병변)에서 다중 이미지 모드를 활용한 false positive 감소로, 도메인이 달라 FP 감소 전략의 개념적 참고에 해당한다.",
+      "rank": 11
+    },
+    {
+      "paper_id": "2a28b9e66d1b65805f90e101fcba71c1af813be8",
+      "title": "Lifelong Anomaly Detection Through Unlearning",
+      "authors": [
+        "Min Du",
+        "Z. Chen",
+        "Chang Liu",
+        "Rajvardhan Oak",
+        "D. Song"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "Anomaly detection is essential towards ensuring system security and reliability. Powered by constantly generated system data, deep learning has been found both effective and flexible to use, with its ability to extract patterns without much domain knowledge. Existing anomaly detection research focuses on a scenario referred to as zero-positive, which means that the detection model is only trained for normal (i.e., negative) data. In a real application scenario, there may be additional manually i",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Conference on Computer and Communications Security",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism",
+        "constraints"
+      ],
+      "support_strength": "indirect",
+      "why_selected": "정상 데이터만으로 학습하는 zero-positive 시나리오의 지속적 이상 탐지를 다루며, normal-only 학습 및 새로운 환경 적응이라는 제약 조건과 관련된다.",
+      "rank": 12
+    },
+    {
+      "paper_id": "57bd188a43d7da2b209590402bd5aa99fb787241",
+      "title": "Anomaly Detection on the Edge Using Smart Cameras under Low-Light Conditions",
+      "authors": [
+        "Yaser Abu Awwad",
+        "Omer F. Rana",
+        "Charith Perera"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "The number of cameras utilised in smart city domains is increasingly prominent and notable for monitoring outdoor urban and rural areas such as farms and forests to deter thefts of farming machinery and livestock, as well as monitoring workers to guarantee their safety. However, anomaly detection tasks become much more challenging in environments with low-light conditions. Consequently, achieving efficient outcomes in recognising surrounding behaviours and events becomes difficult. Therefore, th",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Italian National Conference on Sensors",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "failure_modes",
+        "constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "저조도 환경의 엣지 디바이스 이상 탐지로, 조명/노이즈 변동 하 강건성 문제와 엣지 추론 제약의 개념적 참고가 된다.",
+      "rank": 13
+    },
+    {
+      "paper_id": "b120387f05312e015c02e8770c6f3eb8d00b9b00",
+      "title": "Study on wavelet neural network based anomaly detection in ocean observing data series",
+      "authors": [
+        "Yi Wang",
+        "Linsheng Han",
+        "Wei Liu",
+        "Shujia Yang",
+        "Yan-bo Gao"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "Abstract In this paper, a novel method is presented for detecting anomalies in ocean fixed-point observing time series, which combines wavelet neural network (WNN), classifying threshold and two detecting strategies. The WNN was developed without any labeled training data to simulate the non-anomalous behaviors for next-step prediction. The classifying threshold was constructed according to the estimated distribution of long-term historical residual errors. The observation strategy (OS) and pred",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Ocean Engineering",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [
+        "expected_mechanism"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "라벨 없이 정상 행동을 학습하여 이상을 탐지하는 wavelet 신경망 기법으로, 비지도 이상 탐지 메커니즘의 일반적 참고에 해당한다.",
+      "rank": 14
+    },
+    {
+      "paper_id": "3a37cb37bf932cf71a4c01b7f853f1333d63d9c3",
+      "title": "Placental, maternal, fetal and technical origins of false-positive cell-free DNA screening results.",
+      "authors": [
+        "Y. Raymond",
+        "S. Fernando",
+        "Melody Menezes",
+        "B. W. Mol",
+        "A. McLennan"
+      ],
+      "year": "2023",
+      "published": "2023",
+      "abstract": "The introduction of non-invasive prenatal testing (NIPT) has resulted in substantial reductions to previously accepted false-positive rates of prenatal screening. Despite this, the possibility of false-positive results remains a challenging consideration in clinical practice, particularly in light of the increasing uptake of genome-wide NIPT, and the subsequent increased proportion of high-risk results attributable to various biological events besides fetal aneuploidy. Confined placental mosaici",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "American Journal of Obstetrics and Gynecology",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "산전 검사에서의 false positive 원인 분석으로, 연구 맥락의 반도체 결함 탐지와 도메인적 관련성이 없다.",
+      "rank": 15
+    },
+    {
+      "paper_id": "1b1562247aa04475284922ae0f1259f5471b2108",
+      "title": "Full laser-based Lamb waves array imaging based on the two-dimensional multiple signal classification algorithm",
+      "authors": [
+        "Zenghua Liu",
+        "Rui-Xiang Su",
+        "Tingting Zhang",
+        "Gong Yu",
+        "C. He"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "Plates of aluminum have the advantages of low density, high strength and corrosion resistance, and are widely used in aviation, aerospace, shipbuilding and other industrial fields. Performing defect detection and structural health monitoring is of great significance for ensuring the health of facilities and maintaining normal production and use. Lamb waves can propagate long distances with low attenuation in metal plates to achieve long-distance non-destructive testing. Laser detection technolog",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "2020 IEEE Far East NDT New Technology & Application Forum (FENDT)",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "레이저 기반 금속판 결함 탐지로 비파괴 검사 분야이지만 영상 기반 딥러닝 접근이 아니어서 직접적 관련성이 매우 낮다.",
+      "rank": 16
+    },
+    {
+      "paper_id": "bc6ad79da90fd9576c09a7e9eaf80220c03f738a",
+      "title": "An improved Simon reaction method to discriminate between methamphetamine and false‐positive substances",
+      "authors": [
+        "Koichi Saito",
+        "Yusuke Mamiya",
+        "Marie Kawakami",
+        "R. Ito"
+      ],
+      "year": "2024",
+      "published": "2024",
+      "abstract": "The conventional methamphetamine (MA) detection method using the Simon reaction can be affected by false positives owing to compounds similar to aliphatic secondary amines. In this study, we examined the new Simon reaction to improve the qualitative accuracy of MA detection to discriminate substances that give false positives in a conventional Simon reaction. After the conventional Simon reaction for MA and false positives (N‐isopropylbenzylamine (NIP‐BA), N‐methylbenzylamine (NMe‐BA), L‐proline",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Journal of Forensic Sciences",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "화학 반응 기반 메스암페타민 위양성 판별로, 연구 맥락과 도메인 관련성이 전혀 없다.",
+      "rank": 17
+    },
+    {
+      "paper_id": "fcb653a5b58bd4f66c3187cea2d8b11c34b13562",
+      "title": "High incidence of false-positive results of IgG antibody against SARS-CoV-2 with rapid immunochromatographic antibody test due to human common cold coronavirus infection",
+      "authors": [],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "\n Abstract\n \n We experienced a 72-year-old man who developed laboratory-confirmed human coronavirus HKU1 pneumonia. PCR testing for SARS-CoV-2 from a nasopharyngeal specimen was negative twice, and rapid immunochromatographic antibody test (RIAT) using a commercially available kit for IgM and IgG against SARS-CoV-2 showed him turning positive for IgG against SARS-CoV-2. We then performed RIAT in stored serum samples from other patients who suffered laboratory-confirmed human common cold coronavi",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Respiratory Medicine Case Reports",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "SARS-CoV-2 항체 검사의 위양성 사례로, 연구 맥락과 도메인 관련성이 전혀 없다.",
+      "rank": 18
+    },
+    {
+      "paper_id": "387e9b22440f98f5d1767afd1e29ba34adc40ab2",
+      "title": "Single-shot pulsed terahertz non-destructive evaluation systems for in-line production control and automated inspection",
+      "authors": [
+        "X. Neiers",
+        "M. Cavallari",
+        "U. Schmidhammer"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "",
+      "source": "SemanticScholar",
+      "evidence_role": "constraint_reference",
+      "claim_slots_supported": [
+        "deployment_constraints"
+      ],
+      "support_strength": "contextual",
+      "why_selected": "테라헤르츠 기반 인라인 비파괴 검사 시스템으로, 산업 인라인 검사의 시간 제약 및 자동화 배포 관점에서만 개념적 참고가 된다.",
+      "rank": 19
+    },
+    {
+      "paper_id": "038d2078f183afe71f909079522bfb11dda8c0b1",
+      "title": "FilterLAP: Filtering False-positive Mutation Calls via a Label Propagation Framework",
+      "authors": [
+        "Xuwen Wang",
+        "Xiaoyan Zhu",
+        "Xiao-e Xiao",
+        "Shenjie Wang",
+        "Xuanping Zhang"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "Benefiting from the recent advantages of genomic sequencing, detecting genomic mutations becomes a routine work in precise diagnoses and treatments for cancers. In clinical practices, many factors, such as tumor purity, clonal structure, etc., interfere the performance of calling mutations. The computational pipelines prefer to sensitively report the candidate calls, while a filter is applied for removing the false-positive calls. The existing filters rely on the whole genome/exome sequencing da",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "IEEE International Conference on Bioinformatics and Biomedicine",
+      "source": "SemanticScholar",
+      "evidence_role": "supporting_mechanism",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "유전체 변이 호출의 false positive 필터링으로, 연구 맥락의 반도체 영상 결함 탐지와 도메인 관련성이 없다.",
+      "rank": 20
+    },
+    {
+      "paper_id": "f0d0b58b46c8215526a25c11bd85daea90380296",
+      "title": "Coherent Dual-Band Radar-Over-Fiber Network With VCSEL-Based Signal Distribution",
+      "authors": [
+        "A. Malacarne",
+        "S. Maresca",
+        "F. Scotti",
+        "P. Ghelfi",
+        "G. Serafino"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "Today, the advent of radar sensing in applications requiring ever higher precision, such as automotive and industrial monitoring, needs the development of systems with superior resolution, stability and accuracy on 2D/3D spaces. Multiple-input–multiple-output (MIMO) radar systems have been studied for more than twenty years, proving to achieve excellent resolutions by merging simultaneous observations from sparse multiple radars. In addition, long-term frequency/phase coherence among distributed",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Journal of Lightwave Technology",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 21
+    },
+    {
+      "paper_id": "8d40a1a67f8d230b15b45ac61ae208fb185c8bf9",
+      "title": "REE redistributions during granite weathering: Implications for Ce anomaly as a proxy for paleoredox states",
+      "authors": [
+        "K. Ichimura",
+        "K. Sanematsu",
+        "Y. Kon",
+        "T. Takagi",
+        "T. Murakami"
+      ],
+      "year": "2020",
+      "published": "2020",
+      "abstract": "Abstract Different responses of Ce to the redox state from those of the other light rare earth elements (LREEs) can be used to understand paleoredox states. To establish the possibility of using the Ce anomaly as a proxy for paleo-environments, we examined the mineralogical and chemical characteristics of bulk samples and REE-bearing minerals of a modern weathering profile developed on granite, by X‑ray fluorescence analysis, laser-ablation inductively coupled plasma mass spectrometry, field emi",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "American Mineralogist",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 22
+    },
+    {
+      "paper_id": "70200faf7aebc8282998817e8ebf1a9823d47474",
+      "title": "Concurrent Modulation of Competitive Mechanisms to Design Stimuli‐Responsive Ln‐MOFs: A Light‐Operated Dual‐Mode Assay for Oxidative DNA Damage",
+      "authors": [
+        "Ji-Na Hao",
+        "Yongsheng Li"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "The identification of biomolecules for disease diagnosis requires facile analytical technologies with high precision and reliability. Several signal transduction pathways have inspired the development of various bioanalytical systems. However, most systems are greatly limited by a single‐mechanism/mode assay, which easily results in false‐positive/negative results. Herein, a multiple‐mechanism‐driven optical biosensor for 8‐oxo‐2′‐deoxyguanosine (8‐oxo‐dG), an early pathological signature of DNA",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Advanced Functional Materials",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 23
+    },
+    {
+      "paper_id": "e60d1e1aa253cedf63d6d13b6f4da138a5620877",
+      "title": "Visual Saliency Guided Deep Fabric Defect Classification",
+      "authors": [
+        "Yonggui He",
+        "Yaoye Song",
+        "Jifeng Shen",
+        "Wankou Yang"
+      ],
+      "year": "2019",
+      "published": "2019",
+      "abstract": "",
+      "url": "",
+      "arxiv_id": "",
+      "github": "",
+      "sections": {},
+      "venue": "Sino-foreign-interchange Workshop on Intelligent Science and Intelligent Data Engineering",
+      "source": "SemanticScholar",
+      "evidence_role": "",
+      "claim_slots_supported": [],
+      "support_strength": "contextual",
+      "why_selected": "",
+      "rank": 24
+    }
+  ],
+  "evidence_coverage": {
+    "coverage": {
+      "key_innovation": true,
+      "expected_mechanism": true,
+      "closest_prior_art": false,
+      "baseline_models": true,
+      "evaluation_metrics": true,
+      "constraints": true,
+      "falsification_criteria": false,
+      "failure_modes": true,
+      "deployment_constraints": true
+    },
+    "sufficient": true,
+    "missing_slots": [
+      "closest_prior_art",
+      "falsification_criteria"
+    ],
+    "slot_paper_counts": {
+      "key_innovation": 4,
+      "expected_mechanism": 6,
+      "closest_prior_art": 0,
+      "baseline_models": 1,
+      "evaluation_metrics": 1,
+      "constraints": 6,
+      "falsification_criteria": 0,
+      "failure_modes": 7,
+      "deployment_constraints": 4
+    },
+    "group_coverage": {
+      "novelty_ok": true,
+      "validity_ok": true,
+      "feasibility_ok": true
+    }
+  },
+  "decisive_evidence": {
+    "support": [
+      {
+        "paper_id": "2e63224a18971095e3e03509878f530179d58f53",
+        "title": "Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection",
+        "reason": "Sections에서 reconstruction-by-inpainting UAD 방법과 contrastive prompting으로 정상 영역의 false positive를 억제하는 기법을 구체적으로 기술하여, 정상 참조 기반 이상 탐지에서 FP 감소 메커니즘의 직접적 근거를 제공한다.",
+        "importance_score": 0.585,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "c7a54be535e0d1f2715b214e598109e05e6f7507",
+        "title": "Combating the Challenges of False Positives in AI-Driven Anomaly Detection Systems and Enhancing Data Security in the Cloud",
+        "reason": "AI 기반 이상 탐지 시스템에서 false positive 감소 기법을 다루며, 연구 맥락의 False Positive Rate 지표 및 실배포 시 false positive 문제와 간접적으로 관련된다.",
+        "importance_score": 0.5025,
+        "supports_dimension": "validity"
+      },
+      {
+        "paper_id": "e2e777126125aabd4119ef72d671f5dcdf514e36",
+        "title": "A Robotic Line Scan System with Adaptive ROI for Inspection of Defects over Convex Free-form Specular Surfaces",
+        "reason": "자유곡면 표면의 로봇 기반 라인스캔 결함 검사 시스템으로, 산업 자동 검사의 적응형 ROI 및 검사 파이프라인 설계 측면에서 배포 제약 참고가 된다.",
+        "importance_score": 0.3975,
+        "supports_dimension": "feasibility"
+      }
+    ],
+    "contra": [
+      {
+        "paper_id": "a518c06bb991b2f205b0930fd993021a086eb5fc",
+        "title": "Ball-Grid-Array Chip Defects Detection and Classification Using Patch-based Modified YOLOv3",
+        "reason": "BGA 칩의 고해상도 이미지에서 패치 기반 분할 전략과 수정된 YOLOv3를 사용한 결함 검출로, 반도체 패키징 영역의 패치 기반 결함 탐지 선행 연구에 해당한다.",
+        "importance_score": 0.55,
+        "threatens_dimension": "novelty"
+      },
+      {
+        "paper_id": "f9d1ca07a38bbcac53da259fcaf77773270c5e9c",
+        "title": "Detection Defect in Printed Circuit Boards using Unsupervised Feature Extraction Upon Transfer Learning",
+        "reason": "PCB 결함 탐지에 비지도 특징 추출과 전이학습을 활용하여 결함 라벨 없이 검출하는 접근으로, normal-only/unsupervised 기반 산업 결함 탐지의 직접적 선행 연구이다.",
+        "importance_score": 0.5425,
+        "threatens_dimension": "novelty"
+      },
+      {
+        "paper_id": "6edd6af8c77c3a2467184e818eebbd93bd1d5c87",
+        "title": "Smart-Inspect: Micro Scale Localization and Classification of Smartphone Glass Defects for Industrial Automation",
+        "reason": "16K 초고해상도 스마트폰 유리 이미지에서 반지도 학습 기반 미세 결함 검출 및 분류를 수행하여, 초고해상도 이미지의 패치 기반 결함 탐지와 먼지/반사 구분 문제를 다루는 가장 유사한 선행 연구이다.",
+        "importance_score": 0.4925,
+        "threatens_dimension": "novelty"
+      }
+    ],
+    "swing": [
+      {
+        "paper_id": "a518c06bb991b2f205b0930fd993021a086eb5fc",
+        "title": "Ball-Grid-Array Chip Defects Detection and Classification Using Patch-based Modified YOLOv3",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->approve",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This contra paper is one of only two papers directly covering core novelty slots (key_innovation, expected_mechanism) and also informs constraints. If its contrary closest-prior-art claim is confirmed, the hypothesis loses novelty/mechanistic distinctiveness on must-cover central slots, pushing the verdict from a balanced revise state toward reject.",
+        "gemini_reason": "This paper provides direct evidence for the 'closest_prior_art' slot regarding visual inspection systems and defect detection in the IC manufacturing industry. Confirming its methodology and constraints would fill a currently uncovered critical slot, strengthening the hypothesis's novelty and baseline context.",
+        "final_reason": "[weak] This contra paper is one of only two papers directly covering core novelty slots (key_innovation, expected_mechanism) and also informs constraints. If its contrary closest-prior-art claim is confirmed, the hypothesis loses novelty/mechanistic distinctiveness on must-cover central slots, pushing the verdict from a balanced revise state toward reject.",
+        "consensus_level": "weak",
+        "importance_score": 0.55,
+        "confidence": 0.855
+      },
+      {
+        "paper_id": "f9d1ca07a38bbcac53da259fcaf77773270c5e9c",
+        "title": "Detection Defect in Printed Circuit Boards using Unsupervised Feature Extraction Upon Transfer Learning",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->approve",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This paper is a strong contra on closest_prior_art and additionally covers baseline_models, a required slot. Because uncovered slots already include closest_prior_art, confirming this paper would solidify that prior work already achieves the claimed effect/mechanism under relevant baselines, making the hypothesis insufficiently novel or differentiated and likely shifting revise to reject.",
+        "gemini_reason": "This paper also serves as 'closest_prior_art' by detailing unsupervised feature extraction and transfer learning for defect detection in printed circuit boards. It covers baseline models and constraints, which are currently missing from the confirmed evidence.",
+        "final_reason": "[weak] This paper is a strong contra on closest_prior_art and additionally covers baseline_models, a required slot. Because uncovered slots already include closest_prior_art, confirming this paper would solidify that prior work already achieves the claimed effect/mechanism under relevant baselines, making the hypothesis insufficiently novel or differentiated and likely shifting revise to reject.",
+        "consensus_level": "weak",
+        "importance_score": 0.5425,
+        "confidence": 0.9
+      },
+      {
+        "paper_id": "2e63224a18971095e3e03509878f530179d58f53",
+        "title": "Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection",
+        "reason": "Sections에서 reconstruction-by-inpainting UAD 방법과 contrastive prompting으로 정상 영역의 false positive를 억제하는 기법을 구체적으로 기술하여, 정상 참조 기반 이상 탐지에서 FP 감소 메커니즘의 직접적 근거를 제공한다.",
+        "importance_score": 0.585,
+        "supports_dimension": "novelty",
+        "if_confirmed_changes": "revise->approve",
+        "swing_reason": "[rule-based] dual role: supports novelty but covers falsification/failure"
+      }
+    ],
+    "decision_pressure": {
+      "primary_dimension": "validity",
+      "reason": "Uncovered slots: closest_prior_art, falsification_criteria"
+    }
+  }
+}

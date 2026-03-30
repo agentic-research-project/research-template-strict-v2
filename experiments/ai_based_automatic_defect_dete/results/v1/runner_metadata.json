@@ -1,0 +1,14 @@
+{
+  "runner": "github",
+  "job_id": "23739684008",
+  "pipeline_id": "",
+  "dispatch_id": "train_a5920e0d3a59",
+  "duration_s": 0.0,
+  "artifact_uri": "",
+  "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23739684008",
+  "git_sha": "d7ccd61641ee87f2eb3b74bba1eca2feb14bf781",
+  "git_branch": "",
+  "experiment_pkg": "experiments/ai_based_automatic_defect_dete/runs/v1",
+  "started_at": "",
+  "finished_at": ""
+}

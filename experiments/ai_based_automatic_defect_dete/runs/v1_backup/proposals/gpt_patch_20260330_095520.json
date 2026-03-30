@@ -1,0 +1,96 @@
+{
+  "patches": [
+    {
+      "target_file": "model.py",
+      "spec_field": "model_architecture.name.(G) Patch Merging",
+      "rationale": "The current file is syntactically incomplete at `merged_score = torch.` and does not implement the required Gaussian-weighted overlap blending for seamless full-resolution anomaly map reconstruction. This is a core contract item in the spec and hypothesis.",
+      "hypothesis_alignment_check": "Implements overlap-tile stitching with 2D Gaussian weighting at patch boundaries, directly matching hypothesis step (5) and spec item (G).",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 24,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "    def merge_patches(self, patch_scores: List[torch.Tensor], coordinates: List[Tuple[int, int]], \n                     image_shape: Tuple[int, int]) -> torch.Tensor:\n        \"\"\"Merge patch scores with Gaussian blending\"\"\"\n        H, W = image_shape\n        merged_score = torch.\n",
+          "new": "    def merge_patches(self, patch_scores: List[torch.Tensor], coordinates: List[Tuple[int, int]], \n                     image_shape: Tuple[int, int]) -> torch.Tensor:\n        \"\"\"Merge patch scores with Gaussian blending\"\"\"\n        H, W = image_shape\n        device = patch_scores[0].device\n        dtype = patch_scores[0].dtype\n        merged_score = torch.zeros((H, W), device=device, dtype=dtype)\n        weight_sum = torch.zeros((H, W), device=device, dtype=dtype)\n\n        yy, xx = torch.meshgrid(\n            torch.linspace(-1.0, 1.0, self.patch_size, device=device, dtype=dtype),\n            torch.linspace(-1.0, 1.0, self.patch_size, device=device, dtype=dtype),\n            indexing='ij'\n        )\n        sigma = 0.5\n        kernel = torch.exp(-(xx ** 2 + yy ** 2) / (2 * sigma ** 2))\n        kernel = kernel / kernel.max().clamp_min(1e-8)\n\n        for score, (y, x) in zip(patch_scores, coordinates):\n            if score.dim() == 3 and score.shape[0] == 1:\n                score = score.squeeze(0)\n            if score.dim() == 4 and score.shape[0] == 1 and score.shape[1] == 1:\n                score = score.squeeze(0).squeeze(0)\n            if score.shape[-2:] != (self.patch_size, self.patch_size):\n                score = torch.nn.functional.interpolate(\n                    score.unsqueeze(0).unsqueeze(0) if score.dim() == 2 else score.unsqueeze(0),\n                    size=(self.patch_size, self.patch_size),\n                    mode='bilinear',\n                    align_corners=False\n                ).squeeze()\n            merged_score[y:y+self.patch_size, x:x+self.patch_size] += score * kernel\n            weight_sum[y:y+self.patch_size, x:x+self.patch_size] += kernel\n\n        return merged_score / weight_sum.clamp_min(1e-8)\n"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "constraints_raw",
+      "rationale": "Patch extraction currently assumes `H >= patch_size` and `W >= patch_size` and indexes `y_positions[-1]` / `x_positions[-1]`, which can fail on smaller inputs despite the contract stating input/output sizes may differ. A minimal guard makes extraction robust without changing the intended 6559x6559 path.",
+      "hypothesis_alignment_check": "Preserves the required 256x256 overlapping tiling behavior for full-resolution inputs while making the extractor safe for variable-sized images allowed by the constraints.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 8,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        y_positions = list(range(0, H - self.patch_size + 1, self.stride))\n        x_positions = list(range(0, W - self.patch_size + 1, self.stride))\n        \n        # Ensure we cover the entire image\n        if y_positions[-1] + self.patch_size < H:\n            y_positions.append(H - self.patch_size)\n        if x_positions[-1] + self.patch_size < W:\n            x_positions.append(W - self.patch_size)\n",
+          "new": "        y_positions = list(range(0, max(H - self.patch_size + 1, 1), self.stride))\n        x_positions = list(range(0, max(W - self.patch_size + 1, 1), self.stride))\n        if len(y_positions) == 0:\n            y_positions = [0]\n        if len(x_positions) == 0:\n            x_positions = [0]\n        \n        # Ensure we cover the entire image\n        if y_positions[-1] + self.patch_size < H:\n            y_positions.append(H - self.patch_size)\n        if x_positions[-1] + self.patch_size < W:\n            x_positions.append(W - self.patch_size)\n"
+        }
+      ]
+    },
+    {
+      "target_file": "model.py",
+      "spec_field": "hypothesis_contract.mechanism.(3) LoSAIN",
+      "rationale": "LoSAIN uses per-channel adaptive normalization based on retrieved reference statistics. Using the default unbiased standard deviation can produce NaNs or unstable estimates for small spatial maps; the spec emphasizes robust style alignment under perturbation. A minimal change to population std improves numerical stability.",
+      "hypothesis_alignment_check": "Keeps the exact AdaIN-style mechanism `gamma_ref * (z_query - mu_query) / sigma_query + beta_ref` while making sigma estimation more stable, supporting the score-stability requirement under style/noise perturbations.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 1,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        query_std = query_features.std(dim=[2, 3], keepdim=True) + self.eps\n",
+          "new": "        query_std = query_features.std(dim=[2, 3], keepdim=True, unbiased=False) + self.eps\n"
+        }
+      ]
+    },
+    {
+      "target_file": "module.py",
+      "spec_field": "model_architecture.name.(C) Normal Reference Bank",
+      "rationale": "The training module stores a `reference_bank_built` flag but never persists the collected normal patches on first build. The returned metric already expects `self.normal_patches`; without assigning it, subsequent epochs and downstream bank construction logic cannot reliably access the normal-only reference set.",
+      "hypothesis_alignment_check": "Supports the normal-only reference bank construction required by hypothesis step (2) without altering the training loop structure.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 3,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        # Collect normal patches\n        normal_patches = []\n",
+          "new": "        # Collect normal patches\n        normal_patches = []\n"
+        },
+        {
+          "type": "insert_after",
+          "old": "        for batch_idx, batch in enumerate(dataloader):\n",
+          "new": "        for batch_idx, batch in enumerate(dataloader):\n"
+        },
+        {
+          "type": "insert_after",
+          "old": "                image_4d = image.unsqueeze(0) if len(image.shape) == 3 else image\n",
+          "new": "                image_4d = image.unsqueeze(0) if len(image.shape) == 3 else image\n\n        self.normal_patches = normal_patches\n        self.reference_bank_built = True\n"
+        }
+      ]
+    },
+    {
+      "target_file": "data.py",
+      "spec_field": "constraints_raw",
+      "rationale": "The synthetic dataset currently creates full 6559x6559 meshgrids and noise arrays per sample, which is prohibitively memory/time intensive and conflicts with the inference-time and deployment constraints. A targeted downsample-then-upsample synthesis preserves grayscale texture generation while avoiding pathological sample construction cost.",
+      "hypothesis_alignment_check": "Maintains grayscale semiconductor-like texture generation for testing while reducing synthetic data overhead so the experiment can better reflect the intended inspection-time regime.",
+      "breaks_comparability": false,
+      "complexity_delta_loc": 12,
+      "changes": [
+        {
+          "type": "replace",
+          "old": "        # Create base pattern with multiple frequency components\n        x = np.linspace(0, 20*np.pi, self.image_size)\n        y = np.linspace(0, 20*np.pi, self.image_size)\n        X, Y = np.meshgrid(x, y)\n        \n        # Complex texture pattern\n        base_pattern = (\n            0.5 * np.sin(0.1*X) * np.cos(0.1*Y) +\n            0.3 * np.sin(0.05*X + 0.3*Y) +\n            0.2 * np.cos(0.15*X - 0.1*Y) +\n            0.1 * np.random.normal(0, 0.1, (self.image_size, self.image_size))\n        )\n",
+          "new": "        # Create base pattern with multiple frequency components on a reduced grid,\n        # then resize to the target resolution to avoid extreme memory/time overhead.\n        synth_size = min(self.image_size, 1024)\n        x = np.linspace(0, 20*np.pi, synth_size)\n        y = np.linspace(0, 20*np.pi, synth_size)\n        X, Y = np.meshgrid(x, y)\n        \n        # Complex texture pattern\n        base_pattern = (\n            0.5 * np.sin(0.1*X) * np.cos(0.1*Y) +\n            0.3 * np.sin(0.05*X + 0.3*Y) +\n            0.2 * np.cos(0.15*X - 0.1*Y) +\n            0.1 * np.random.normal(0, 0.1, (synth_size, synth_size))\n        )\n        if synth_size != self.image_size:\n            base_pattern = np.array(\n                Image.fromarray(base_pattern.astype(np.float32), mode='F').resize(\n                    (self.image_size, self.image_size), Image.BILINEAR\n                )\n            )\n"
+        }
+      ]
+    }
+  ],
+  "overall_assessment": "The generated code is currently incomplete and not executable due to the truncated `merge_patches` implementation in `model.py`. The most critical spec gap is the absence of Gaussian-weighted patch merging, which is explicitly required by the architecture contract. There are also smaller robustness issues around variable image sizes, LoSAIN numerical stability, and reference-bank state persistence. The proposed patches are intentionally minimal and avoid rewriting the training loop.",
+  "critical_issues": [
+    "model.py is syntactically incomplete at `merged_score = torch.` and cannot run.",
+    "Required Gaussian overlap blending for patch stitching is missing, violating a core architecture requirement.",
+    "Patch extraction can fail on images smaller than the patch size despite the constraints allowing variable input/output sizes.",
+    "TrainingModule does not persist the collected normal reference set state needed for the reference bank workflow."
+  ]
+}

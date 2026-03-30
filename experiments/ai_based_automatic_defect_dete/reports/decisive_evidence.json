@@ -1,0 +1,91 @@
+{
+  "decisive_evidence": {
+    "support": [
+      {
+        "paper_id": "2e63224a18971095e3e03509878f530179d58f53",
+        "title": "Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection",
+        "reason": "Sections에서 reconstruction-by-inpainting UAD 방법과 contrastive prompting으로 정상 영역의 false positive를 억제하는 기법을 구체적으로 기술하여, 정상 참조 기반 이상 탐지에서 FP 감소 메커니즘의 직접적 근거를 제공한다.",
+        "importance_score": 0.585,
+        "supports_dimension": "novelty"
+      },
+      {
+        "paper_id": "c7a54be535e0d1f2715b214e598109e05e6f7507",
+        "title": "Combating the Challenges of False Positives in AI-Driven Anomaly Detection Systems and Enhancing Data Security in the Cloud",
+        "reason": "AI 기반 이상 탐지 시스템에서 false positive 감소 기법을 다루며, 연구 맥락의 False Positive Rate 지표 및 실배포 시 false positive 문제와 간접적으로 관련된다.",
+        "importance_score": 0.5025,
+        "supports_dimension": "validity"
+      },
+      {
+        "paper_id": "e2e777126125aabd4119ef72d671f5dcdf514e36",
+        "title": "A Robotic Line Scan System with Adaptive ROI for Inspection of Defects over Convex Free-form Specular Surfaces",
+        "reason": "자유곡면 표면의 로봇 기반 라인스캔 결함 검사 시스템으로, 산업 자동 검사의 적응형 ROI 및 검사 파이프라인 설계 측면에서 배포 제약 참고가 된다.",
+        "importance_score": 0.3975,
+        "supports_dimension": "feasibility"
+      }
+    ],
+    "contra": [
+      {
+        "paper_id": "a518c06bb991b2f205b0930fd993021a086eb5fc",
+        "title": "Ball-Grid-Array Chip Defects Detection and Classification Using Patch-based Modified YOLOv3",
+        "reason": "BGA 칩의 고해상도 이미지에서 패치 기반 분할 전략과 수정된 YOLOv3를 사용한 결함 검출로, 반도체 패키징 영역의 패치 기반 결함 탐지 선행 연구에 해당한다.",
+        "importance_score": 0.55,
+        "threatens_dimension": "novelty"
+      },
+      {
+        "paper_id": "f9d1ca07a38bbcac53da259fcaf77773270c5e9c",
+        "title": "Detection Defect in Printed Circuit Boards using Unsupervised Feature Extraction Upon Transfer Learning",
+        "reason": "PCB 결함 탐지에 비지도 특징 추출과 전이학습을 활용하여 결함 라벨 없이 검출하는 접근으로, normal-only/unsupervised 기반 산업 결함 탐지의 직접적 선행 연구이다.",
+        "importance_score": 0.5425,
+        "threatens_dimension": "novelty"
+      },
+      {
+        "paper_id": "6edd6af8c77c3a2467184e818eebbd93bd1d5c87",
+        "title": "Smart-Inspect: Micro Scale Localization and Classification of Smartphone Glass Defects for Industrial Automation",
+        "reason": "16K 초고해상도 스마트폰 유리 이미지에서 반지도 학습 기반 미세 결함 검출 및 분류를 수행하여, 초고해상도 이미지의 패치 기반 결함 탐지와 먼지/반사 구분 문제를 다루는 가장 유사한 선행 연구이다.",
+        "importance_score": 0.4925,
+        "threatens_dimension": "novelty"
+      }
+    ],
+    "swing": [
+      {
+        "paper_id": "a518c06bb991b2f205b0930fd993021a086eb5fc",
+        "title": "Ball-Grid-Array Chip Defects Detection and Classification Using Patch-based Modified YOLOv3",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->approve",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This contra paper is one of only two papers directly covering core novelty slots (key_innovation, expected_mechanism) and also informs constraints. If its contrary closest-prior-art claim is confirmed, the hypothesis loses novelty/mechanistic distinctiveness on must-cover central slots, pushing the verdict from a balanced revise state toward reject.",
+        "gemini_reason": "This paper provides direct evidence for the 'closest_prior_art' slot regarding visual inspection systems and defect detection in the IC manufacturing industry. Confirming its methodology and constraints would fill a currently uncovered critical slot, strengthening the hypothesis's novelty and baseline context.",
+        "final_reason": "[weak] This contra paper is one of only two papers directly covering core novelty slots (key_innovation, expected_mechanism) and also informs constraints. If its contrary closest-prior-art claim is confirmed, the hypothesis loses novelty/mechanistic distinctiveness on must-cover central slots, pushing the verdict from a balanced revise state toward reject.",
+        "consensus_level": "weak",
+        "importance_score": 0.55,
+        "confidence": 0.855
+      },
+      {
+        "paper_id": "f9d1ca07a38bbcac53da259fcaf77773270c5e9c",
+        "title": "Detection Defect in Printed Circuit Boards using Unsupervised Feature Extraction Upon Transfer Learning",
+        "gpt_if_confirmed_changes": "revise->reject",
+        "gemini_if_confirmed_changes": "revise->approve",
+        "final_if_confirmed_changes": "revise->reject",
+        "gpt_reason": "This paper is a strong contra on closest_prior_art and additionally covers baseline_models, a required slot. Because uncovered slots already include closest_prior_art, confirming this paper would solidify that prior work already achieves the claimed effect/mechanism under relevant baselines, making the hypothesis insufficiently novel or differentiated and likely shifting revise to reject.",
+        "gemini_reason": "This paper also serves as 'closest_prior_art' by detailing unsupervised feature extraction and transfer learning for defect detection in printed circuit boards. It covers baseline models and constraints, which are currently missing from the confirmed evidence.",
+        "final_reason": "[weak] This paper is a strong contra on closest_prior_art and additionally covers baseline_models, a required slot. Because uncovered slots already include closest_prior_art, confirming this paper would solidify that prior work already achieves the claimed effect/mechanism under relevant baselines, making the hypothesis insufficiently novel or differentiated and likely shifting revise to reject.",
+        "consensus_level": "weak",
+        "importance_score": 0.5425,
+        "confidence": 0.9
+      },
+      {
+        "paper_id": "2e63224a18971095e3e03509878f530179d58f53",
+        "title": "Contrastive Language Prompting to Ease False Positives in Medical Anomaly Detection",
+        "reason": "Sections에서 reconstruction-by-inpainting UAD 방법과 contrastive prompting으로 정상 영역의 false positive를 억제하는 기법을 구체적으로 기술하여, 정상 참조 기반 이상 탐지에서 FP 감소 메커니즘의 직접적 근거를 제공한다.",
+        "importance_score": 0.585,
+        "supports_dimension": "novelty",
+        "if_confirmed_changes": "revise->approve",
+        "swing_reason": "[rule-based] dual role: supports novelty but covers falsification/failure"
+      }
+    ],
+    "decision_pressure": {
+      "primary_dimension": "validity",
+      "reason": "Uncovered slots: closest_prior_art, falsification_criteria"
+    }
+  }
+}

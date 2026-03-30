@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-03-30T09:52:03.432196",
+  "topic": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
+  "decision": "approve",
+  "comment": "auto-approved (CI/CD mode)",
+  "pdf_report": "experiments/ai_based_automatic_defect_dete/reports/report.pdf",
+  "hypothesis_file": "experiments/ai_based_automatic_defect_dete/reports/hypothesis.json",
+  "validation_summary": {
+    "average_score": 7.8,
+    "avg_breakdown": {
+      "novelty": 8.6,
+      "validity": 7.0,
+      "feasibility": 8.4,
+      "impact": 7.0
+    },
+    "score_diff": 0.5,
+    "passed_criteria": false,
+    "overall_verdict": "revise",
+    "lint_warning_count": 0,
+    "all_strengths": [
+      "가설이 mechanism, metric, falsification criteria까지 비교적 구체적으로 정의되어 있어 검증 가능성이 높다.",
+      "정상-only 제약, 초고해상도 patch 처리, false positive 억제, threshold 안정성을 하나의 배포형 파이프라인으로 연결한 점은 참신성이 있다.",
+      "FAISS 기반 동적 참조 검색과 국소 정규화의 결합은 global normalization의 한계를 의식한 설계로 논리적 동기가 분명하다.",
+      "EVT 기반 calibration을 명시적으로 포함해 실제 운영에서 중요한 threshold robustness 문제를 정면으로 다룬 점이 좋다.",
+      "기존 Global AdaIN이 결함 신호까지 훼손할 수 있는 문제를 극복하기 위해, FAISS 기반 Top-k 검색을 통한 '국소적(Localized) 스타일 적응형 정규화(LoSAIN)'를 고안한 점이 논리적으로 탁월함.",
+      "극단값 이론(EVT)을 적용하여 복잡한 산업 환경의 스타일 및 노이즈 변동 하에서도 재학습 없이 FPR을 1% 이하로 제어할 수 있는 강건한 임계값 자동 보정 메커니즘을 명확히 제시함.",
+      "초고해상도(6559x6559) 이미지 처리를 위한 오버랩 타일링, 타일 아티팩트 제거를 위한 가우시안 블렌딩, 구체적인 추론 속도 및 메모리 제약 등을 빈틈없이 고려한 엔드투엔드 파이프라인 설계."
+    ],
+    "all_weaknesses": [
+      "LoSAIN의 핵심 가정인 '정상 참조로 style만 제거되고 defect signal은 보존된다'는 부분이 아직 경험적 직관에 가깝고, 특징 공간에서 defect와 style이 충분히 분리된다는 보장이 없다.",
+      "per-channel mean/std 기반 AdaIN류 정규화는 공간 구조가 강한 반도체 패턴에서 국소 텍스처 위상 정보까지 왜곡할 수 있어 미세 결함 recall 저하 위험이 있다.",
+      "top-k retrieval 단위가 patch-level이면 patch 내부의 작은 defect가 정상 배경에 묻혀 잘못된 참조가 선택될 수 있고, 반대로 pixel-level localization 품질이 제한될 수 있다.",
+      "EVT를 per-condition calibration에 의존시키는 순간 'reference patch만 교체하면 재학습 없이 적응'이라는 주장의 순도가 약해진다. 실제로는 조건별 정상 calibration image 확보가 필요하다.",
+      "nearest-reference distance 기반 점수는 공정 패턴의 위치 불변성/주기성/registration 오차에 취약할 수 있으며, 단순 L2는 밝기나 phase shift에 민감할 수 있다.",
+      "public benchmark(MVTec 등) 성능이 좋아도 semiconductor grayscale 고주기 패턴 도메인으로의 외삽 타당성이 제한적이다.",
+      "LoSAIN 모듈에서 극단적인 조명/노이즈 변동이 발생한 쿼리 패치를 처리할 때, 참조 뱅크 내에 해당 스타일과 유사한 매칭 쌍이 전혀 존재하지 않으면 잘못된 통계량(mu, sigma)으로 정규화가 수행되어 오히려 FPR이 증가할 수 있음.",
+      "가우시안 블렌딩으로 패치 경계의 아티팩트를 부드럽게 만들 때, 패치 가장자리에 걸친 미세한(1~2 픽셀 크기) 결함의 이상 점수(Anomaly Score)가 희석되어 재현율(Recall)이 저하될 가능성이 있음."
+    ],
+    "all_suggestions": [
+      "LoSAIN 적용 전후의 defect signal preservation을 정량화하기 위해 synthetic defect insertion 실험을 추가하세요. 동일 normal patch에 인공 scratch/particle/void를 삽입해 normalization 전후 signal-to-background contrast와 recall 변화를 측정해야 합니다.",
+      "patch-level retrieval 외에 feature-grid local retrieval 또는 cross-attention matching을 소규모로 비교해 보세요. 현재 top-k patch retrieval은 너무 조악할 수 있습니다.",
+      "L2 distance만 쓰지 말고 cosine distance, Mahalanobis distance, layer-wise z-score distance를 ablation에 포함하세요. 특히 per-layer score calibration이 필요합니다.",
+      "EVT calibration에 필요한 정상 이미지 수를 10, 20, 50, 100으로 줄여가며 민감도 분석을 수행하세요. 그래야 실제 배포 비용을 설명할 수 있습니다.",
+      "조건 A에서 구축한 reference bank를 조건 B/C에 그대로 적용했을 때와, reference patch만 교체했을 때, reference+EVT 둘 다 갱신했을 때를 분리 비교하세요. 그래야 '무재학습 적응'의 실제 기여를 분해할 수 있습니다.",
+      "global context 손실 보완을 위해 coarse-to-fine 경로를 기본 설계로 승격하는 것을 권장합니다. 전역 저해상도 score prior를 사용해 patch score를 재가중하면 장주기 패턴 오탐을 줄일 수 있습니다.",
+      "grayscale 적응에서 단순 channel replication 대신 self-supervised industrial pretraining 또는 최소한 first-conv re-estimation 버전을 포함해 backbone domain gap을 줄이세요.",
+      "FAISS 검색 결과로 반환된 Top-k 참조 패치들과 쿼리 패치 간의 특징 공간상 거리가 일정 임계값을 초과할 경우, LoSAIN의 정규화 강도를 낮추거나 Identity mapping으로 Fallback 하는 동적 보간(Dynamic Interpolation) 메커니즘을 추가하여 정규화 왜곡을 방지할 것.",
+      "오버랩 블렌딩 시 단순 가우시안 가중합 외에, 겹치는 영역의 이상 점수 중 최댓값을 보존하는 Max-pooling 병합 방식을 하이브리드로 결합하여 미세 결함 신호의 희석(Dilution)을 최소화할 것."
+    ]
+  }
+}
