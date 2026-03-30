@@ -54,6 +54,7 @@ GitHub 실행 전제조건:
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -207,47 +208,85 @@ class LocalRunner(BaseRunner):
         env["PYTHONPATH"] = str(pkg_dir) + os.pathsep + env.get("PYTHONPATH", "")
         return env
 
+    @staticmethod
+    def _killpg_safe(pgid: int, sig: int) -> None:
+        """프로세스 그룹 kill. 이미 종료된 경우 무시."""
+        try:
+            os.killpg(pgid, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    @staticmethod
+    def _run_with_process_group(
+        cmd: list[str],
+        cwd: str,
+        env: dict,
+        timeout: int,
+    ) -> tuple[subprocess.CompletedProcess | None, str | None]:
+        """프로세스 그룹 단위로 실행하고 timeout 시 그룹 전체를 kill한다.
+
+        Returns:
+            (CompletedProcess, None) on success/failure
+            (None, error_reason) on timeout or exception
+        """
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, cwd=cwd, env=env,
+            start_new_session=True,  # 새 프로세스 그룹 생성 → 자식 전체 관리
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return subprocess.CompletedProcess(
+                cmd, proc.returncode, stdout, stderr
+            ), None
+        except subprocess.TimeoutExpired:
+            LocalRunner._killpg_safe(proc.pid, signal.SIGTERM)
+            time.sleep(2)
+            LocalRunner._killpg_safe(proc.pid, signal.SIGKILL)
+            proc.wait()
+            return None, f"timeout ({timeout}s)"
+        except Exception as e:
+            LocalRunner._killpg_safe(proc.pid, signal.SIGTERM)
+            proc.wait()
+            return None, str(e)
+
     def run_smoke(self, pkg_dir: Path) -> dict:
         cmd = [sys.executable, "scripts/smoke_test.py", "--config", "configs/fast.yaml"]
         print(f"    [smoke test] {' '.join(cmd)}")
         start = time.monotonic()
-        try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=180,
-                cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir)
-            )
-            duration = round(time.monotonic() - start, 2)
-            ok     = proc.returncode == 0
-            status = "success" if ok else "smoke_failed"
-            print(f"    [smoke] {'PASS ✅' if ok else 'FAIL ❌'}")
-            if not ok:
-                print("    stderr:", proc.stderr[-500:])
-            return self._make_result(
-                status=status, metrics={},
-                stdout_lines=proc.stdout.splitlines(),
-                stderr_tail=proc.stderr.splitlines()[-100:],
-                returncode=proc.returncode,
-                metadata={
-                    **self._empty_metadata("local"),
-                    "experiment_pkg": str(pkg_dir),
-                    "duration_s":     duration,
-                },
-            )
-        except subprocess.TimeoutExpired:
+
+        proc, err = self._run_with_process_group(
+            cmd, cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir),
+            timeout=180,
+        )
+        duration = round(time.monotonic() - start, 2)
+
+        if err is not None:
+            reason = f"smoke 실행 실패: {err}"
+            print(f"    [smoke] {reason}")
             return self._make_result(
                 status="smoke_failed", metrics={},
-                stdout_lines=[], stderr_tail=["smoke_test timeout (180s)"],
+                stdout_lines=[], stderr_tail=[reason],
                 returncode=-1,
-                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
+                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir), "duration_s": duration},
             )
-        except Exception as e:
-            print(f"    [smoke] 예외: {e}")
-            return self._make_result(
-                status="smoke_failed", metrics={},
-                stdout_lines=[], stderr_tail=[f"smoke 실행 예외: {e}"],
-                returncode=-1,
-                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
-            )
+
+        ok     = proc.returncode == 0
+        status = "success" if ok else "smoke_failed"
+        print(f"    [smoke] {'PASS ✅' if ok else 'FAIL ❌'}")
+        if not ok:
+            print("    stderr:", proc.stderr[-500:])
+        return self._make_result(
+            status=status, metrics={},
+            stdout_lines=proc.stdout.splitlines(),
+            stderr_tail=proc.stderr.splitlines()[-100:],
+            returncode=proc.returncode,
+            metadata={
+                **self._empty_metadata("local"),
+                "experiment_pkg": str(pkg_dir),
+                "duration_s":     duration,
+            },
+        )
 
     def run_train(
         self,
@@ -258,30 +297,23 @@ class LocalRunner(BaseRunner):
         import datetime as _dt
         cmd = [sys.executable, "train.py", "--config", config_file]
         print(f"\n    [실험 실행] cd {pkg_dir} && {' '.join(cmd)}")
-        start     = time.monotonic()
+        start      = time.monotonic()
         started_at = _dt.datetime.utcnow().isoformat()
-        try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout,
-                cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir)
-            )
-            duration      = round(time.monotonic() - start, 2)
-            finished_at   = _dt.datetime.utcnow().isoformat()
-            stdout_lines  = proc.stdout.splitlines()
-            stderr_lines  = proc.stderr.splitlines()
 
-            metrics, parse_ok = self._parse_metrics(stdout_lines)
-            if proc.returncode != 0:
-                status = "failed"
-            elif not parse_ok:
-                status = "metrics_parse_error"
-            else:
-                status = "success"
+        proc, err = self._run_with_process_group(
+            cmd, cwd=str(pkg_dir), env=self._env_with_pythonpath(pkg_dir),
+            timeout=timeout,
+        )
+        duration    = round(time.monotonic() - start, 2)
+        finished_at = _dt.datetime.utcnow().isoformat()
 
+        if err is not None:
+            is_timeout = err.startswith("timeout")
             return self._make_result(
-                status=status, metrics=metrics,
-                stdout_lines=stdout_lines, stderr_tail=stderr_lines[-200:],
-                returncode=proc.returncode,
+                status="timeout" if is_timeout else "failed",
+                metrics={},
+                stdout_lines=[], stderr_tail=[f"train 실행 실패: {err}"],
+                returncode=-1,
                 metadata={
                     **self._empty_metadata("local"),
                     "experiment_pkg": str(pkg_dir),
@@ -290,25 +322,30 @@ class LocalRunner(BaseRunner):
                     "finished_at":    finished_at,
                 },
             )
-        except subprocess.TimeoutExpired:
-            return self._make_result(
-                status="timeout", metrics={},
-                stdout_lines=[], stderr_tail=[f"train timeout ({timeout}s)"],
-                returncode=-1,
-                metadata={
-                    **self._empty_metadata("local"),
-                    "experiment_pkg": str(pkg_dir),
-                    "duration_s":     float(timeout),
-                    "started_at":     started_at,
-                },
-            )
-        except Exception as e:
-            return self._make_result(
-                status="failed", metrics={},
-                stdout_lines=[], stderr_tail=[f"train 실행 예외: {e}"],
-                returncode=-1,
-                metadata={**self._empty_metadata("local"), "experiment_pkg": str(pkg_dir)},
-            )
+
+        stdout_lines = proc.stdout.splitlines()
+        stderr_lines = proc.stderr.splitlines()
+
+        metrics, parse_ok = self._parse_metrics(stdout_lines)
+        if proc.returncode != 0:
+            status = "failed"
+        elif not parse_ok:
+            status = "metrics_parse_error"
+        else:
+            status = "success"
+
+        return self._make_result(
+            status=status, metrics=metrics,
+            stdout_lines=stdout_lines, stderr_tail=stderr_lines[-200:],
+            returncode=proc.returncode,
+            metadata={
+                **self._empty_metadata("local"),
+                "experiment_pkg": str(pkg_dir),
+                "duration_s":     duration,
+                "started_at":     started_at,
+                "finished_at":    finished_at,
+            },
+        )
 
 
 # ──────────────────────────────────────────────────────────

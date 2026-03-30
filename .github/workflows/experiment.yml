@@ -121,7 +121,20 @@ jobs:
             --exclude '.git' \
             "${{ github.workspace }}/" "${{ env.PROJECT_DIR }}/"
 
-      # ── 작업 3: 컨테이너/conda 환경 검증 ──
+      # ── 작업 3: tini 설치 + 컨테이너/conda 환경 검증 ──
+      - name: Ensure tini is installed (zombie reaper)
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            if command -v tini &>/dev/null; then
+              echo "=== tini already installed: $(tini --version) ==="
+            else
+              echo "=== Installing tini ==="
+              apt-get update -qq && apt-get install -y -qq tini \
+                || (echo "ERROR: tini 설치 실패" && exit 1)
+              echo "=== tini installed: $(tini --version) ==="
+            fi
+          '
+
       - name: Verify container and conda env
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
@@ -241,7 +254,7 @@ jobs:
           docker exec ${{ env.CONTAINER_NAME }} bash -lc "
             cd \"${PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
-            conda run -n ${{ env.CONDA_ENV_NAME }} \
+            tini -s -- conda run -n ${{ env.CONDA_ENV_NAME }} \
               python scripts/smoke_test.py --config configs/fast.yaml
           "
 
@@ -321,7 +334,7 @@ jobs:
             cd \"${TRAIN_PKG_BASE}/${{ env.EXPERIMENT_PKG }}\"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
             mkdir -p artifacts/logs
-            conda run -n ${{ env.CONDA_ENV_NAME }} \
+            tini -s -- conda run -n ${{ env.CONDA_ENV_NAME }} \
               python train.py --config ${{ env.CONFIG_FILE }} \
               2>artifacts/logs/stderr.txt | tee artifacts/logs/stdout.txt
           "
@@ -360,6 +373,16 @@ jobs:
           json.dump(m, open('artifacts/metrics/final_metrics.json', 'w'), indent=2)
           print('final_metrics.json saved.')
           "
+
+      - name: Cleanup train processes
+        if: always()
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            # train.py 및 자식 프로세스 (DataLoader worker 등) 정리
+            pkill -f "python train.py --config" 2>/dev/null || true
+            pkill -f "pt_data_worker" 2>/dev/null || true
+            echo "=== Train process cleanup done ==="
+          '
 
       - name: Upload train artifacts
         if: always()

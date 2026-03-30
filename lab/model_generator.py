@@ -1957,9 +1957,21 @@ def _validate_generated_package(pkg_dir: Path) -> dict:
     if syntax_ok:
         cmd = [sys.executable, "scripts/smoke_test.py", "--config", "configs/fast.yaml"]
         try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=180, cwd=str(pkg_dir)
+            _proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, cwd=str(pkg_dir), start_new_session=True,
             )
+            try:
+                _stdout, _stderr = _proc.communicate(timeout=180)
+            except subprocess.TimeoutExpired:
+                import os as _os, signal as _sig
+                try:
+                    _os.killpg(_proc.pid, _sig.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                _proc.wait()
+                raise
+            proc = subprocess.CompletedProcess(cmd, _proc.returncode, _stdout, _stderr)
             smoke_ok = proc.returncode == 0
             if not smoke_ok:
                 errors.append(f"smoke_test failed: {proc.stderr[-400:]}")
@@ -1976,9 +1988,21 @@ def _validate_generated_package(pkg_dir: Path) -> dict:
     if test_path.exists() and syntax_ok:
         cmd = [sys.executable, "-m", "pytest", str(test_path), "-q", "--tb=short"]
         try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120, cwd=str(pkg_dir)
+            _proc2 = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, cwd=str(pkg_dir), start_new_session=True,
             )
+            try:
+                _stdout2, _stderr2 = _proc2.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                import os as _os, signal as _sig
+                try:
+                    _os.killpg(_proc2.pid, _sig.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                _proc2.wait()
+                raise
+            proc = subprocess.CompletedProcess(cmd, _proc2.returncode, _stdout2, _stderr2)
             forward_ok = proc.returncode == 0
             if not forward_ok:
                 warnings.append(f"test_forward failed (non-blocking): {proc.stdout[-300:]}")

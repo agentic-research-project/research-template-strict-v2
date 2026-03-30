@@ -91,6 +91,19 @@ jobs:
             --exclude '.git' \
             "${{ github.workspace }}/" "${{ env.PROJECT_DIR }}/"
 
+      - name: Ensure tini is installed (zombie reaper)
+        run: |
+          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
+            if command -v tini &>/dev/null; then
+              echo "=== tini already installed: $(tini --version) ==="
+            else
+              echo "=== Installing tini ==="
+              apt-get update -qq && apt-get install -y -qq tini \
+                || (echo "ERROR: tini 설치 실패" && exit 1)
+              echo "=== tini installed: $(tini --version) ==="
+            fi
+          '
+
       - name: Verify container and conda env
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
@@ -121,7 +134,8 @@ jobs:
 
       - name: Run research pipeline
         run: |
-          # PID 파일로 프로세스 추적 — workflow 종료 시 cleanup에서 kill
+          # tini -s: subreaper 모드 — 고아 프로세스 자동 reaping (zombie 방지)
+          # setsid: 프로세스 그룹 생성 → cleanup에서 그룹 단위 종료 가능
           docker exec \
             -e ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
             -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
@@ -132,8 +146,7 @@ jobs:
             ${{ env.CONTAINER_NAME }} bash -lc '
             cd "${{ env.PROJECT_DIR }}"
             export CUDA_VISIBLE_DEVICES=${{ env.CUDA_DEVICE }}
-            # setsid로 프로세스 그룹 생성 → cleanup에서 그룹 단위 종료 가능
-            setsid conda run -n ${{ env.CONDA_ENV_NAME }} \
+            setsid tini -s -- conda run -n ${{ env.CONDA_ENV_NAME }} \
               python main.py \
                 --todo "${{ inputs.todo_file }}" \
                 --auto-approve \
@@ -147,18 +160,25 @@ jobs:
         if: always()
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            # PID 파일에서 프로세스 그룹 종료
+            # PID 파일에서 프로세스 그룹 + 자식 트리 종료
             if [ -f /tmp/.pipeline_pid ]; then
               PID=$(cat /tmp/.pipeline_pid)
-              # 프로세스 그룹 전체 종료 (자식 프로세스 포함)
+              # 1) 프로세스 트리 전체 SIGTERM (자식의 자식까지)
+              pkill -TERM -P $PID 2>/dev/null || true
               kill -TERM -- -$PID 2>/dev/null || true
               sleep 2
+              # 2) 남은 프로세스 강제 종료
+              pkill -9 -P $PID 2>/dev/null || true
               kill -9 -- -$PID 2>/dev/null || true
               rm -f /tmp/.pipeline_pid
               echo "=== Pipeline processes cleaned up (PGID=$PID) ==="
             fi
-            # 잔여 main.py 프로세스도 정리
+            # 잔여 main.py 프로세스 정리
             pkill -f "python main.py --todo" 2>/dev/null || true
+            # claude CLI 고아 프로세스 정리
+            pkill -f "claude" 2>/dev/null || true
+            # DataLoader worker 고아 정리
+            pkill -f "pt_data_worker" 2>/dev/null || true
             echo "=== Orphan cleanup done ==="
           '
 
