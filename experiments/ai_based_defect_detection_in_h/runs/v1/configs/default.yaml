@@ -16,6 +16,8 @@ optimizer: 'adamw'
 weight_decay: 0.01
 gradient_clip: 1.0
 seed: 42
+primary_metric: 'score_stability'  # higher is better for checkpoint selection
+lr_min: 1.0e-6
 
 # Precision and performance
 precision: 'bf16-mixed'
