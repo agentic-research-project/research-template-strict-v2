@@ -74,12 +74,19 @@ class ATISourceDataset(Dataset):
         self.overlap = overlap
         self.patches_per_image = patches_per_image
 
-        # Full.bmp 파일 수집 (최대 max_source_images)
+        # Full.bmp 파일 수집 — 읽기 가능한 파일만 max_source_images개 확보
+        _all_candidates: List[Path] = sorted(self.source_dir.rglob("Full.bmp"))
         self.source_files: List[Path] = []
-        for bmp_file in self.source_dir.rglob("Full.bmp"):
-            self.source_files.append(bmp_file)
+        for bmp_file in _all_candidates:
             if len(self.source_files) >= max_source_images:
                 break
+            try:
+                _img = Image.open(bmp_file).convert("L")
+                _img.load()
+                self.source_files.append(bmp_file)
+            except Exception as _e:
+                print(f"[data] skip {bmp_file.parent.name}/{bmp_file.name}: {_e}")
+        print(f"[data] readable source files: {len(self.source_files)}/{len(_all_candidates)}")
 
         self._dummy_mode = len(self.source_files) == 0
         if self._dummy_mode:
@@ -91,23 +98,9 @@ class ATISourceDataset(Dataset):
             self._build_patch_index()
 
     def _build_patch_index(self):
-        """패치 인덱스 사전 구축 — 읽기 불가 파일은 skip."""
+        """패치 인덱스 사전 구축 (source_files는 이미 readability 검증됨)."""
         self.patch_index = []
         step = self.patch_size - self.overlap
-        readable_files: List[Path] = []
-
-        for img_path in self.source_files:
-            # 파일 readability 사전 검증 (소량 로드 테스트)
-            try:
-                img = Image.open(img_path).convert("L")
-                W, H = img.size  # 파일 헤더 + 일부 데이터 검증
-                img.load()       # 전체 decode 시도
-                readable_files.append(img_path)
-            except Exception as e:
-                print(f"[data] 읽기 불가 파일 skip {img_path.name}: {e}")
-
-        print(f"[data] 유효 source 이미지: {len(readable_files)}/{len(self.source_files)}")
-        self.source_files = readable_files  # 읽기 가능한 파일만 사용
 
         for img_idx, img_path in enumerate(self.source_files):
             try:
@@ -245,7 +238,16 @@ def build_dataloaders(config: dict):
             max_source_images=config.get("max_val_source_images", 3),
             patches_per_image=config.get("val_patches_per_image", 50),
         )
-        print(f"[data] ATI source dataset: {len(val_ds)} patches from {source_dir}")
+        if len(val_ds) == 0:
+            print(f"[data] ATI source: 0 readable patches → synthetic fallback")
+            val_ds = SyntheticPatchDataset(
+                num_samples=config.get("num_synthetic_val_samples", 32),
+                patch_size=patch_size,
+                anomaly_ratio=0.2,
+                seed=seed + 1,
+            )
+        else:
+            print(f"[data] ATI source dataset: {len(val_ds)} patches from {source_dir}")
     else:
         print(f"[data] source_dir 없음 → 합성 데이터 사용")
         val_ds = SyntheticPatchDataset(

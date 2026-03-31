@@ -184,22 +184,25 @@ class TrainingModule:
         peak_memory = np.max(memory_usage) if memory_usage else 0.0
         throughput = len(all_scores) / (time.time() - start_time)
         
-        # Anomalous area ratio (simplified)
-        anomalous_area_ratio = np.sum(all_scores > np.percentile(all_scores, 95)) / len(all_scores)
-        
+        # Anomalous area ratio (simplified, guard against empty array)
+        if len(all_scores) > 0:
+            anomalous_area_ratio = float(np.sum(all_scores > np.percentile(all_scores, 95)) / len(all_scores))
+        else:
+            anomalous_area_ratio = 0.0
+
         # Score stability (std of normal scores)
         normal_scores = all_scores[all_labels == 0]
         score_stability = np.std(normal_scores) if len(normal_scores) > 0 else 0.0
-        
+
         # Threshold robustness (coefficient of variation)
-        threshold_robustness = score_stability / max(np.mean(normal_scores), 1e-8) if len(normal_scores) > 0 else 0.0
-        
+        threshold_robustness = score_stability / max(float(np.mean(normal_scores)), 1e-8) if len(normal_scores) > 0 else 0.0
+
         metrics = {
             'auroc': auroc,
             'false': fpr,  # False positive rate
             'anomalous': anomalous_area_ratio,
             'defect': auroc,  # Use AUROC as defect detection metric
-            'mean': np.mean(all_scores),
+            'mean': float(np.mean(all_scores)) if len(all_scores) > 0 else 0.0,
             'normal': np.mean(normal_scores) if len(normal_scores) > 0 else 0.0,
             'threshold': self.model.evt_thresholds.get('default', 0.0),
             'inference': mean_inference_time,
