@@ -1,0 +1,37 @@
+{
+  "version": "v1",
+  "topic": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
+  "hypothesis_id": "mc_losain_cascade_retrieval_v2",
+  "model_architecture": "DefectDetectionModel — Frozen WideResNet-50 backbone + FAISS IVF-PQ reference bank + LoSAIN normalization + EVT threshold calibration",
+  "training_paradigm": "unsupervised_training_free",
+  "task_type": "anomaly_detection",
+  "evaluation_config": {
+    "primary_metric": "auroc",
+    "secondary_metrics": ["false_positive_rate", "anomalous_area_ratio", "inference_time", "peak_memory_gb"],
+    "target_values": {
+      "false_positive_rate": {"op": "<=", "value": 0.01},
+      "auroc": {"op": ">=", "value": 0.9},
+      "inference_time": {"op": "<=", "value": 120.0},
+      "peak_memory_gb": {"op": "<=", "value": 16.0}
+    }
+  },
+  "data_config": {
+    "source_dir": "/data/0_Data/0_1_INDUST/ATI/source",
+    "reference_dir": "/data/0_Data/0_1_INDUST/ATI/reference_normal",
+    "input_size": [1, 6559, 6559],
+    "patch_size": 256,
+    "patch_overlap": 32,
+    "domain": "industrial_grayscale_semiconductor"
+  },
+  "constraints": {
+    "training_free": true,
+    "normal_only": true,
+    "max_inference_time_s": 120,
+    "max_memory_gb": 16,
+    "backbone_frozen": true
+  },
+  "expected_behavior": {
+    "smoke_test": "reference bank 구축 후 FPR, AUROC, inference_time 출력",
+    "success_signal": "METRICS 줄에 auroc, false_positive_rate, inference_time 키 포함"
+  }
+}
