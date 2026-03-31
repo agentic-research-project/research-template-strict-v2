@@ -91,12 +91,27 @@ class ATISourceDataset(Dataset):
             self._build_patch_index()
 
     def _build_patch_index(self):
-        """패치 인덱스 사전 구축."""
+        """패치 인덱스 사전 구축 — 읽기 불가 파일은 skip."""
         self.patch_index = []
         step = self.patch_size - self.overlap
+        readable_files: List[Path] = []
+
+        for img_path in self.source_files:
+            # 파일 readability 사전 검증 (소량 로드 테스트)
+            try:
+                img = Image.open(img_path).convert("L")
+                W, H = img.size  # 파일 헤더 + 일부 데이터 검증
+                img.load()       # 전체 decode 시도
+                readable_files.append(img_path)
+            except Exception as e:
+                print(f"[data] 읽기 불가 파일 skip {img_path.name}: {e}")
+
+        print(f"[data] 유효 source 이미지: {len(readable_files)}/{len(self.source_files)}")
+        self.source_files = readable_files  # 읽기 가능한 파일만 사용
+
         for img_idx, img_path in enumerate(self.source_files):
             try:
-                img = Image.open(img_path)
+                img = Image.open(img_path).convert("L")
                 W, H = img.size
                 ys = list(range(0, H - self.patch_size + 1, step))
                 xs = list(range(0, W - self.patch_size + 1, step))
@@ -109,7 +124,7 @@ class ATISourceDataset(Dataset):
                 for (y, x) in positions:
                     self.patch_index.append((img_idx, y, x))
             except Exception as e:
-                print(f"[data] 이미지 읽기 오류 {img_path}: {e}")
+                print(f"[data] 패치 인덱스 오류 {img_path}: {e}")
 
     def __len__(self) -> int:
         if self._dummy_mode:

@@ -256,13 +256,15 @@ class DefectDetectionModel(nn.Module):
             ref_feats = retrieved_refs[layer_name]
             
             # Apply LoSAIN normalization
-            normalized_query = self.losain(query_feat.unsqueeze(0), ref_feats)
-            normalized_query = normalized_query.squeeze(0)
-            
+            # query_feat is [1, C, H_feat, W_feat] (batch of 1); pass directly (no unsqueeze)
+            normalized_query = self.losain(query_feat, ref_feats)
+            normalized_query = normalized_query.squeeze(0)  # [C, H_feat, W_feat]
+
             # Compute minimum L2 distance to references
             min_dist = float('inf')
             for ref_feat in ref_feats:
-                dist = torch.norm(normalized_query - ref_feat, p=2).item()
+                # ref_feat from retrieve_references is reshaped to match query_features shape
+                dist = torch.norm(normalized_query - ref_feat.squeeze(0), p=2).item()
                 min_dist = min(min_dist, dist)
             
             scores.append(min_dist)

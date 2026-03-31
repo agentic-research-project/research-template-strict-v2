@@ -53,19 +53,22 @@ class TrainingModule:
             for i, image in enumerate(images):
                 # Assume label 0 is normal, or all images are normal in unsupervised setting
                 if labels is None or labels[i].item() == 0:
+                    # image: [C, H, W] → extract_patches expects [B, C, H, W]
                     patches, _ = self.model.extract_patches(image.unsqueeze(0))
                     for patch in patches:
-                        normal_patches.append(patch.cpu())
-                        
+                        # patch may be [B, C, H, W]; squeeze batch dim to [C, H, W]
+                        p = patch.squeeze(0).cpu()
+                        normal_patches.append(p)
+
                         # Also collect scores for EVT calibration if reference bank exists
                         if hasattr(self.model, 'faiss_indices') and 'default' in self.model.faiss_indices:
                             with torch.no_grad():
-                                features = self.model.feature_extractor(patch.unsqueeze(0))
+                                features = self.model.feature_extractor(p.unsqueeze(0).to(self.device))
                                 try:
                                     retrieved_refs = self.model.retrieve_references(features, 'default')
                                     score = self.model.compute_anomaly_score(features, retrieved_refs)
                                     normal_scores.append(score)
-                                except:
+                                except Exception:
                                     pass
             
             if batch_idx == 0 and epoch == 0:
@@ -80,7 +83,9 @@ class TrainingModule:
             normal_scores = []
             for patch in normal_patches[:1000]:  # Limit for efficiency
                 with torch.no_grad():
-                    features = self.model.feature_extractor(patch.unsqueeze(0).to(self.device))
+                    # patch is [C, H, W]; unsqueeze(0) → [1, C, H, W] = 4D ✓
+                    p = patch.squeeze(0) if patch.dim() > 3 else patch
+                    features = self.model.feature_extractor(p.unsqueeze(0).to(self.device))
                     retrieved_refs = self.model.retrieve_references(features, 'default')
                     score = self.model.compute_anomaly_score(features, retrieved_refs)
                     normal_scores.append(score)
