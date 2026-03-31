@@ -154,18 +154,27 @@ jobs:
         if: always()
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            # PID 기반 프로세스 그룹 종료 (trap+wait의 안전망)
+            # 1) PID 기반 프로세스 그룹 종료
             if [ -f /tmp/.pipeline_pid ]; then
               PID=$(cat /tmp/.pipeline_pid)
-              # 프로세스 그룹 전체 SIGTERM → SIGKILL
               kill -TERM -- -$PID 2>/dev/null || true
               sleep 2
               kill -9 -- -$PID 2>/dev/null || true
               rm -f /tmp/.pipeline_pid
-              echo "=== Pipeline processes cleaned up (PGID=$PID) ==="
-            else
-              echo "=== No PID file found, skipping ==="
+              echo "=== Pipeline PGID=$PID killed ==="
             fi
+            # 2) 이 workflow가 실행한 main.py 프로세스 트리 전체 종료
+            #    (docker exec 끊겨도 컨테이너 내부에서 살아남는 프로세스 대비)
+            for pid in $(pgrep -f "python main.py --todo" 2>/dev/null); do
+              pkill -TERM -P $pid 2>/dev/null || true  # 자식 먼저
+              kill -TERM $pid 2>/dev/null || true
+            done
+            sleep 2
+            for pid in $(pgrep -f "python main.py --todo" 2>/dev/null); do
+              pkill -9 -P $pid 2>/dev/null || true
+              kill -9 $pid 2>/dev/null || true
+            done
+            echo "=== Cleanup done ==="
           '
 
       - name: Upload results
