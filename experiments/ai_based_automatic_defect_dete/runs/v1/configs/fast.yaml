@@ -2,7 +2,33 @@
 # default.yaml override (명시되지 않은 키는 default.yaml 값 사용)
 # GitHub Actions smoke stage에서 사용
 
+seed: 42
 epochs: 2
 batch_size: 4
+val_batch_size: 2
 num_workers: 0
 eval_frequency: 1
+lr: 1.0e-4
+weight_decay: 1.0e-4
+
+# 모델 파라미터
+patch_size: 256
+patch_overlap: 32
+k_references: 4
+target_fpr: 0.01
+min_defect_area: 100
+
+# 데이터 경로 (smoke test에서는 빈 경로로 synthetic fallback)
+source_dir: ""
+reference_dir: ""
+data_dir: "data/"
+
+# 검증용 합성 데이터
+num_synthetic_samples: 16
+num_synthetic_val_samples: 8
+max_val_source_images: 1
+val_patches_per_image: 10
+
+# 평가
+primary_metric: "auroc"
+loss_function: "l2"
