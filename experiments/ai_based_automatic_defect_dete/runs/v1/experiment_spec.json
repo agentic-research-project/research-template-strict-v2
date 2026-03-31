@@ -7,6 +7,7 @@
   "task_type": "anomaly_detection",
   "evaluation_config": {
     "primary_metric": "auroc",
+    "target_value": 0.9,
     "secondary_metrics": ["false_positive_rate", "anomalous_area_ratio", "inference_time", "peak_memory_gb"],
     "target_values": {
       "false_positive_rate": {"op": "<=", "value": 0.01},
