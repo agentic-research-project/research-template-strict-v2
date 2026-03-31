@@ -1,16 +1,16 @@
 {
   "schema_version": "1.0",
-  "run_id": "ai_based_automatic_defect_dete_v1_20260330_101819",
-  "spec_id": "ai_based_automatic_defect_dete_v1_20260330_101445",
-  "hypothesis_id": "c15cd86a",
-  "experiment_version": 1,
-  "status": "failed",
+  "run_id": "ai_based_automatic_defect_dete_vv1_20260331_101935",
+  "spec_id": "",
+  "hypothesis_id": "mc_losain_cascade_retrieval_v2",
+  "experiment_version": "v1",
+  "status": "smoke_failed",
   "primary_metric": {
-    "name": "false",
+    "name": "auroc",
     "value": 0.0,
-    "unit": "FAI",
-    "target": 0.0,
-    "met": true
+    "unit": "",
+    "target": 0.9,
+    "met": false
   },
   "all_metrics": {},
   "secondary_metrics": [],
@@ -33,21 +33,23 @@
     {
       "name": "execution failure",
       "severity": "critical",
-      "confidence": 0.95,
+      "confidence": 0.85,
       "evidence": [
-        "status=failed"
+        "attainment_ratio=0.00 (<0.5)",
+        "loss_converged=false",
+        "core implementation mismatch likely"
       ]
     }
   ],
   "ablation_findings": [],
-  "confidence": 0.7,
+  "confidence": 0.3,
   "confidence_model": {
-    "metric_score": 1.0,
+    "metric_score": 0.0,
     "stability_score": 0.0,
     "implementation_score": 1.0,
     "trend_score": 0.5,
-    "final_confidence": 0.7,
-    "explanation": "target achieved; training instability detected; implementation is valid"
+    "final_confidence": 0.3,
+    "explanation": "far from target; training instability detected; implementation is valid"
   },
   "effect_size": {
     "relative_change": 0.0,
@@ -58,11 +60,11 @@
   "metric_warnings": [],
   "recommended_next_actions": [
     {
-      "path": "done",
+      "path": "A",
       "priority": "high",
-      "rationale": "target metric achieved",
+      "rationale": "execution failure (smoke_failed) requires implementation fix",
       "evidence": [
-        "primary_metric.met=true"
+        "status=smoke_failed"
       ]
     }
   ],
@@ -70,22 +72,21 @@
     {
       "finding": "Bottleneck: execution failure",
       "impact": "critical",
-      "why_pivotal": "status=failed",
+      "why_pivotal": "attainment_ratio=0.00 (<0.5); loss_converged=false",
       "action": "resolve_first"
     }
   ],
   "scientific_bet": {
-    "claim": "Target met: false=0.0000",
-    "bet_grade": "C",
-    "confidence": 0.7,
+    "claim": "Attainment 0%: auroc=0.0000",
+    "bet_grade": "D",
+    "confidence": 0.3,
     "evidence_for": [
-      "metric_close",
       "mechanism_ok"
     ],
     "evidence_against": [
       "execution failure (critical)"
     ],
-    "hedge": "Proceed, monitor: execution failure (critical). [SPARSE: single run, wide confidence bounds]",
+    "hedge": "Insufficient evidence. Pivot or collect more data. [SPARSE: single run, wide confidence bounds]",
     "n_runs": 0
   },
   "problem_reframe": {
@@ -93,24 +94,22 @@
     "signals": [],
     "suggested_reframe": ""
   },
-  "stderr_tail": [
-    "workflow 실패: conclusion=failure dispatch_id=train_a5920e0d3a59 url=https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23739684008"
-  ],
+  "stderr_tail": [],
   "stdout_tail": [],
   "runner_metadata": {
     "runner": "github",
-    "job_id": "23739684008",
-    "pipeline_id": "",
-    "dispatch_id": "train_a5920e0d3a59",
+    "job_id": "23792315184",
+    "pipeline_id": "27",
+    "dispatch_id": "smoke_44076fc5678f",
     "duration_s": 0.0,
-    "artifact_uri": "",
-    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23739684008",
-    "git_sha": "d7ccd61641ee87f2eb3b74bba1eca2feb14bf781",
-    "git_branch": "",
+    "artifact_uri": "https://api.github.com/repos/agentic-research-project/research-ATI-strict-v2/actions/runs/23792315184/artifacts",
+    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23792315184",
+    "git_sha": "5a08ed54b142fc0ed46b65b72890c4e749f926c4",
+    "git_branch": "main",
     "experiment_pkg": "experiments/ai_based_automatic_defect_dete/runs/v1",
-    "started_at": "",
-    "finished_at": ""
+    "started_at": "2026-03-31T10:18:07Z",
+    "finished_at": "2026-03-31T10:18:59Z"
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-30T10:18:19.712186"
+  "created_at": "2026-03-31T10:19:35.351772"
 }
