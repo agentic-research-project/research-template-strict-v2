@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
-  "run_id": "ai_based_automatic_defect_dete_vv1_20260331_101935",
+  "run_id": "ai_based_automatic_defect_dete_vv1_20260331_102653",
   "spec_id": "",
   "hypothesis_id": "mc_losain_cascade_retrieval_v2",
   "experiment_version": "v1",
-  "status": "smoke_failed",
+  "status": "failed",
   "primary_metric": {
     "name": "auroc",
     "value": 0.0,
@@ -62,9 +62,9 @@
     {
       "path": "A",
       "priority": "high",
-      "rationale": "execution failure (smoke_failed) requires implementation fix",
+      "rationale": "execution failure (failed) requires implementation fix",
       "evidence": [
-        "status=smoke_failed"
+        "status=failed"
       ]
     }
   ],
@@ -94,22 +94,24 @@
     "signals": [],
     "suggested_reframe": ""
   },
-  "stderr_tail": [],
+  "stderr_tail": [
+    "workflow 실패: conclusion=failure dispatch_id=train_5cbfee960095 url=https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23792576387"
+  ],
   "stdout_tail": [],
   "runner_metadata": {
     "runner": "github",
-    "job_id": "23792315184",
-    "pipeline_id": "27",
-    "dispatch_id": "smoke_44076fc5678f",
+    "job_id": "23792576387",
+    "pipeline_id": "",
+    "dispatch_id": "train_5cbfee960095",
     "duration_s": 0.0,
-    "artifact_uri": "https://api.github.com/repos/agentic-research-project/research-ATI-strict-v2/actions/runs/23792315184/artifacts",
-    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23792315184",
-    "git_sha": "5a08ed54b142fc0ed46b65b72890c4e749f926c4",
-    "git_branch": "main",
+    "artifact_uri": "",
+    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23792576387",
+    "git_sha": "b1a2aa05c4a8fb06a593b8ee9aa0c2eb76a943fa",
+    "git_branch": "",
     "experiment_pkg": "experiments/ai_based_automatic_defect_dete/runs/v1",
-    "started_at": "2026-03-31T10:18:07Z",
-    "finished_at": "2026-03-31T10:18:59Z"
+    "started_at": "",
+    "finished_at": ""
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-31T10:19:35.351772"
+  "created_at": "2026-03-31T10:26:53.558164"
 }
