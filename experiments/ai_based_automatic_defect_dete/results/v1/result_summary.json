@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "run_id": "ai_based_automatic_defect_dete_vv1_20260331_104649",
+  "run_id": "ai_based_automatic_defect_dete_vv1_20260331_105601",
   "spec_id": "",
   "hypothesis_id": "mc_losain_cascade_retrieval_v2",
   "experiment_version": "v1",
@@ -95,23 +95,23 @@
     "suggested_reframe": ""
   },
   "stderr_tail": [
-    "workflow 실패: conclusion=failure dispatch_id=train_4efcccf031e3 url=https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23793323637"
+    "run 식별 실패: run 식별 timeout: dispatch_id=train_26315e6fd2b2 (120s 내 dispatch_id 검증 통과 run 미발견, branch=main)"
   ],
   "stdout_tail": [],
   "runner_metadata": {
     "runner": "github",
-    "job_id": "23793323637",
+    "job_id": "",
     "pipeline_id": "",
-    "dispatch_id": "train_4efcccf031e3",
+    "dispatch_id": "train_26315e6fd2b2",
     "duration_s": 0.0,
     "artifact_uri": "",
-    "job_url": "https://github.com/agentic-research-project/research-ATI-strict-v2/actions/runs/23793323637",
-    "git_sha": "7bd07b0c23a205f2e758b21dc8be9ac8bfca23f4",
+    "job_url": "",
+    "git_sha": "",
     "git_branch": "",
     "experiment_pkg": "experiments/ai_based_automatic_defect_dete/runs/v1",
     "started_at": "",
     "finished_at": ""
   },
   "hypothesis_implementation": {},
-  "created_at": "2026-03-31T10:46:49.454320"
+  "created_at": "2026-03-31T10:56:01.299766"
 }
