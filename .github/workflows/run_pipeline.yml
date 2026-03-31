@@ -28,6 +28,11 @@ on:
         required: false
         default: ""
         type: string
+      start_stage:
+        description: "시작 단계 (1~8, 기본: 1). 이전 단계 reports가 존재해야 함"
+        required: false
+        default: "1"
+        type: string
 
 env:
   CONTAINER_NAME: ${{ vars.CONTAINER_NAME || 'nextmi-dev-loki' }}
@@ -137,7 +142,8 @@ jobs:
               python main.py \
                 --todo "${{ inputs.todo_file }}" \
                 --auto-approve \
-                --runner-type "${{ inputs.runner_type }}" &
+                --runner-type "${{ inputs.runner_type }}" \
+                --start-stage "${{ inputs.start_stage }}" &
             PID=$!
             echo $PID > /tmp/.pipeline_pid
             trap "kill -TERM -- -$PID 2>/dev/null; wait $PID 2>/dev/null" TERM INT
@@ -148,26 +154,18 @@ jobs:
         if: always()
         run: |
           docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            # PID 파일에서 프로세스 그룹 + 자식 트리 종료
+            # PID 기반 프로세스 그룹 종료 (trap+wait의 안전망)
             if [ -f /tmp/.pipeline_pid ]; then
               PID=$(cat /tmp/.pipeline_pid)
-              # 1) 프로세스 트리 전체 SIGTERM (자식의 자식까지)
-              pkill -TERM -P $PID 2>/dev/null || true
+              # 프로세스 그룹 전체 SIGTERM → SIGKILL
               kill -TERM -- -$PID 2>/dev/null || true
               sleep 2
-              # 2) 남은 프로세스 강제 종료
-              pkill -9 -P $PID 2>/dev/null || true
               kill -9 -- -$PID 2>/dev/null || true
               rm -f /tmp/.pipeline_pid
               echo "=== Pipeline processes cleaned up (PGID=$PID) ==="
+            else
+              echo "=== No PID file found, skipping ==="
             fi
-            # 잔여 main.py 프로세스 정리
-            pkill -f "python main.py --todo" 2>/dev/null || true
-            # claude CLI 고아 프로세스 정리
-            pkill -f "claude" 2>/dev/null || true
-            # DataLoader worker 고아 정리
-            pkill -f "pt_data_worker" 2>/dev/null || true
-            echo "=== Orphan cleanup done ==="
           '
 
       - name: Upload results

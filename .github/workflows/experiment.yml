@@ -370,12 +370,8 @@ jobs:
       - name: Cleanup train processes
         if: always()
         run: |
-          docker exec ${{ env.CONTAINER_NAME }} bash -lc '
-            # train.py 및 자식 프로세스 (DataLoader worker 등) 정리
-            pkill -f "python train.py --config" 2>/dev/null || true
-            pkill -f "pt_data_worker" 2>/dev/null || true
-            echo "=== Train process cleanup done ==="
-          '
+          # trap+wait가 프로세스 lifecycle 관리 — 광범위 pkill 불필요
+          echo "=== Train cleanup: trap+wait handles process lifecycle ==="
 
       - name: Upload train artifacts
         if: always()

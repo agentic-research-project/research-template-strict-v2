@@ -293,6 +293,7 @@ async def run_research(
     image_labels: list[str] | None = None,
     auto_approve: bool = False,
     runner_type: str = "github",
+    start_stage: int = 1,
 ) -> None:
     """협업 모드 연구 파이프라인을 실행한다."""
 
@@ -372,6 +373,15 @@ workspace  = "experiments/{topic_slug}"
 8단계 실행 시 runner_type = "{runner_type}" 을 사용하세요.
 시스템 프롬프트의 {{runner_type}} 을 "{runner_type}" 으로 치환하세요.
 {precondition_check}"""
+
+    # start_stage > 1 이면 이전 단계 skip 지시 추가
+    if start_stage > 1:
+        user_prompt += f"""
+
+⚠️ 시작 단계: {start_stage}단계부터 실행
+  1~{start_stage - 1}단계는 이미 완료되었습니다. 해당 단계의 report 파일이 experiments/{topic_slug}/reports/에 존재합니다.
+  {start_stage}단계부터 바로 시작하세요. 이전 단계를 다시 실행하지 마세요.
+  이전 단계의 결과 파일을 먼저 읽어서 context를 파악한 후 {start_stage}단계를 진행하세요."""
 
     # auto_approve 모드: 5단계 자동 승인, AskUserQuestion 불필요
     if auto_approve:
@@ -493,6 +503,8 @@ def _parse_args() -> argparse.Namespace:
                         help="5단계 사용자 승인을 자동 처리 (CI/CD용)")
     parser.add_argument("--runner-type",  default="github", choices=["local", "github"],
                         help="실험 실행 방식 (local: 직접 실행, github: Actions workflow dispatch)")
+    parser.add_argument("--start-stage",  type=int, default=1, choices=range(1, 9),
+                        help="시작 단계 (1~8, 기본: 1). 이전 단계 reports가 존재해야 함")
     return parser.parse_args()
 
 
@@ -543,6 +555,7 @@ if __name__ == "__main__":
             image_labels=image_labels,
             auto_approve=args.auto_approve,
             runner_type=args.runner_type,
+            start_stage=args.start_stage,
         )
 
     anyio.run(main)
