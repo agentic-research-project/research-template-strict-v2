@@ -1,5 +1,7 @@
 {
   "version": "v1",
+  "topic_slug": "ai_based_automatic_defect_dete",
+  "experiment_version": "v1",
   "topic": "AI-based automatic defect detection in high-resolution 6559x6559 grayscale semiconductor source images using normal-only reference patches",
   "hypothesis_id": "mc_losain_cascade_retrieval_v2",
   "model_architecture": "DefectDetectionModel — Frozen WideResNet-50 backbone + FAISS IVF-PQ reference bank + LoSAIN normalization + EVT threshold calibration",
